@@ -1,0 +1,21 @@
+// AST Node Types for ZZ Language
+// Helper to check if a type is an array
+export function isArrayType(type) {
+    return typeof type === 'object' && type.kind === 'array';
+}
+// Helper to check if a type is a tuple
+export function isTupleType(type) {
+    return typeof type === 'object' && type.kind === 'tuple';
+}
+// Helper to check if a type is an enum
+export function isEnumType(type) {
+    return typeof type === 'object' && type.kind === 'enum';
+}
+// Helper to check if a type is a struct
+export function isStructType(type) {
+    return typeof type === 'object' && type.kind === 'struct';
+}
+// Helper to check if a type is primitive
+export function isPrimitiveType(type) {
+    return typeof type === 'string';
+}

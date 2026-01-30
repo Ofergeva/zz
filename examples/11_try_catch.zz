@@ -1,0 +1,52 @@
+// Test file for try-catch in ZZ
+
+// Basic try-catch syntax
+print("Testing try-catch:")
+
+?
+  print("In try block")
+  >X("Something went wrong!")
+:(e)
+  error(s"Caught error: {e}")
+;
+
+print("After try-catch")
+
+// Try-catch with variable assignment
+s~result = "default"
+
+?
+  result = "success"
+:(err)
+  result = s"failed: {err}"
+;
+
+print(s"Result: {result}")
+
+// Nested try-catch
+print("")
+print("Testing nested try-catch:")
+
+?
+  print("Outer try")
+  ?
+    print("Inner try")
+    >X("Inner error!")
+  :(innerErr)
+    error(s"Inner catch: {innerErr}")
+  ;
+  print("After inner try-catch")
+:(outerErr)
+  error(s"Outer catch: {outerErr}")
+;
+
+print("")
+print("Testing throw and error:")
+
+?
+  >X("This is a thrown error")
+:(e)
+  error(e)
+;
+
+print("Done!")

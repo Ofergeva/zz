@@ -1,0 +1,28 @@
+import { Program } from './ast.js';
+export declare class CodeGenerator {
+    private functionParams;
+    private structFields;
+    private structMethods;
+    generate(program: Program): string;
+    private generateStatement;
+    private generateEnumDeclaration;
+    private generateStructDeclaration;
+    private generateStructMethod;
+    private replaceFieldsWithThis;
+    private generateTryStatement;
+    private generateImportStatement;
+    private generateIndexAssignment;
+    private generateFieldAssignment;
+    private generateVariableDeclaration;
+    private generateAssignment;
+    private generateIncrementStatement;
+    private generateCompoundAssignment;
+    private generatePrintStatement;
+    private generateErrorStatement;
+    private generateThrowStatement;
+    private generateWhileStatement;
+    private generateForStatement;
+    private generateIfStatement;
+    private generateFunctionDeclaration;
+    private generateExpression;
+}

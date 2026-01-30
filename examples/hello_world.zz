@@ -1,0 +1,2 @@
+s#name = "ofer"
+print(name)

@@ -1,0 +1,25 @@
+{
+  "name": "zz-lang",
+  "version": "0.1.0",
+  "description": "A strongly-typed programming language that compiles to JavaScript",
+  "main": "dist/index.js",
+  "bin": {
+    "zz": "dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "keywords": [
+    "programming-language",
+    "compiler",
+    "typescript"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0"
+  }
+}

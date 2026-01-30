@@ -1,0 +1,15 @@
+import { add, subtract } from "./lib/math.js";
+import { multiply, divide, PI as pi } from "./lib/math.js";
+import * as math from "./lib/math.js";
+console.log("Testing imports:");
+console.log(`add(5, 3) = ${add(5, 3)}`);
+console.log(`subtract(10, 4) = ${subtract(10, 4)}`);
+console.log(`multiply(6, 7) = ${multiply(6, 7)}`);
+console.log(`divide(10, 3) = ${divide(10, 3)}`);
+console.log(`PI = ${pi}`);
+console.log("");
+console.log("Using namespace import:");
+console.log(`math.add(100, 200) = ${math.add(100, 200)}`);
+console.log(`math.VERSION = ${math.VERSION}`);
+console.log("");
+console.log("Done!");

@@ -1,0 +1,30 @@
+// Tuples in ZZ
+
+// Fixed-length tuple
+ti5#nums = (1, 2, 3, 4, 5)
+print(nums[0])
+print(nums.len())
+
+// Inferred-length tuple
+tsN#names = ("alice", "bob", "charlie")
+print(names[1])
+
+// Float tuple
+tf3#coords = (1.5, 2.5, 3.5)
+print(coords[2])
+
+// Bool tuple
+tbN#flags = (true, false, true)
+print(flags[0])
+
+// Array to tuple cast
+i[]#arr = [10, 20, 30]
+tiN#fromArr = tiN(arr)
+print(fromArr[0])
+
+// Single value to tuple cast
+tiN#single = tiN(42)
+print(single[0])
+
+// Tuple in expression
+print(s"First number: {nums[0]}")

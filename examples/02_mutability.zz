@@ -1,0 +1,27 @@
+// Mutability: # = immutable (const), ~ = mutable (let)
+
+// Mutable variables can be reassigned
+i~counter = 0
+print(counter)
+counter = 1
+print(counter)
+counter = 2
+print(counter)
+
+// Mutable float
+f~temperature = 98.6
+print(temperature)
+temperature = 99.1
+print(temperature)
+
+// Mutable string
+s~name = "Alice"
+print(name)
+name = "Bob"
+print(name)
+
+// Mutable boolean
+b~flag = true
+print(flag)
+flag = false
+print(flag)

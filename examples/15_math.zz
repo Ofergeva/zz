@@ -1,0 +1,73 @@
+// Math Library Example
+// Demonstrates std/math functions with UFCS
+
+// Import math functions from standard library
+<- { sqrt, floor, ceil, round, abs, sin, cos, tan, PI, pow, min, max, random, randomInt, log, exp } = "../std/math"
+
+// ==============================
+// Basic Operations
+// ==============================
+
+f#x = -7.8
+
+print(s"Original: {x}")
+print(s"Absolute: {x.abs()}")
+print(s"Floor: {x.floor()}")
+print(s"Ceil: {x.ceil()}")
+print(s"Round: {x.round()}")
+
+// ==============================
+// Power and Roots
+// ==============================
+
+f#num = 16.0
+
+print(s"Square root of {num}: {num.sqrt()}")
+print(s"2^8 = {pow(2.0, 8.0)}")
+print(s"e^2 = {exp(2.0)}")
+print(s"ln(10) = {log(10.0)}")
+
+// ==============================
+// Trigonometry
+// ==============================
+
+f#angle = PI() / 4  // 45 degrees
+
+print(s"PI = {PI()}")
+print(s"sin(PI/4) = {angle.sin()}")
+print(s"cos(PI/4) = {angle.cos()}")
+print(s"tan(PI/4) = {angle.tan()}")
+
+// ==============================
+// Min/Max with UFCS
+// ==============================
+
+i#a = 10
+i#b = 25
+
+print(s"min({a}, {b}) = {min(a, b)}")
+print(s"max({a}, {b}) = {max(a, b)}")
+
+// ==============================
+// Random Numbers
+// ==============================
+
+print(s"Random float: {random()}")
+print(s"Random int 1-100: {randomInt(1, 100)}")
+print(s"Random int 1-100: {randomInt(1, 100)}")
+
+// ==============================
+// Practical Example: Distance
+// ==============================
+
+// Calculate distance between two points
+f#x1 = 0.0
+f#y1 = 0.0
+f#x2 = 3.0
+f#y2 = 4.0
+
+f#dx = x2 - x1
+f#dy = y2 - y1
+f#distance = sqrt(dx * dx + dy * dy)
+
+print(s"Distance from ({x1},{y1}) to ({x2},{y2}) = {distance}")

@@ -1,0 +1,84 @@
+// Enum Example
+// Demonstrates enum types in ZZ
+
+// ==============================
+// Enum Declaration
+// ==============================
+
+E Color
+  Red
+  Green
+  Blue
+;
+
+E Status
+  Active
+  Inactive
+  Pending
+;
+
+// ==============================
+// Enum Variables
+// ==============================
+
+// Immutable enum variable
+Color#primary = Color.Red
+print(s"Primary color: {primary}")
+
+// Mutable enum variable
+Color~current = Color.Green
+print(s"Current color: {current}")
+
+// Reassign mutable variable
+current = Color.Blue
+print(s"Changed to: {current}")
+
+// ==============================
+// Enum Comparisons
+// ==============================
+
+?(current == Color.Blue)
+  print("It's blue!")
+;
+
+?(primary == Color.Red)
+  print("Primary is red!")
+;
+
+// ==============================
+// Enum in Functions
+// ==============================
+
+// Function with enum parameter
+Z printColor(Color#c)
+  ?(c == Color.Red)
+    print("The color is RED")
+  :?(c == Color.Green)
+    print("The color is GREEN")
+  :
+    print("The color is BLUE")
+  ;
+;
+
+printColor(Color.Red)
+printColor(Color.Green)
+printColor(Color.Blue)
+
+// Function returning enum
+Color Z getDefaultColor()
+  Color.Green
+;
+
+Color#defaultColor = getDefaultColor()
+print(s"Default color: {defaultColor}")
+
+// ==============================
+// Multiple Enums
+// ==============================
+
+Status#myStatus = Status.Active
+print(s"Status: {myStatus}")
+
+?(myStatus == Status.Active)
+  print("We are active!")
+;

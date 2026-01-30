@@ -1,0 +1,102 @@
+// Test file for break, continue, null, and implicit returns
+
+// Test null value
+s~name = _
+print(s"name is null: {name}")
+
+i~count = _
+print(s"count is null: {count}")
+
+// Test break: >!
+print("Testing break (>!):")
+i~i = 0
+@(i < 10)
+  ?(i == 5)
+    print(s"Breaking at i = {i}")
+    >!
+  ;
+  print(s"i = {i}")
+  i = i + 1
+;
+print(s"Loop ended, i = {i}")
+
+// Test continue: >>
+print("")
+print("Testing continue (>>):")
+i~j = 0
+@(j < 10)
+  j = j + 1
+  ?(j % 2 == 0)
+    >>
+  ;
+  print(s"Odd: {j}")
+;
+
+// Test break with nested condition
+print("")
+print("Testing break in nested condition:")
+i~k = 0
+@(k < 100)
+  ?(k > 5)
+    print(s"Breaking at k = {k}")
+    >!
+  ;
+  print(s"k = {k}")
+  k = k + 1
+;
+
+// Test implicit returns in functions
+print("")
+print("Testing implicit returns:")
+
+// Simple function with implicit return
+i Z double(i#x)
+  x * 2
+;
+
+print(s"double(5) = {double(5)}")
+print(s"double(10) = {double(10)}")
+
+// Function returning string
+s Z greetPerson(s#name)
+  s"Hello, {name}!"
+;
+
+print(greetPerson("World"))
+
+// Function that uses null
+s Z getNullString()
+  _
+;
+
+s#nullStr = getNullString()
+print(s"getNullString() = {nullStr}")
+
+// Using null in variable assignment
+s~value = _
+print(s"value starts as: {value}")
+
+value = "Hello"
+print(s"value is now: {value}")
+
+// Null in comparisons
+s~maybeNull = _
+b#isNull = maybeNull == _
+print(s"maybeNull == _ : {isNull}")
+
+maybeNull = "not null"
+b#isNotNull = maybeNull != _
+print(s"maybeNull != _ : {isNotNull}")
+
+// Function with conditional logic and return
+i Z abs(i#x)
+  i~result = x
+  ?(x < 0)
+    result = 0 - x
+  ;
+  result
+;
+
+print(s"abs(-5) = {abs(-5)}")
+print(s"abs(5) = {abs(5)}")
+print(s"abs(0) = {abs(0)}")

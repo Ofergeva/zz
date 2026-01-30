@@ -1,0 +1,60 @@
+// String features: interpolation, concatenation, casting
+
+// Basic string
+s#simple = "Hello, World!"
+print(simple)
+
+// String concatenation (both must be strings)
+s#first = "Hello"
+s#second = "World"
+s#combined = first + ", " + second + "!"
+print(combined)
+
+// String interpolation with s"..."
+s#name = "Alice"
+i#age = 25
+s#intro = s"{name} is {age} years old"
+print(intro)
+
+// Expressions in interpolation
+s#calc = s"2 + 3 = {2 + 3}"
+s#complex = s"10 / 4 = {10 / 4}"
+print(calc)
+print(complex)
+
+// Type casting with s(), i(), f(), b()
+i#num = 42
+f#pi = 3.14
+b#flag = true
+
+s#numStr = s(num)
+s#piStr = s(pi)
+s#flagStr = s(flag)
+print(numStr)
+print(piStr)
+print(flagStr)
+
+// Cast to use in concatenation
+s#msg = "The answer is " + s(num)
+print(msg)
+
+// Cast string to number
+s#strNum = "123"
+i#parsed = i(strNum)
+f#parsedFloat = f("3.14")
+print(parsed)
+print(parsedFloat)
+
+// Nested interpolation
+i#x = 10
+i#y = 20
+s#nested = s"x={x}, y={y}, sum={x + y}"
+print(nested)
+
+// Escape sequences
+s#escaped = "Line1\nLine2\tTabbed"
+print(escaped)
+
+// Literal braces use regular strings (not interpolated)
+s#braces = "Use {curly} braces"
+print(braces)

@@ -1,0 +1,40 @@
+// Comprehensive example: Calculate and display statistics
+
+// Input values
+i#val1 = 85
+i#val2 = 92
+i#val3 = 78
+i#val4 = 95
+i#val5 = 88
+
+// Calculate sum
+i#sum = val1 + val2 + val3 + val4 + val5
+
+// Calculate average (division returns float)
+f#avg = sum / 5
+
+// Find range (manual min/max for now)
+i#min = 78
+i#max = 95
+i#range = max - min
+
+// Display results
+print(s"=== Statistics Report ===")
+print(s"Values: {val1}, {val2}, {val3}, {val4}, {val5}")
+print(s"Sum: {sum}")
+print(s"Average: {avg}")
+print(s"Range: {range} (min={min}, max={max})")
+
+// Percentage calculation
+f#percentage = avg / 100 * 100
+print(s"Average as percentage: {percentage}%")
+
+// Grade calculation (simplified)
+s#grade = "B+"
+print(s"Grade: {grade}")
+
+// Power example
+i#base = 2
+i#exp = 10
+i#power = base ** exp
+print(s"{base}^{exp} = {power}")

@@ -1,0 +1,19 @@
+// Basic variable declarations and types
+
+// String
+s#greeting = "Hello, World!"
+print(greeting)
+
+// Integer
+i#age = 30
+print(age)
+
+// Float
+f#pi = 3.14159
+print(pi)
+
+// Boolean
+b#active = true
+b#disabled = false
+print(active)
+print(disabled)

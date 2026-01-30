@@ -1,0 +1,30 @@
+{
+  "name": "zz-language",
+  "displayName": "ZZ Language",
+  "description": "Syntax highlighting for the ZZ programming language",
+  "version": "0.1.0",
+  "publisher": "zz-lang",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "zz",
+        "aliases": ["ZZ", "zz"],
+        "extensions": [".zz"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "zz",
+        "scopeName": "source.zz",
+        "path": "./syntaxes/zz.tmLanguage.json"
+      }
+    ]
+  }
+}

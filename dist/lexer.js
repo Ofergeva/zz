@@ -1,0 +1,625 @@
+// Lexer (Tokenizer) for ZZ Language
+export var TokenType;
+(function (TokenType) {
+    // Type prefixes
+    TokenType["TYPE_STRING"] = "TYPE_STRING";
+    TokenType["TYPE_INT"] = "TYPE_INT";
+    TokenType["TYPE_FLOAT"] = "TYPE_FLOAT";
+    TokenType["TYPE_BOOL"] = "TYPE_BOOL";
+    // Mutability
+    TokenType["IMMUTABLE"] = "IMMUTABLE";
+    TokenType["MUTABLE"] = "MUTABLE";
+    // Operators
+    TokenType["EQUALS"] = "EQUALS";
+    TokenType["LPAREN"] = "LPAREN";
+    TokenType["RPAREN"] = "RPAREN";
+    // Arithmetic operators
+    TokenType["PLUS"] = "PLUS";
+    TokenType["MINUS"] = "MINUS";
+    TokenType["STAR"] = "STAR";
+    TokenType["SLASH"] = "SLASH";
+    TokenType["STAR_STAR"] = "STAR_STAR";
+    TokenType["PERCENT"] = "PERCENT";
+    // Increment/Decrement
+    TokenType["PLUS_PLUS"] = "PLUS_PLUS";
+    TokenType["MINUS_MINUS"] = "MINUS_MINUS";
+    // Compound assignment
+    TokenType["PLUS_EQUALS"] = "PLUS_EQUALS";
+    TokenType["MINUS_EQUALS"] = "MINUS_EQUALS";
+    TokenType["STAR_EQUALS"] = "STAR_EQUALS";
+    TokenType["SLASH_EQUALS"] = "SLASH_EQUALS";
+    TokenType["PERCENT_EQUALS"] = "PERCENT_EQUALS";
+    TokenType["STAR_STAR_EQUALS"] = "STAR_STAR_EQUALS";
+    // Comparison operators
+    TokenType["GT"] = "GT";
+    TokenType["LT"] = "LT";
+    TokenType["GTE"] = "GTE";
+    TokenType["LTE"] = "LTE";
+    TokenType["EQ"] = "EQ";
+    TokenType["NEQ"] = "NEQ";
+    // Logical operators
+    TokenType["AND"] = "AND";
+    TokenType["OR"] = "OR";
+    TokenType["NOT"] = "NOT";
+    // Control flow
+    TokenType["WHILE"] = "WHILE";
+    TokenType["IF"] = "IF";
+    TokenType["ELSE_IF"] = "ELSE_IF";
+    TokenType["ELSE"] = "ELSE";
+    TokenType["SEMICOLON"] = "SEMICOLON";
+    TokenType["BREAK"] = "BREAK";
+    TokenType["CONTINUE"] = "CONTINUE";
+    TokenType["THROW"] = "THROW";
+    TokenType["NULL"] = "NULL";
+    // Functions
+    TokenType["FUNC"] = "FUNC";
+    TokenType["ENUM"] = "ENUM";
+    TokenType["STRUCT"] = "STRUCT";
+    TokenType["COMMA"] = "COMMA";
+    // Arrays
+    TokenType["LBRACKET"] = "LBRACKET";
+    TokenType["RBRACKET"] = "RBRACKET";
+    TokenType["DOT_DOT"] = "DOT_DOT";
+    TokenType["DOT"] = "DOT";
+    // Modules
+    TokenType["EXPORT"] = "EXPORT";
+    TokenType["IMPORT"] = "IMPORT";
+    TokenType["LBRACE"] = "LBRACE";
+    TokenType["RBRACE"] = "RBRACE";
+    // Literals
+    TokenType["STRING_LITERAL"] = "STRING_LITERAL";
+    TokenType["INTERP_STRING"] = "INTERP_STRING";
+    TokenType["NUMBER_LITERAL"] = "NUMBER_LITERAL";
+    TokenType["BOOL_LITERAL"] = "BOOL_LITERAL";
+    // Cast operators
+    TokenType["CAST_STRING"] = "CAST_STRING";
+    TokenType["CAST_INT"] = "CAST_INT";
+    TokenType["CAST_FLOAT"] = "CAST_FLOAT";
+    TokenType["CAST_BOOL"] = "CAST_BOOL";
+    // Tuple types: ti5, tsN, etc.
+    TokenType["TYPE_TUPLE_INT"] = "TYPE_TUPLE_INT";
+    TokenType["TYPE_TUPLE_FLOAT"] = "TYPE_TUPLE_FLOAT";
+    TokenType["TYPE_TUPLE_STRING"] = "TYPE_TUPLE_STRING";
+    TokenType["TYPE_TUPLE_BOOL"] = "TYPE_TUPLE_BOOL";
+    // Tuple casts: tiN(, tf3(, etc.
+    TokenType["CAST_TUPLE_INT"] = "CAST_TUPLE_INT";
+    TokenType["CAST_TUPLE_FLOAT"] = "CAST_TUPLE_FLOAT";
+    TokenType["CAST_TUPLE_STRING"] = "CAST_TUPLE_STRING";
+    TokenType["CAST_TUPLE_BOOL"] = "CAST_TUPLE_BOOL";
+    // Keywords
+    TokenType["PRINT"] = "PRINT";
+    TokenType["ERROR"] = "ERROR";
+    TokenType["TRUE"] = "TRUE";
+    TokenType["FALSE"] = "FALSE";
+    // Other
+    TokenType["IDENTIFIER"] = "IDENTIFIER";
+    TokenType["NEWLINE"] = "NEWLINE";
+    TokenType["EOF"] = "EOF";
+})(TokenType || (TokenType = {}));
+export class Lexer {
+    source;
+    pos = 0;
+    line = 1;
+    column = 1;
+    constructor(source) {
+        this.source = source;
+    }
+    tokenize() {
+        const tokens = [];
+        while (!this.isAtEnd()) {
+            const token = this.nextToken();
+            if (token) {
+                tokens.push(token);
+            }
+        }
+        tokens.push(this.makeToken(TokenType.EOF, ''));
+        return tokens;
+    }
+    nextToken() {
+        this.skipWhitespace();
+        if (this.isAtEnd())
+            return null;
+        const char = this.peek();
+        // Single character tokens
+        if (char === '#') {
+            this.advance();
+            return this.makeToken(TokenType.IMMUTABLE, '#');
+        }
+        if (char === '~') {
+            this.advance();
+            return this.makeToken(TokenType.MUTABLE, '~');
+        }
+        if (char === '(') {
+            this.advance();
+            return this.makeToken(TokenType.LPAREN, '(');
+        }
+        if (char === ')') {
+            this.advance();
+            return this.makeToken(TokenType.RPAREN, ')');
+        }
+        if (char === ';') {
+            this.advance();
+            return this.makeToken(TokenType.SEMICOLON, ';');
+        }
+        if (char === '@') {
+            this.advance();
+            return this.makeToken(TokenType.WHILE, '@');
+        }
+        if (char === ',') {
+            this.advance();
+            return this.makeToken(TokenType.COMMA, ',');
+        }
+        if (char === '[') {
+            this.advance();
+            return this.makeToken(TokenType.LBRACKET, '[');
+        }
+        if (char === ']') {
+            this.advance();
+            return this.makeToken(TokenType.RBRACKET, ']');
+        }
+        if (char === '{') {
+            this.advance();
+            return this.makeToken(TokenType.LBRACE, '{');
+        }
+        if (char === '}') {
+            this.advance();
+            return this.makeToken(TokenType.RBRACE, '}');
+        }
+        // . and .. (dot and range)
+        if (char === '.') {
+            this.advance();
+            if (this.peek() === '.') {
+                this.advance();
+                return this.makeToken(TokenType.DOT_DOT, '..');
+            }
+            return this.makeToken(TokenType.DOT, '.');
+        }
+        // = and ==
+        if (char === '=') {
+            this.advance();
+            if (this.peek() === '=') {
+                this.advance();
+                return this.makeToken(TokenType.EQ, '==');
+            }
+            return this.makeToken(TokenType.EQUALS, '=');
+        }
+        // ? (if)
+        if (char === '?') {
+            this.advance();
+            return this.makeToken(TokenType.IF, '?');
+        }
+        // : and :? (else and else-if)
+        if (char === ':') {
+            this.advance();
+            if (this.peek() === '?') {
+                this.advance();
+                return this.makeToken(TokenType.ELSE_IF, ':?');
+            }
+            return this.makeToken(TokenType.ELSE, ':');
+        }
+        // >, >=, >! (break), >> (continue), >X (throw)
+        if (char === '>') {
+            this.advance();
+            if (this.peek() === '!') {
+                this.advance();
+                return this.makeToken(TokenType.BREAK, '>!');
+            }
+            if (this.peek() === '>') {
+                this.advance();
+                return this.makeToken(TokenType.CONTINUE, '>>');
+            }
+            if (this.peek() === 'X') {
+                this.advance();
+                return this.makeToken(TokenType.THROW, '>X');
+            }
+            if (this.peek() === '=') {
+                this.advance();
+                return this.makeToken(TokenType.GTE, '>=');
+            }
+            return this.makeToken(TokenType.GT, '>');
+        }
+        // <, <=, and <- (import)
+        if (char === '<') {
+            this.advance();
+            if (this.peek() === '-') {
+                this.advance();
+                return this.makeToken(TokenType.IMPORT, '<-');
+            }
+            if (this.peek() === '=') {
+                this.advance();
+                return this.makeToken(TokenType.LTE, '<=');
+            }
+            return this.makeToken(TokenType.LT, '<');
+        }
+        // ! and !=
+        if (char === '!') {
+            this.advance();
+            if (this.peek() === '=') {
+                this.advance();
+                return this.makeToken(TokenType.NEQ, '!=');
+            }
+            return this.makeToken(TokenType.NOT, '!');
+        }
+        // && and ||
+        if (char === '&') {
+            this.advance();
+            if (this.peek() === '&') {
+                this.advance();
+                return this.makeToken(TokenType.AND, '&&');
+            }
+            throw new Error(`Unexpected character '&' at line ${this.line}, column ${this.column}. Did you mean '&&'?`);
+        }
+        if (char === '|') {
+            this.advance();
+            if (this.peek() === '|') {
+                this.advance();
+                return this.makeToken(TokenType.OR, '||');
+            }
+            throw new Error(`Unexpected character '|' at line ${this.line}, column ${this.column}. Did you mean '||'?`);
+        }
+        // Arithmetic operators (check multi-char first)
+        // + , ++, +=
+        if (char === '+') {
+            this.advance();
+            if (this.peek() === '+') {
+                this.advance();
+                return this.makeToken(TokenType.PLUS_PLUS, '++');
+            }
+            if (this.peek() === '=') {
+                this.advance();
+                return this.makeToken(TokenType.PLUS_EQUALS, '+=');
+            }
+            return this.makeToken(TokenType.PLUS, '+');
+        }
+        // -, --, -=, -> (export)
+        if (char === '-') {
+            this.advance();
+            if (this.peek() === '-') {
+                this.advance();
+                return this.makeToken(TokenType.MINUS_MINUS, '--');
+            }
+            if (this.peek() === '=') {
+                this.advance();
+                return this.makeToken(TokenType.MINUS_EQUALS, '-=');
+            }
+            if (this.peek() === '>') {
+                this.advance();
+                return this.makeToken(TokenType.EXPORT, '->');
+            }
+            return this.makeToken(TokenType.MINUS, '-');
+        }
+        // *, **, *=, **=
+        if (char === '*') {
+            this.advance();
+            if (this.peek() === '*') {
+                this.advance();
+                if (this.peek() === '=') {
+                    this.advance();
+                    return this.makeToken(TokenType.STAR_STAR_EQUALS, '**=');
+                }
+                return this.makeToken(TokenType.STAR_STAR, '**');
+            }
+            if (this.peek() === '=') {
+                this.advance();
+                return this.makeToken(TokenType.STAR_EQUALS, '*=');
+            }
+            return this.makeToken(TokenType.STAR, '*');
+        }
+        // /, /=
+        if (char === '/') {
+            this.advance();
+            if (this.peek() === '=') {
+                this.advance();
+                return this.makeToken(TokenType.SLASH_EQUALS, '/=');
+            }
+            return this.makeToken(TokenType.SLASH, '/');
+        }
+        // %, %=
+        if (char === '%') {
+            this.advance();
+            if (this.peek() === '=') {
+                this.advance();
+                return this.makeToken(TokenType.PERCENT_EQUALS, '%=');
+            }
+            return this.makeToken(TokenType.PERCENT, '%');
+        }
+        // Newline
+        if (char === '\n') {
+            this.advance();
+            this.line++;
+            this.column = 1;
+            return this.makeToken(TokenType.NEWLINE, '\n');
+        }
+        // String literal
+        if (char === '"') {
+            return this.readString();
+        }
+        // Number literal
+        if (this.isDigit(char)) {
+            return this.readNumber();
+        }
+        // Null literal: standalone _
+        if (char === '_' && !this.isAlphaNumeric(this.peekNext())) {
+            this.advance();
+            return this.makeToken(TokenType.NULL, '_');
+        }
+        // Keywords and identifiers
+        if (this.isAlpha(char)) {
+            return this.readIdentifier();
+        }
+        throw new Error(`Unexpected character '${char}' at line ${this.line}, column ${this.column}`);
+    }
+    readString() {
+        const startColumn = this.column;
+        this.advance(); // consume opening quote
+        let value = '';
+        while (!this.isAtEnd() && this.peek() !== '"') {
+            if (this.peek() === '\n') {
+                throw new Error(`Unterminated string at line ${this.line}`);
+            }
+            if (this.peek() === '\\') {
+                this.advance();
+                const escaped = this.peek();
+                if (escaped === 'n')
+                    value += '\n';
+                else if (escaped === 't')
+                    value += '\t';
+                else if (escaped === '"')
+                    value += '"';
+                else if (escaped === '\\')
+                    value += '\\';
+                else
+                    value += escaped;
+            }
+            else {
+                value += this.peek();
+            }
+            this.advance();
+        }
+        if (this.isAtEnd()) {
+            throw new Error(`Unterminated string at line ${this.line}`);
+        }
+        this.advance(); // consume closing quote
+        return { type: TokenType.STRING_LITERAL, value, line: this.line, column: startColumn };
+    }
+    readInterpolatedString(startColumn) {
+        this.advance(); // consume opening quote
+        let value = '';
+        let braceDepth = 0;
+        while (!this.isAtEnd() && (this.peek() !== '"' || braceDepth > 0)) {
+            if (this.peek() === '\n') {
+                throw new Error(`Unterminated interpolated string at line ${this.line}`);
+            }
+            if (this.peek() === '{') {
+                braceDepth++;
+                value += this.peek();
+                this.advance();
+            }
+            else if (this.peek() === '}') {
+                braceDepth--;
+                value += this.peek();
+                this.advance();
+            }
+            else if (this.peek() === '\\') {
+                this.advance();
+                const escaped = this.peek();
+                if (escaped === 'n')
+                    value += '\n';
+                else if (escaped === 't')
+                    value += '\t';
+                else if (escaped === '"')
+                    value += '"';
+                else if (escaped === '\\')
+                    value += '\\';
+                else if (escaped === '{')
+                    value += '{';
+                else if (escaped === '}')
+                    value += '}';
+                else
+                    value += escaped;
+                this.advance();
+            }
+            else {
+                value += this.peek();
+                this.advance();
+            }
+        }
+        if (this.isAtEnd()) {
+            throw new Error(`Unterminated interpolated string at line ${this.line}`);
+        }
+        this.advance(); // consume closing quote
+        return { type: TokenType.INTERP_STRING, value, line: this.line, column: startColumn };
+    }
+    readNumber() {
+        const startColumn = this.column;
+        let value = '';
+        while (!this.isAtEnd() && this.isDigit(this.peek())) {
+            value += this.peek();
+            this.advance();
+        }
+        // Check for float
+        if (this.peek() === '.' && this.isDigit(this.peekNext())) {
+            value += this.peek();
+            this.advance();
+            while (!this.isAtEnd() && this.isDigit(this.peek())) {
+                value += this.peek();
+                this.advance();
+            }
+        }
+        return { type: TokenType.NUMBER_LITERAL, value, line: this.line, column: startColumn };
+    }
+    readIdentifier() {
+        const startColumn = this.column;
+        let value = '';
+        while (!this.isAtEnd() && this.isAlphaNumeric(this.peek())) {
+            value += this.peek();
+            this.advance();
+        }
+        // Check for tuple types: ti5, tsN, tf3, tb2, etc.
+        // Pattern: t + (i|f|s|b) + (N | digits)
+        const tupleMatch = value.match(/^t([ifsb])(N|\d+)$/);
+        if (tupleMatch) {
+            const elementTypeChar = tupleMatch[1];
+            const lengthSpec = tupleMatch[2];
+            const next = this.peek();
+            const tupleTypeToken = this.getTupleTypeToken(elementTypeChar);
+            const tupleCastToken = this.getTupleCastToken(elementTypeChar);
+            // Tuple cast expression: tiN(, ti5(, etc.
+            if (next === '(') {
+                this.advance(); // consume (
+                return { type: tupleCastToken, value: value + '(', line: this.line, column: startColumn, tupleLength: lengthSpec };
+            }
+            // Tuple type declaration: ti5#, tfN~, etc.
+            if (next === '#' || next === '~') {
+                return { type: tupleTypeToken, value, line: this.line, column: startColumn, tupleLength: lengthSpec };
+            }
+            // Tuple return type before function: ti3 Z, tsN Z
+            if (this.isReturnTypeBeforeFunc()) {
+                return { type: tupleTypeToken, value, line: this.line, column: startColumn, tupleLength: lengthSpec };
+            }
+        }
+        // Check for type prefixes and special forms
+        if (value.length === 1 && ['s', 'i', 'f', 'b'].includes(value)) {
+            const next = this.peek();
+            // Type declaration: s#, i~, etc.
+            if (next === '#' || next === '~') {
+                switch (value) {
+                    case 's': return { type: TokenType.TYPE_STRING, value, line: this.line, column: startColumn };
+                    case 'i': return { type: TokenType.TYPE_INT, value, line: this.line, column: startColumn };
+                    case 'f': return { type: TokenType.TYPE_FLOAT, value, line: this.line, column: startColumn };
+                    case 'b': return { type: TokenType.TYPE_BOOL, value, line: this.line, column: startColumn };
+                }
+            }
+            // Return type before function: i Z, s Z, etc.
+            if (this.isReturnTypeBeforeFunc()) {
+                switch (value) {
+                    case 's': return { type: TokenType.TYPE_STRING, value, line: this.line, column: startColumn };
+                    case 'i': return { type: TokenType.TYPE_INT, value, line: this.line, column: startColumn };
+                    case 'f': return { type: TokenType.TYPE_FLOAT, value, line: this.line, column: startColumn };
+                    case 'b': return { type: TokenType.TYPE_BOOL, value, line: this.line, column: startColumn };
+                }
+            }
+            // Interpolated string: s"..."
+            if (value === 's' && next === '"') {
+                return this.readInterpolatedString(startColumn);
+            }
+            // Cast expressions: s(, i(, f(, b(
+            if (next === '(') {
+                this.advance(); // consume the (
+                switch (value) {
+                    case 's': return { type: TokenType.CAST_STRING, value: 's(', line: this.line, column: startColumn };
+                    case 'i': return { type: TokenType.CAST_INT, value: 'i(', line: this.line, column: startColumn };
+                    case 'f': return { type: TokenType.CAST_FLOAT, value: 'f(', line: this.line, column: startColumn };
+                    case 'b': return { type: TokenType.CAST_BOOL, value: 'b(', line: this.line, column: startColumn };
+                }
+            }
+            // Array type: i[], s[], f[], b[]
+            if (next === '[') {
+                switch (value) {
+                    case 's': return { type: TokenType.TYPE_STRING, value, line: this.line, column: startColumn };
+                    case 'i': return { type: TokenType.TYPE_INT, value, line: this.line, column: startColumn };
+                    case 'f': return { type: TokenType.TYPE_FLOAT, value, line: this.line, column: startColumn };
+                    case 'b': return { type: TokenType.TYPE_BOOL, value, line: this.line, column: startColumn };
+                }
+            }
+        }
+        // Keywords
+        if (value === 'print') {
+            return { type: TokenType.PRINT, value, line: this.line, column: startColumn };
+        }
+        if (value === 'error') {
+            return { type: TokenType.ERROR, value, line: this.line, column: startColumn };
+        }
+        if (value === 'true') {
+            return { type: TokenType.BOOL_LITERAL, value, line: this.line, column: startColumn };
+        }
+        if (value === 'false') {
+            return { type: TokenType.BOOL_LITERAL, value, line: this.line, column: startColumn };
+        }
+        if (value === 'Z') {
+            return { type: TokenType.FUNC, value, line: this.line, column: startColumn };
+        }
+        if (value === 'E') {
+            return { type: TokenType.ENUM, value, line: this.line, column: startColumn };
+        }
+        if (value === 'S') {
+            return { type: TokenType.STRUCT, value, line: this.line, column: startColumn };
+        }
+        return { type: TokenType.IDENTIFIER, value, line: this.line, column: startColumn };
+    }
+    skipWhitespace() {
+        while (!this.isAtEnd()) {
+            const char = this.peek();
+            if (char === ' ' || char === '\t' || char === '\r') {
+                this.advance();
+            }
+            else if (char === '/' && this.peekNext() === '/') {
+                // Skip line comments
+                while (!this.isAtEnd() && this.peek() !== '\n') {
+                    this.advance();
+                }
+            }
+            else {
+                break;
+            }
+        }
+    }
+    peek() {
+        return this.source[this.pos];
+    }
+    peekNext() {
+        return this.source[this.pos + 1] || '';
+    }
+    advance() {
+        if (!this.isAtEnd()) {
+            this.pos++;
+            this.column++;
+            return true;
+        }
+        return false;
+    }
+    isAtEnd() {
+        return this.pos >= this.source.length;
+    }
+    isDigit(char) {
+        return char >= '0' && char <= '9';
+    }
+    isAlpha(char) {
+        return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || char === '_';
+    }
+    isAlphaNumeric(char) {
+        return this.isAlpha(char) || this.isDigit(char);
+    }
+    // Check if we're at a position where a single letter type is followed by Z (for function return types)
+    isReturnTypeBeforeFunc() {
+        let lookAhead = this.pos;
+        // Skip whitespace
+        while (lookAhead < this.source.length && (this.source[lookAhead] === ' ' || this.source[lookAhead] === '\t')) {
+            lookAhead++;
+        }
+        // Check if the next non-whitespace is 'Z'
+        return this.source[lookAhead] === 'Z' &&
+            (lookAhead + 1 >= this.source.length || !this.isAlphaNumeric(this.source[lookAhead + 1]));
+    }
+    makeToken(type, value) {
+        return { type, value, line: this.line, column: this.column - value.length };
+    }
+    getTupleTypeToken(elementTypeChar) {
+        switch (elementTypeChar) {
+            case 'i': return TokenType.TYPE_TUPLE_INT;
+            case 'f': return TokenType.TYPE_TUPLE_FLOAT;
+            case 's': return TokenType.TYPE_TUPLE_STRING;
+            case 'b': return TokenType.TYPE_TUPLE_BOOL;
+            default: throw new Error(`Invalid tuple element type: ${elementTypeChar}`);
+        }
+    }
+    getTupleCastToken(elementTypeChar) {
+        switch (elementTypeChar) {
+            case 'i': return TokenType.CAST_TUPLE_INT;
+            case 'f': return TokenType.CAST_TUPLE_FLOAT;
+            case 's': return TokenType.CAST_TUPLE_STRING;
+            case 'b': return TokenType.CAST_TUPLE_BOOL;
+            default: throw new Error(`Invalid tuple element type: ${elementTypeChar}`);
+        }
+    }
+}

@@ -1,0 +1,27 @@
+// Testing modules and imports in ZZ
+
+// Import specific items
+<- { add, subtract } = "./lib/math"
+
+// Import with alias
+<- { multiply, divide, pi=PI } = "./lib/math"
+
+// Namespace import
+<- math = "./lib/math"
+
+// Use imported functions
+print("Testing imports:")
+print(s"add(5, 3) = {add(5, 3)}")
+print(s"subtract(10, 4) = {subtract(10, 4)}")
+print(s"multiply(6, 7) = {multiply(6, 7)}")
+print(s"divide(10, 3) = {divide(10, 3)}")
+print(s"PI = {pi}")
+
+// Use namespace import
+print("")
+print("Using namespace import:")
+print(s"math.add(100, 200) = {math.add(100, 200)}")
+print(s"math.VERSION = {math.VERSION}")
+
+print("")
+print("Done!")

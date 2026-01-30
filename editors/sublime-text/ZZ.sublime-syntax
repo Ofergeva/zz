@@ -1,0 +1,131 @@
+%YAML 1.2
+---
+name: ZZ
+file_extensions: [zz]
+scope: source.zz
+
+contexts:
+  main:
+    # Comments
+    - match: //.*$
+      scope: comment.line.double-slash.zz
+
+    # Interpolated strings s"..."
+    - match: 's"'
+      scope: punctuation.definition.string.begin.zz
+      push: interpolated-string
+
+    # Regular strings
+    - match: '"'
+      scope: punctuation.definition.string.begin.zz
+      push: string
+
+    # Numbers
+    - match: \b\d+\.\d+\b
+      scope: constant.numeric.float.zz
+    - match: \b\d+\b
+      scope: constant.numeric.integer.zz
+
+    # Boolean literals
+    - match: \b(true|false)\b
+      scope: constant.language.boolean.zz
+
+    # Null literal
+    - match: \b_\b
+      scope: constant.language.null.zz
+
+    # Print keyword
+    - match: \bprint\b
+      scope: keyword.other.zz
+
+    # Function keyword
+    - match: \bZ\b
+      scope: keyword.other.function.zz
+
+    # Modules
+    - match: '->'
+      scope: keyword.control.export.zz
+    - match: '<-'
+      scope: keyword.control.import.zz
+
+    # Control flow
+    - match: '@'
+      scope: keyword.control.loop.zz
+    - match: ':\?'
+      scope: keyword.control.conditional.elseif.zz
+    - match: '\?'
+      scope: keyword.control.conditional.zz
+    - match: ':(?!\()'
+      scope: keyword.control.conditional.else.zz
+    - match: ':\('
+      scope: keyword.control.catch.zz
+    - match: '>!'
+      scope: keyword.control.break.zz
+    - match: '>>'
+      scope: keyword.control.continue.zz
+    - match: ';'
+      scope: keyword.control.end.zz
+
+    # Types before mutability markers
+    - match: \b[sifb](?=[\[#~])
+      scope: storage.type.zz
+
+    # Mutability markers
+    - match: '#'
+      scope: storage.modifier.immutable.zz
+    - match: '~'
+      scope: storage.modifier.mutable.zz
+
+    # Operators (longer matches first)
+    - match: '\+\+|--'
+      scope: keyword.operator.increment.zz
+    - match: '\*\*=|\+=|-=|\*=|/=|%='
+      scope: keyword.operator.compound-assignment.zz
+    - match: \*\*
+      scope: keyword.operator.arithmetic.zz
+    - match: '[+\-*/%]'
+      scope: keyword.operator.arithmetic.zz
+    - match: '==|!=|>=|<=|>|<'
+      scope: keyword.operator.comparison.zz
+    - match: '&&|\|\|'
+      scope: keyword.operator.logical.zz
+    - match: '!'
+      scope: keyword.operator.logical.zz
+    - match: '='
+      scope: keyword.operator.assignment.zz
+    - match: '\.\.'
+      scope: keyword.operator.range.zz
+
+    # Function calls
+    - match: '\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\()'
+      scope: entity.name.function.zz
+
+    # Identifiers
+    - match: '\b[a-zA-Z_][a-zA-Z0-9_]*\b'
+      scope: variable.other.zz
+
+  string:
+    - meta_scope: string.quoted.double.zz
+    - match: \\.
+      scope: constant.character.escape.zz
+    - match: '"'
+      scope: punctuation.definition.string.end.zz
+      pop: true
+
+  interpolated-string:
+    - meta_scope: string.interpolated.zz
+    - match: \\.
+      scope: constant.character.escape.zz
+    - match: '\{'
+      scope: punctuation.section.interpolation.begin.zz
+      push: interpolation
+    - match: '"'
+      scope: punctuation.definition.string.end.zz
+      pop: true
+
+  interpolation:
+    - meta_scope: meta.interpolation.zz
+    - match: '\}'
+      scope: punctuation.section.interpolation.end.zz
+      pop: true
+    - include: main

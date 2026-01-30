@@ -1,0 +1,58 @@
+// Testing increment/decrement and compound assignment operators
+
+// Increment and decrement
+i~count = 10
+print(s"Initial count: {count}")
+
+count++
+print(s"After count++: {count}")
+
+count++
+count++
+print(s"After two more ++: {count}")
+
+count--
+print(s"After count--: {count}")
+
+// Compound assignment operators
+i~x = 100
+print("")
+print(s"Initial x: {x}")
+
+x += 10
+print(s"After x += 10: {x}")
+
+x -= 30
+print(s"After x -= 30: {x}")
+
+x *= 2
+print(s"After x *= 2: {x}")
+
+x /= 4
+print(s"After x /= 4: {x}")
+
+// Note: x is now float due to division, but we'll use a fresh variable
+i~y = 17
+y %= 5
+print(s"17 %%= 5 = {y}")
+
+i~z = 2
+z **= 8
+print(s"2 **= 8 = {z}")
+
+// String concatenation with +=
+s~greeting = "Hello"
+greeting += " World"
+greeting += "!"
+print("")
+print(greeting)
+
+// Using in a loop
+i~sum = 0
+@(i#1..10)
+  sum += i
+;
+print(s"Sum of 1..10 = {sum}")
+
+print("")
+print("Done!")

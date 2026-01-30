@@ -1,0 +1,12 @@
+// This is a line comment
+
+i#x = 10  // inline comment after code
+print(x)
+
+// Comments can contain any text: !@#$%^&*()
+// Multiple lines
+// of comments
+// are fine
+
+s#msg = "Comments are ignored"  // this too
+print(msg)

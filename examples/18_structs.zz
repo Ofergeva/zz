@@ -1,0 +1,138 @@
+// Struct Example
+// Demonstrates struct types with methods in ZZ
+
+// ==============================
+// Basic Struct Declaration
+// ==============================
+
+S Point
+  i#x
+  i#y
+
+  s Z toString()
+    s"({x}, {y})"
+  ;
+
+  i Z manhattanDistance()
+    x + y
+  ;
+;
+
+// ==============================
+// Struct Instantiation
+// ==============================
+
+// Positional arguments
+Point#p1 = Point(10, 20)
+print(s"Point 1: {p1.toString()}")
+
+// Named arguments
+Point#p2 = Point(x=5, y=15)
+print(s"Point 2: {p2.toString()}")
+
+// ==============================
+// Field Access
+// ==============================
+
+print(s"p1.x = {p1.x}")
+print(s"p1.y = {p1.y}")
+
+// ==============================
+// Method Calls
+// ==============================
+
+print(s"p1 Manhattan distance: {p1.manhattanDistance()}")
+print(s"p2 Manhattan distance: {p2.manhattanDistance()}")
+
+// ==============================
+// Struct with Multiple Types
+// ==============================
+
+S Person
+  s#name
+  i#age
+
+  s Z greet()
+    s"Hello, I'm {name}!"
+  ;
+
+  s Z intro()
+    s"{name} is {age} years old"
+  ;
+
+  b Z isAdult()
+    age >= 18
+  ;
+;
+
+Person#alice = Person("Alice", 30)
+print(alice.greet())
+print(alice.intro())
+print(s"Is adult: {alice.isAdult()}")
+
+Person#bob = Person("Bob", 16)
+print(bob.greet())
+print(s"Bob is adult: {bob.isAdult()}")
+
+// ==============================
+// Mutable Struct Instance
+// ==============================
+
+S Counter
+  i#value
+
+  i Z get()
+    value
+  ;
+
+  s Z display()
+    s"Counter: {value}"
+  ;
+;
+
+// Mutable instance - can modify fields
+Counter~counter = Counter(0)
+print(counter.display())
+
+counter.value = 10
+print(counter.display())
+
+counter.value = counter.value + 5
+print(s"After increment: {counter.get()}")
+
+// ==============================
+// Struct with Method Parameters
+// ==============================
+
+S Rectangle
+  i#width
+  i#height
+
+  i Z area()
+    width * height
+  ;
+
+  i Z perimeter()
+    (width + height) * 2
+  ;
+
+  b Z isSquare()
+    width == height
+  ;
+
+  b Z fitsInside(i#maxW i#maxH)
+    width <= maxW && height <= maxH
+  ;
+;
+
+Rectangle#rect = Rectangle(10, 5)
+print(s"Rectangle: {rect.width}x{rect.height}")
+print(s"Area: {rect.area()}")
+print(s"Perimeter: {rect.perimeter()}")
+print(s"Is square: {rect.isSquare()}")
+print(s"Fits in 20x20: {rect.fitsInside(20, 20)}")
+print(s"Fits in 8x8: {rect.fitsInside(8, 8)}")
+
+Rectangle#square = Rectangle(7, 7)
+print(s"Square: {square.width}x{square.height}")
+print(s"Is square: {square.isSquare()}")

@@ -1,0 +1,48 @@
+// Control flow: while and if/else
+
+// Simple if
+i#x = 10
+?(x > 5)
+  print(s"x ({x}) is greater than 5")
+;
+
+// If-else
+i#y = 3
+?(y > 5)
+  print("big")
+: print("small")
+;
+
+// If-else if-else
+i#age = 25
+?(age < 0)
+  print("invalid")
+:?(age < 13)
+  print("child")
+:?(age < 20)
+  print("teenager")
+: print("adult")
+;
+
+// Comparison operators
+print(s"10 > 5 => {10 > 5}")
+print(s"10 < 5 => {10 < 5}")
+print(s"10 >= 10 => {10 >= 10}")
+print(s"10 <= 9 => {10 <= 9}")
+print(s"5 == 5 => {5 == 5}")
+print(s"5 != 3 => {5 != 3}")
+
+// Logical operators
+print(true && true)
+print(true && false)
+print(false || true)
+print(!false)
+
+// While loop with counter
+i~count = 0
+@(count < 3)
+  print(s"count = {count}")
+  count = count + 1
+;
+
+print("done")

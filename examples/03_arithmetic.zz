@@ -1,0 +1,46 @@
+// Arithmetic operators: + - * / ** %
+
+// Basic operations
+i#sum = 10 + 5
+i#diff = 10 - 5
+i#prod = 10 * 5
+f#quot = 10 / 4
+i#mod = 10 % 3
+i#exp = 2 ** 3
+
+print(sum)       // 15
+print(diff)      // 5
+print(prod)      // 50
+print(quot)      // 2.5
+print(mod)       // 1
+print(exp)       // 8
+
+// Operator precedence (PEMDAS)
+i#prec1 = 2 + 3 * 4          // 14 (not 20)
+i#prec2 = (2 + 3) * 4        // 20
+i#prec3 = 10 - 2 - 3         // 5 (left-to-right)
+print(prec1)
+print(prec2)
+print(prec3)
+
+// Exponent is right-associative
+i#expRight = 2 ** 3 ** 2     // 2^9 = 512 (not 8^2 = 64)
+print(expRight)
+
+// Unary minus
+i#neg = -5
+i#negExpr = 10 + -3
+i#doubleNeg = --5
+print(neg)        // -5
+print(negExpr)    // 7
+print(doubleNeg)  // 5
+
+// Float arithmetic
+f#fSum = 1.5 + 2.5
+f#fProd = 2.0 * 3.5
+print(fSum)       // 4
+print(fProd)      // 7
+
+// Mixed int/float (result is float)
+f#mixed = 5 + 2.5
+print(mixed)      // 7.5

@@ -1,0 +1,71 @@
+// String Operations Example
+// Demonstrates core string methods and UFCS with std/string
+
+// Import string functions from standard library
+<- { upper, lower, trim, split, has, find, starts, ends, replace, repeat } = "../std/string"
+
+// ==============================
+// Core String Methods (built-in)
+// ==============================
+
+s#greeting = "Hello, World!"
+
+// len() - get string length
+print(s"Length: {greeting.len()}")
+
+// at(i) - get character at index
+print(s"First char: {greeting.at(0)}")
+print(s"Last char: {greeting.at(greeting.len() - 1)}")
+
+// ==============================
+// UFCS with Standard Library
+// ==============================
+
+s#name = "  alice  "
+
+// Method chaining with UFCS
+// trim().upper() works because:
+// - trim(name) returns a string
+// - upper(trimmed_result) is then called
+s#cleaned = name.trim().upper()
+print(s"Cleaned: '{cleaned}'")
+
+// Individual operations
+s#text = "Hello World"
+print(s"Upper: {text.upper()}")
+print(s"Lower: {text.lower()}")
+
+// Search operations
+print(s"Has 'World': {text.has(\"World\")}")
+print(s"Find 'o': {text.find(\"o\")}")
+print(s"Starts with 'Hello': {text.starts(\"Hello\")}")
+print(s"Ends with 'World': {text.ends(\"World\")}")
+
+// Transform operations
+print(s"Replace: {text.replace(\"World\", \"ZZ\")}")
+s#ha = "ha"
+print(s"Repeat: {ha.repeat(3)}")
+
+// Split into array
+s#csv = "one,two,three"
+s[]#words = csv.split(",")
+print(s"Split result:")
+@(i#0..words.len() - 1)
+  print(s"  [{i}]: {words[i]}")
+;
+
+// ==============================
+// Combining with other features
+// ==============================
+
+// Works with conditionals
+s#input = "  yes  "
+?(input.trim().lower() == "yes")
+  print("User confirmed!")
+;
+
+// Works in expressions
+s#prefix = "Mr. "
+s#lastName = "smith"
+s#formal = prefix + lastName.upper()
+print(s"Formal: {formal}")

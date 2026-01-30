@@ -1,0 +1,82 @@
+// Array Library Example
+// Demonstrates std/array functions with UFCS
+
+// Import array functions from standard library
+<- { sort, sortDesc, reverse, includes, indexOf, sum, average, minVal, maxVal, unique, first, last, isEmpty, slice, concat, join, count } = "../std/array"
+
+// ==============================
+// Basic Array Operations
+// ==============================
+
+i[]#nums = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3]
+
+print(s"Original: {nums}")
+print(s"First: {nums.first()}")
+print(s"Last: {nums.last()}")
+print(s"Is empty: {nums.isEmpty()}")
+
+// ==============================
+// Searching
+// ==============================
+
+print(s"Contains 5: {nums.includes(5)}")
+print(s"Contains 99: {nums.includes(99)}")
+print(s"Index of 4: {nums.indexOf(4)}")
+print(s"Index of 99: {nums.indexOf(99)}")  // -1 (not found)
+
+// ==============================
+// Sorting (returns new array)
+// ==============================
+
+print(s"Sorted asc: {nums.sort()}")
+print(s"Sorted desc: {nums.sortDesc()}")
+print(s"Original unchanged: {nums}")
+
+// ==============================
+// Transformations
+// ==============================
+
+print(s"Reversed: {nums.reverse()}")
+print(s"Unique values: {nums.unique()}")
+print(s"Slice [2..5]: {slice(nums, 2, 5)}")
+
+// ==============================
+// Numeric Operations
+// ==============================
+
+print(s"Sum: {nums.sum()}")
+print(s"Average: {nums.average()}")
+print(s"Min: {nums.minVal()}")
+print(s"Max: {nums.maxVal()}")
+
+// ==============================
+// Counting
+// ==============================
+
+print(s"Count of 1: {nums.count(1)}")
+print(s"Count of 5: {nums.count(5)}")
+
+// ==============================
+// Combining Arrays
+// ==============================
+
+i[]#more = [7, 8, 9]
+i[]#combined = concat(nums, more)
+print(s"Combined: {combined}")
+
+// ==============================
+// Join to String
+// ==============================
+
+s[]#words = ["hello", "world", "zz"]
+print(s"Joined: {words.join(\", \")}")
+print(s"Joined: {words.join(\" - \")}")
+
+// ==============================
+// Method Chaining
+// ==============================
+
+// Get unique values, sorted, as a string
+i[]#data = [5, 2, 8, 2, 9, 1, 5, 8]
+i[]#processed = data.unique().sort()
+print(s"Unique sorted: {processed}")

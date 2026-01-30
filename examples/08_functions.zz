@@ -1,0 +1,67 @@
+// Test file for functions in ZZ
+
+// Simple void function (no return type)
+Z sayHello()
+  print("Hello from function!")
+;
+
+// Function with return type
+i Z addTwo(i#a i#b)
+  a + b
+;
+
+// Function with multiple statements and return
+i Z factorial(i#n)
+  i~result = 1
+  ?(n > 1)
+    result = n * factorial(n - 1)
+  ;
+  result
+;
+
+// Function with string return
+s Z greet(s#name)
+  s"Hello, {name}!"
+;
+
+// Function with float
+f Z divide(f#a f#b)
+  a / b
+;
+
+// Function with bool
+b Z isPositive(i#num)
+  num > 0
+;
+
+// Test calling functions
+sayHello()
+
+i#sum = addTwo(3, 5)
+print(s"3 + 5 = {sum}")
+
+i#fact5 = factorial(5)
+print(s"5! = {fact5}")
+
+s#greeting = greet("World")
+print(greeting)
+
+f#quotient = divide(10.0, 3.0)
+print(s"10 / 3 = {quotient}")
+
+b#positive = isPositive(42)
+print(s"Is 42 positive? {positive}")
+
+// Test named arguments
+Z printThree(i#a i#b i#c)
+  print(s"a={a}, b={b}, c={c}")
+;
+
+// Positional call
+printThree(1, 2, 3)
+
+// Named arguments (in different order)
+printThree(c=30, a=10, b=20)
+
+// Mixed positional and named
+printThree(100, c=300, b=200)

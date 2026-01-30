@@ -1,0 +1,22 @@
+s~product = "grapes"
+i~price = 28
+f#vat = 0.18
+
+f Z calculateVat (i#p)
+    p * (1 + vat)
+;
+
+print(s"{product} costs {calculateVat(price)} after taxes")
+
+product = "beef"
+price = 45
+print(s"{product} costs {calculateVat(price)} after taxes")
+
+// Fixed-size array - push/pop not allowed
+i[9]#fixedArr = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+print(s"fixedArr[4] = {fixedArr[4]}")
+
+// Dynamic array - push/pop allowed
+i[]~dynamicArr = [1, 2, 3]
+dynamicArr.push(4)
+print(dynamicArr)

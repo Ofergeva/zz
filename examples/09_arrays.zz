@@ -1,0 +1,96 @@
+// Test file for arrays in ZZ
+
+// Basic array declaration
+i[]#nums = [1, 2, 3, 4, 5]
+print(s"nums = {nums}")
+
+// Array with fixed size declaration
+i[3]~fixedArr = [10, 20, 30]
+print(s"fixedArr = {fixedArr}")
+
+// String array
+s[]#names = ["Alice", "Bob", "Charlie"]
+print(s"names = {names}")
+
+// Float array
+f[]#prices = [9.99, 19.99, 29.99]
+print(s"prices = {prices}")
+
+// Bool array
+b[]#flags = [true, false, true]
+print(s"flags = {flags}")
+
+// Access by index
+print(s"nums[0] = {nums[0]}")
+print(s"nums[2] = {nums[2]}")
+print(s"names[1] = {names[1]}")
+
+// Array length
+i#len = nums.len()
+print(s"nums.len() = {len}")
+
+// Mutable array operations
+i[]~mutableNums = [1, 2, 3]
+print(s"Before push: {mutableNums}")
+
+mutableNums.push(4)
+print(s"After push(4): {mutableNums}")
+
+i#popped = mutableNums.pop()
+print(s"Popped: {popped}")
+print(s"After pop: {mutableNums}")
+
+// Index assignment
+mutableNums[0] = 100
+print(s"After mutableNums[0] = 100: {mutableNums}")
+
+// Range expressions (magic arrays)
+i[]#range1 = 1..5
+print(s"1..5 = {range1}")
+
+i[]#range2 = 10..15
+print(s"10..15 = {range2}")
+
+// Range with expressions
+i#start = 3
+i#end = 7
+i[]#range3 = start..end
+print(s"{start}..{end} = {range3}")
+
+// Computed range
+i[]#range4 = (2 + 1)..(4 + 3)
+print(s"(2+1)..(4+3) = {range4}")
+
+// Array in conditions
+?(nums.len() > 3)
+  print("nums has more than 3 elements")
+;
+
+// Iterate-like pattern using index
+i~idx = 0
+@(idx < range1.len())
+  print(s"range1[{idx}] = {range1[idx]}")
+  idx = idx + 1
+;
+
+// Function returning array
+i[] Z makeArray(i#a i#b i#c)
+  [a, b, c]
+;
+
+i[]#arr = makeArray(100, 200, 300)
+print(s"makeArray(100, 200, 300) = {arr}")
+
+// Function taking array parameter
+i Z sumArray(i[]#arr)
+  i~sum = 0
+  i~i = 0
+  @(i < arr.len())
+    sum = sum + arr[i]
+    i = i + 1
+  ;
+  sum
+;
+
+i#total = sumArray(nums)
+print(s"sumArray(nums) = {total}")
