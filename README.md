@@ -1,4 +1,4 @@
-# ZZ Programming Language
+# ZZ (Double Zeta) Programming Language
 
 A minimal, strongly-typed programming language that compiles to JavaScript.
 
