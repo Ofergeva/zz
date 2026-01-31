@@ -1,13 +1,12 @@
-import { env, argv, pid, nodeVersion } from "../../lib/node/index.js";
-class Person {
-  constructor(name, age, isEmployed) {
-    this.name = name;
-    this.age = age;
-    this.isEmployed = isEmployed;
-  }
-
-}
-const Mooki = new Person("Mooki", 5, false);
-const Alice = new Person("Alice", 30, true);
-console.log(("Person Mooki: " + Mooki.name));
-console.log(`Person Alice: ${Alice.age}`);
+import { platform, arch, type, cpus } from "../../lib/node/os.js";
+import { Path, sep } from "../../lib/node/path.js";
+const platformS = platform();
+const archS = arch();
+const typeS = type();
+let cpusS = "";
+cpusS = cpus().map(c => c.model).join(", ")
+console.log(`Platform: ${platformS}`);
+console.log(`Architecture: ${archS}`);
+console.log(`OS CPUs: ${cpusS}`);
+console.log(`OS Type: ${typeS}`);
+console.log(`Path Separator: ${sep}`);

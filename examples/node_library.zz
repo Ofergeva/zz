@@ -1,13 +1,14 @@
-<- {env, argv, pid, nodeVersion} = "../../lib/node/index.js"
+<- {platform, arch, type, cpus} = "../../lib/node/os.js"
+<- {Path, sep} = "../../lib/node/path.js"
 
-S Person 
-    s#name
-    i#age
-    b#isEmployed
-;
+s#platformS = platform()
+s#archS = arch()
+s#typeS = type()
+s~cpusS = ""
+$js{ cpusS = cpus().map(c => c.model).join(", ") }
+print(s"Platform: {platformS}")
+print(s"Architecture: {archS}")
+print(s"OS CPUs: {cpusS}")
+print(s"OS Type: {typeS}")
+print(s"Path Separator: {sep}")
 
-Person#Mooki = Person(name = "Mooki",age = 5,isEmployed = false)
-Person#Alice = Person(name = "Alice",age = 30,isEmployed = true)
-
-print("Person Mooki: " + Mooki.name)
-print(s"Person Alice: {Alice.age}")
