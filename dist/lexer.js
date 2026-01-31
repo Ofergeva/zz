@@ -95,6 +95,8 @@ export var TokenType;
     TokenType["ERROR"] = "ERROR";
     TokenType["TRUE"] = "TRUE";
     TokenType["FALSE"] = "FALSE";
+    // JS injection
+    TokenType["JS_BLOCK"] = "JS_BLOCK";
     // Other
     TokenType["IDENTIFIER"] = "IDENTIFIER";
     TokenType["NEWLINE"] = "NEWLINE";
@@ -356,6 +358,13 @@ export class Lexer {
             this.advance();
             return this.makeToken(TokenType.NULL, '_');
         }
+        // JS injection block: $js { ... }
+        if (char === '$') {
+            if (this.source[this.pos + 1] === 'j' && this.source[this.pos + 2] === 's') {
+                return this.readJsBlock();
+            }
+            throw new Error(`Unexpected character '$' at line ${this.line}, column ${this.column}. Did you mean '$js { ... }'?`);
+        }
         // Keywords and identifiers
         if (this.isAlpha(char)) {
             return this.readIdentifier();
@@ -442,6 +451,50 @@ export class Lexer {
         }
         this.advance(); // consume closing quote
         return { type: TokenType.INTERP_STRING, value, line: this.line, column: startColumn };
+    }
+    readJsBlock() {
+        const startLine = this.line;
+        const startColumn = this.column;
+        // Consume "$js"
+        this.advance(); // $
+        this.advance(); // j
+        this.advance(); // s
+        // Skip whitespace/newlines to find opening {
+        while (!this.isAtEnd() && (this.peek() === ' ' || this.peek() === '\t' || this.peek() === '\n' || this.peek() === '\r')) {
+            if (this.peek() === '\n') {
+                this.line++;
+                this.column = 0;
+            }
+            this.advance();
+        }
+        if (this.isAtEnd() || this.peek() !== '{') {
+            throw new Error(`Expected '{' after $js at line ${startLine}, column ${startColumn}`);
+        }
+        this.advance(); // consume opening {
+        let code = '';
+        let braceDepth = 1;
+        while (!this.isAtEnd() && braceDepth > 0) {
+            const ch = this.peek();
+            if (ch === '{') {
+                braceDepth++;
+            }
+            else if (ch === '}') {
+                braceDepth--;
+                if (braceDepth === 0)
+                    break;
+            }
+            if (ch === '\n') {
+                this.line++;
+                this.column = 0;
+            }
+            code += ch;
+            this.advance();
+        }
+        if (this.isAtEnd() && braceDepth > 0) {
+            throw new Error(`Unterminated $js block starting at line ${startLine}, column ${startColumn}`);
+        }
+        this.advance(); // consume closing }
+        return { type: TokenType.JS_BLOCK, value: code.trim(), line: startLine, column: startColumn };
     }
     readNumber() {
         const startColumn = this.column;

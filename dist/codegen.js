@@ -69,6 +69,8 @@ export class CodeGenerator {
                 return this.generateStructDeclaration(statement);
             case 'MatchExpression':
                 return this.generateMatchExpression(statement);
+            case 'JSBlockStatement':
+                return statement.code;
         }
     }
     generateEnumDeclaration(decl) {

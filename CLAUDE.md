@@ -1,14 +1,18 @@
 # ZZ Language - Project Context
 
 ## Overview
+
 ZZ is a minimal, strongly-typed language that compiles to clean JavaScript. Uses symbols instead of keywords for concise syntax. Immutable by default, explicit mutability with `~`.
 
 ## Tech Stack
+
 - TypeScript 5.3.0 compiler implementation
 - Target: ES2022 JavaScript
 - No runtime dependencies - pure JS output
+- No library dependencies - everything needs to be implemented with native js
 
 ## Commands
+
 ```bash
 npm run build                    # Compile TypeScript to dist/
 node dist/index.js <file.zz>     # Compile .zz file to compiled/<name>.js
@@ -18,6 +22,7 @@ node dist/index.js <file.zz> --ast    # Debug: show tokens and AST
 ```
 
 ## Project Structure
+
 ```
 src/
 ├── index.ts       # CLI entry point
@@ -33,6 +38,7 @@ vscode-zz/         # VS Code extension
 ```
 
 ## Compiler Pipeline
+
 1. **Lexer** → Tokens
 2. **Parser** → AST
 3. **Type Checker** → Validation
@@ -41,6 +47,7 @@ vscode-zz/         # VS Code extension
 ## Language Syntax Quick Reference
 
 ### Types & Variables
+
 - `s#name = "text"` → `const name = "text"` (string, immutable)
 - `i~count = 0` → `let count = 0` (int, mutable)
 - Primitives: `s` (string), `i` (int), `f` (float), `b` (bool)
@@ -50,6 +57,7 @@ vscode-zz/         # VS Code extension
 - String interpolation: `s"Hello, {name}!"`
 
 ### Control Flow
+
 - `?(cond) ... ;` → if
 - `:?(cond) ... ;` → else if
 - `: ... ;` → else
@@ -58,16 +66,19 @@ vscode-zz/         # VS Code extension
 - `>!` → break, `>>` → continue
 
 ### Functions
+
 - `Z funcName() ... ;` → void function
 - `i Z add(i#a i#b) a + b ;` → typed return (last expr is return value)
 
 ### Enums
+
 ```zz
 E Color Red Green Blue ;     // Declaration
 Color#c = Color.Red          // Usage
 ```
 
 ### Structs
+
 ```zz
 S Person                     // Declaration
   s#name                     // Fields use type#name
@@ -84,27 +95,62 @@ print(p.name)                    // Field access
 print(p.greet())                 // Method call
 q.age = 26                       // Field assignment (mutable only)
 ```
+
 Generated as JavaScript classes.
 
+### Pattern Matching
+
+```zz
+// ?? operator with | arms and => results
+??(value)
+  | Pattern1 => body1
+  | Pattern2 => body2
+  | _        => default
+;
+```
+
+- Enum patterns: `| Color.Red => ...`
+- Literal patterns: `| 42 => ...`, `| "hello" => ...`
+- Struct destructuring: `| Point(0, y) => ...` (binds `y`, matches literal `0`)
+- Binding patterns: `| v => ...` (captures value into `v`)
+- Wildcard: `| _ => ...` (catch-all)
+- Guards: `| Point(x, y) & x > 0 && y > 0 => ...`
+- Match as expression: `i Z fn(i#n) ??(n) | 0 => 10 | _ => 0 ; ;`
+- Exhaustiveness checking for enums
+- Compiles to IIFE with if/else-if chain
+
+### JS Injection
+- `$js { code }` → injects raw JavaScript verbatim into output
+- Lexer captures entire block as single token (JS is not tokenized as ZZ)
+- Nested `{}` in JS code handled via brace-depth tracking
+- No type checking on injected code
+- No trailing `;` needed — `}` terminates the block
+- ZZ-defined variables are accessible in the JS block
+
 ### Modules
+
 - `->` export, `<-` import
 
 ### Error Handling
+
 - `? ... :(e) ... ;` → try-catch
 - `>X(expr)` → throw
 
 ### Operators
+
 - `**` for power, `..` for range (inclusive both ends)
 - `++`/`--` increment/decrement
 - `+=`, `-=`, `*=`, `/=`, `%=`, `**=` compound assignment
 
 ### Built-ins
+
 - `print()`, `error()` → console.log/error
 - `.len()` → .length
 - `s()`, `i()`, `f()`, `b()` → type casting
 - UFCS: `str.upper()` calls `upper(str)` (any function can be method-called)
 
 ## Conventions
+
 - 2-space indentation in generated JS
 - Variable names preserved exactly
 - Parentheses added for operator precedence safety

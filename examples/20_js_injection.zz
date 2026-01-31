@@ -1,0 +1,56 @@
+// JavaScript Injection in ZZ
+// The $js { ... } block injects raw JavaScript into the output
+
+// === Basic Injection ===
+print("=== Basic Injection ===")
+
+$js { console.log("This is raw JavaScript!"); }
+
+// === Multi-line JS ===
+print("")
+print("=== Multi-line JS ===")
+
+$js {
+  const colors = ["red", "green", "blue"];
+  for (const color of colors) {
+    console.log("Color:", color);
+  }
+}
+
+// === Nested Braces ===
+print("")
+print("=== Nested Braces ===")
+
+$js {
+  const data = [1, 2, 3, 4, 5];
+  const transformed = data.map(x => {
+    return { original: x, doubled: x * 2 };
+  });
+  console.log(JSON.stringify(transformed));
+}
+
+// === Interop with ZZ Variables ===
+print("")
+print("=== Interop with ZZ Variables ===")
+
+s#greeting = "Hello from ZZ"
+i#count = 10
+
+$js {
+  // ZZ variables are accessible as regular JS variables
+  console.log(greeting);
+  console.log("Count is:", count);
+}
+
+// === Using JS APIs ===
+print("")
+print("=== Using JS APIs ===")
+
+$js {
+  const now = new Date();
+  console.log("Current time:", now.toISOString());
+  console.log("Random number:", Math.random().toFixed(4));
+}
+
+print("")
+print("JS injection complete!")

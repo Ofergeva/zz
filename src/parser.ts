@@ -69,6 +69,7 @@ import {
   TuplePattern,
   WildcardPattern,
   BindingPattern,
+  JSBlockStatement,
 } from './ast.js';
 
 export class Parser {
@@ -290,6 +291,18 @@ export class Parser {
         line: token.line,
         column: token.column,
       } as ContinueStatement;
+    }
+
+    // Raw JavaScript injection: $js { ... }
+    if (token.type === TokenType.JS_BLOCK) {
+      this.advance();
+      this.skipNewlines();
+      return {
+        type: 'JSBlockStatement',
+        code: token.value,
+        line: token.line,
+        column: token.column,
+      } as JSBlockStatement;
     }
 
     throw new Error(`Unexpected token '${token.value}' at line ${token.line}, column ${token.column}`);

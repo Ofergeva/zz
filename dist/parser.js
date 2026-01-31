@@ -193,6 +193,17 @@ export class Parser {
                 column: token.column,
             };
         }
+        // Raw JavaScript injection: $js { ... }
+        if (token.type === TokenType.JS_BLOCK) {
+            this.advance();
+            this.skipNewlines();
+            return {
+                type: 'JSBlockStatement',
+                code: token.value,
+                line: token.line,
+                column: token.column,
+            };
+        }
         throw new Error(`Unexpected token '${token.value}' at line ${token.line}, column ${token.column}`);
     }
     // Parse import statement: <- { name, alias=original } = "./path" or <- namespace = "./path"

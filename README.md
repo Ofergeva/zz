@@ -834,6 +834,196 @@ print(p.z)                 // ❌ Unknown field
 
 ---
 
+## Pattern Matching
+
+ZZ supports exhaustive pattern matching with the `??` operator. Match arms use `|` for each pattern and `=>` to separate the pattern from the body.
+
+### Basic Syntax
+
+```zz
+??(value)
+  | pattern1 => body1
+  | pattern2 => body2
+  | _        => defaultBody
+;
+```
+
+### Enum Matching
+
+```zz
+E Color Red Green Blue ;
+
+Z describeColor(Color#c)
+  ??(c)
+    | Color.Red   => print("Warm color: Red")
+    | Color.Green => print("Nature color: Green")
+    | Color.Blue  => print("Cool color: Blue")
+  ;
+;
+```
+
+Enum matches are checked for exhaustiveness at compile time. If you miss a variant and don't include a wildcard `_`, you get a compile error.
+
+### Literal Matching
+
+```zz
+Z describeNumber(i#n)
+  ??(n)
+    | 0 => print("Zero")
+    | 1 => print("One")
+    | _ => print("Some other number")
+  ;
+;
+```
+
+### Struct Destructuring
+
+Match on struct fields, mixing literal values and variable bindings:
+
+```zz
+S Point i#x i#y ;
+
+Z describePoint(Point#p)
+  ??(p)
+    | Point(0, 0)    => print("Origin")
+    | Point(0, y)    => print(s"Y-axis at y={y}")
+    | Point(x, 0)    => print(s"X-axis at x={x}")
+    | Point(x, y)    => print(s"Point at ({x}, {y})")
+  ;
+;
+```
+
+- `0` in a field position matches literally
+- `x`, `y` in a field position bind the field value to a variable
+
+### Guards
+
+Add conditions to match arms with `&`:
+
+```zz
+Z classifyPoint(Point#p)
+  ??(p)
+    | Point(x, y) & x > 0 && y > 0 => print("Quadrant I")
+    | Point(x, y) & x < 0 && y > 0 => print("Quadrant II")
+    | Point(x, y) & x < 0 && y < 0 => print("Quadrant III")
+    | Point(x, y) & x > 0 && y < 0 => print("Quadrant IV")
+    | _                            => print("On an axis")
+  ;
+;
+```
+
+### Match as Expression
+
+Pattern matching can return values. Declare a return type before `Z` and the last expression in each arm is the return value:
+
+```zz
+i Z scoreGrade(i#score)
+  ??(score)
+    | 100 => 10
+    | _   => 0
+  ;
+;
+
+i#bonus = scoreGrade(100)  // 10
+```
+
+### Binding Patterns
+
+Capture the matched value into a variable, optionally with a guard:
+
+```zz
+Z processValue(i#n)
+  ??(n)
+    | v & v > 100 => print(s"Large value: {v}")
+    | v & v > 50  => print(s"Medium value: {v}")
+    | v           => print(s"Small value: {v}")
+  ;
+;
+```
+
+### Generated JavaScript
+
+Pattern matching compiles to an IIFE with an if/else-if chain:
+
+```zz
+??(n)
+  | 0 => print("Zero")
+  | _ => print("Other")
+;
+```
+
+Becomes:
+
+```javascript
+(function() {
+  const __match = n;
+  if (__match === 0) {
+    console.log("Zero");
+  } else if (true) {
+    console.log("Other");
+  }
+})();
+```
+
+---
+
+## JS Injection
+
+ZZ files are ZZ — no raw JavaScript works outside of injection blocks. When you need direct access to JavaScript APIs, use `$js { ... }` to inject raw JS into the compiled output.
+
+### Syntax
+
+```zz
+$js {
+  // Any JavaScript code here
+  // Nested { braces } are handled correctly
+}
+```
+
+The `}` closes the block — no trailing `;` is needed.
+
+### Basic Usage
+
+```zz
+s#name = "world"
+
+$js {
+  console.log("Hello, " + name + "!");
+}
+```
+
+Compiles to:
+
+```javascript
+const name = "world";
+console.log("Hello, " + name + "!");
+```
+
+ZZ-defined variables are accessible inside `$js` blocks since they compile to regular JavaScript variables.
+
+### Nested Braces
+
+Nested `{}` in your JavaScript code work correctly — the compiler tracks brace depth:
+
+```zz
+$js {
+  const items = [1, 2, 3];
+  const mapped = items.map(x => {
+    return { value: x * 2 };
+  });
+  console.log(mapped);
+}
+```
+
+### Use Cases
+
+- Accessing browser/Node.js APIs not exposed by ZZ
+- Complex JS patterns (async/await, generators, etc.)
+- Calling third-party JS libraries directly
+- Performance-critical code that needs specific JS idioms
+
+---
+
 ## Strings
 
 ### Core String Methods
@@ -1251,6 +1441,13 @@ fizzbuzz(15)
 | `->s#x = "hi"`        | `export const x = "hi"`              | Export variable                |
 | `<- { a } = "./m"`    | `import { a } from "./m.js"`         | Named import                   |
 | `<- m = "./m"`        | `import * as m from "./m.js"`        | Namespace import               |
+| `??(val) \| p => ;`   | `if/else-if chain (IIFE)`           | Pattern matching               |
+| `\| Color.Red =>`     | `if (v === Color.Red)`               | Enum pattern                   |
+| `\| 42 =>`            | `if (v === 42)`                      | Literal pattern                |
+| `\| Point(x, y) =>`   | destructure + bind fields            | Struct pattern                 |
+| `\| _ =>`             | `else`                               | Wildcard (catch-all)           |
+| `\| v & v > 0 =>`     | `if (true && (v > 0))`              | Guard condition                |
+| `$js { code }`        | raw JS output verbatim               | JS injection block             |
 | `str.len()`           | `str.length`                         | String length                  |
 | `str.at(i)`           | `str.charAt(i)`                      | Character at index             |
 | `str.upper()`         | `upper(str)`                         | UFCS: calls imported function  |

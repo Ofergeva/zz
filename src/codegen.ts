@@ -26,6 +26,7 @@ import {
   MatchExpression,
   MatchArm,
   Pattern,
+  JSBlockStatement,
   DataType,
   isArrayType,
   isTupleType,
@@ -105,6 +106,8 @@ export class CodeGenerator {
         return this.generateStructDeclaration(statement);
       case 'MatchExpression':
         return this.generateMatchExpression(statement);
+      case 'JSBlockStatement':
+        return (statement as JSBlockStatement).code;
     }
   }
 

@@ -69,7 +69,7 @@ export interface Program extends ASTNode {
 }
 
 // Statements
-export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression;
+export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression | JSBlockStatement;
 
 export interface VariableDeclaration extends ASTNode {
   type: 'VariableDeclaration';
@@ -455,4 +455,10 @@ export interface MatchExpression extends ASTNode {
   type: 'MatchExpression';
   value: Expression;
   arms: MatchArm[];
+}
+
+// Raw JavaScript injection: $js { code }
+export interface JSBlockStatement extends ASTNode {
+  type: 'JSBlockStatement';
+  code: string;
 }

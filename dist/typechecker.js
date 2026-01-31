@@ -197,6 +197,9 @@ export class TypeChecker {
             case 'MatchExpression':
                 this.checkMatchExpression(statement);
                 break;
+            case 'JSBlockStatement':
+                // Raw JavaScript injection - skip type checking
+                break;
         }
     }
     checkStructDeclaration(decl) {

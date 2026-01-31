@@ -76,6 +76,7 @@ export declare enum TokenType {
     ERROR = "ERROR",// error() - console.error
     TRUE = "TRUE",
     FALSE = "FALSE",
+    JS_BLOCK = "JS_BLOCK",// $js { ... }
     IDENTIFIER = "IDENTIFIER",
     NEWLINE = "NEWLINE",
     EOF = "EOF"
@@ -97,6 +98,7 @@ export declare class Lexer {
     private nextToken;
     private readString;
     private readInterpolatedString;
+    private readJsBlock;
     private readNumber;
     private readIdentifier;
     private skipWhitespace;
