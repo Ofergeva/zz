@@ -14,6 +14,8 @@ ZZ uses symbols (`#`, `~`, `?`, `@`, `;`) instead of keywords (`const`, `let`, `
 - **Reduced noise**: Keywords compete with your variable names for attention. Symbols step out of the way.
 - **Forced consistency**: There's only one way to write an if statement. No `if`/`else if`/`else` vs ternary debates.
 
+> `Z` signifies functions. Lower case single letters are used for data types. Capital single letters are used for complex data types. All other keywords should be symbols.
+
 ### Why Immutability by Default
 
 In JavaScript, `const` is an afterthought. In ZZ, mutability is the afterthought.
@@ -112,23 +114,23 @@ node dist/index.js yourfile.zz --ast
 
 ### Types
 
-| Prefix | Type | Example |
-|--------|------|---------|
-| `s` | string | `s#name = "hello"` |
-| `i` | int | `i#count = 42` |
-| `f` | float | `f#pi = 3.14` |
-| `b` | bool | `b#flag = true` |
-| `i[]` | int array | `i[]#nums = [1, 2, 3]` |
-| `ti5` | tuple of 5 ints | `ti5#point = (1, 2, 3, 4, 5)` |
-| `tiN` | tuple (inferred) | `tiN#vals = (1, 2, 3)` |
-| `Color` | enum type | `Color#c = Color.Red` |
+| Prefix  | Type             | Example                       |
+| ------- | ---------------- | ----------------------------- |
+| `s`     | string           | `s#name = "hello"`            |
+| `i`     | int              | `i#count = 42`                |
+| `f`     | float            | `f#pi = 3.14`                 |
+| `b`     | bool             | `b#flag = true`               |
+| `i[]`   | int array        | `i[]#nums = [1, 2, 3]`        |
+| `ti5`   | tuple of 5 ints  | `ti5#point = (1, 2, 3, 4, 5)` |
+| `tiN`   | tuple (inferred) | `tiN#vals = (1, 2, 3)`        |
+| `Color` | enum type        | `Color#c = Color.Red`         |
 
 ### Mutability
 
-| Symbol | Meaning | JavaScript |
-|--------|---------|------------|
-| `#` | immutable | `const` |
-| `~` | mutable | `let` |
+| Symbol | Meaning   | JavaScript |
+| ------ | --------- | ---------- |
+| `#`    | immutable | `const`    |
+| `~`    | mutable   | `let`      |
 
 ```zz
 s#name = "Alice"      // immutable string
@@ -148,6 +150,7 @@ print(myVariable)
 ### Operators
 
 **Arithmetic:**
+
 ```zz
 i#sum = 5 + 3      // 8
 i#diff = 10 - 4    // 6
@@ -158,6 +161,7 @@ i#pow = 2 ** 10    // 1024
 ```
 
 **Comparison:**
+
 ```zz
 b#eq = 5 == 5      // true
 b#neq = 5 != 3     // true
@@ -168,6 +172,7 @@ b#lte = 3 <= 5     // true
 ```
 
 **Logical:**
+
 ```zz
 b#and = true && false  // false
 b#or = true || false   // true
@@ -175,6 +180,7 @@ b#not = !true          // false
 ```
 
 **Increment/Decrement:**
+
 ```zz
 i~count = 10
 count++                // 11
@@ -182,6 +188,7 @@ count--                // 10
 ```
 
 **Compound Assignment:**
+
 ```zz
 i~x = 100
 x += 10                // 110
@@ -212,13 +219,13 @@ print(s"Hello, {name}! You are {age} years old.")
 
 ### Type Casting
 
-| Function | Converts to |
-|----------|-------------|
-| `s(expr)` | string |
-| `i(expr)` | int (truncates) |
-| `f(expr)` | float |
-| `b(expr)` | bool |
-| `tiN(expr)` | tuple of ints |
+| Function    | Converts to            |
+| ----------- | ---------------------- |
+| `s(expr)`   | string                 |
+| `i(expr)`   | int (truncates)        |
+| `f(expr)`   | float                  |
+| `b(expr)`   | bool                   |
+| `tiN(expr)` | tuple of ints          |
 | `i[](expr)` | int array (from tuple) |
 
 ```zz
@@ -265,6 +272,7 @@ s~value = _
 ```
 
 **Example:**
+
 ```zz
 i#score = 85
 
@@ -288,6 +296,7 @@ i#score = 85
 ```
 
 **Example:**
+
 ```zz
 i~count = 0
 @(count < 5)
@@ -305,6 +314,7 @@ i~count = 0
 ```
 
 **Example:**
+
 ```zz
 // Count up: 1, 2, 3, 4, 5
 @(i#1..5)
@@ -332,6 +342,7 @@ i#to = 10
 ```
 
 **Example:**
+
 ```zz
 @(i#1..10)
   ?(i == 5)
@@ -365,6 +376,7 @@ returnType Z functionName(type#param)
 ```
 
 **Examples:**
+
 ```zz
 // Void function
 Z greet(s#name)
@@ -420,6 +432,7 @@ f[3]~coords = [0.0, 0.0, 0.0]    // fixed-size mutable array
 ```
 
 **Fixed-size vs Dynamic arrays:**
+
 - `i[]` - dynamic array, can grow/shrink with `push`/`pop`
 - `i[5]` - fixed-size array of exactly 5 elements, `push`/`pop` not allowed
 
@@ -502,6 +515,7 @@ tfN#coords = (1.0, 2.5, 3.7)      // inferred as tf3
 ```
 
 **Syntax**: `t{type}{length}` where:
+
 - `t` = tuple prefix
 - type = `i` (int), `f` (float), `s` (string), `b` (bool)
 - length = explicit number or `N` for inferred
@@ -880,23 +894,23 @@ String manipulation functions:
 <- { upper, lower, trim, split, has, find, starts, ends, slice, replace, replaceAll, repeat, padStart, padEnd, join } = "./std/string"
 ```
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `upper(s)` | `s → s` | Convert to uppercase |
-| `lower(s)` | `s → s` | Convert to lowercase |
-| `trim(s)` | `s → s` | Remove leading/trailing whitespace |
-| `split(s, sep)` | `s, s → s[]` | Split by separator |
-| `has(s, sub)` | `s, s → b` | Check if contains substring |
-| `find(s, sub)` | `s, s → i` | Find index of substring (-1 if not found) |
-| `starts(s, pre)` | `s, s → b` | Check if starts with prefix |
-| `ends(s, suf)` | `s, s → b` | Check if ends with suffix |
-| `slice(s, start, end)` | `s, i, i → s` | Extract substring |
-| `replace(s, old, new)` | `s, s, s → s` | Replace first occurrence |
-| `replaceAll(s, old, new)` | `s, s, s → s` | Replace all occurrences |
-| `repeat(s, n)` | `s, i → s` | Repeat string n times |
-| `padStart(s, len, pad)` | `s, i, s → s` | Pad start to reach length |
-| `padEnd(s, len, pad)` | `s, i, s → s` | Pad end to reach length |
-| `join(arr, sep)` | `s[], s → s` | Join array with separator |
+| Function                  | Signature     | Description                               |
+| ------------------------- | ------------- | ----------------------------------------- |
+| `upper(s)`                | `s → s`       | Convert to uppercase                      |
+| `lower(s)`                | `s → s`       | Convert to lowercase                      |
+| `trim(s)`                 | `s → s`       | Remove leading/trailing whitespace        |
+| `split(s, sep)`           | `s, s → s[]`  | Split by separator                        |
+| `has(s, sub)`             | `s, s → b`    | Check if contains substring               |
+| `find(s, sub)`            | `s, s → i`    | Find index of substring (-1 if not found) |
+| `starts(s, pre)`          | `s, s → b`    | Check if starts with prefix               |
+| `ends(s, suf)`            | `s, s → b`    | Check if ends with suffix                 |
+| `slice(s, start, end)`    | `s, i, i → s` | Extract substring                         |
+| `replace(s, old, new)`    | `s, s, s → s` | Replace first occurrence                  |
+| `replaceAll(s, old, new)` | `s, s, s → s` | Replace all occurrences                   |
+| `repeat(s, n)`            | `s, i → s`    | Repeat string n times                     |
+| `padStart(s, len, pad)`   | `s, i, s → s` | Pad start to reach length                 |
+| `padEnd(s, len, pad)`     | `s, i, s → s` | Pad end to reach length                   |
+| `join(arr, sep)`          | `s[], s → s`  | Join array with separator                 |
 
 **Example:**
 
@@ -928,34 +942,34 @@ Math functions for numerical operations:
 <- { sqrt, floor, ceil, sin, cos, abs, min, max, random, PI } = "./std/math"
 ```
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `abs(x)` | `num → num` | Absolute value |
-| `floor(x)` | `num → i` | Round down |
-| `ceil(x)` | `num → i` | Round up |
-| `round(x)` | `num → i` | Round to nearest |
-| `trunc(x)` | `num → i` | Truncate decimals |
-| `sign(x)` | `num → i` | Sign (-1, 0, or 1) |
-| `sqrt(x)` | `num → f` | Square root |
-| `cbrt(x)` | `num → f` | Cube root |
-| `pow(x, y)` | `num, num → num` | Power |
-| `exp(x)` | `num → f` | e^x |
-| `log(x)` | `num → f` | Natural log |
-| `log10(x)` | `num → f` | Log base 10 |
-| `log2(x)` | `num → f` | Log base 2 |
-| `sin(x)` | `num → f` | Sine |
-| `cos(x)` | `num → f` | Cosine |
-| `tan(x)` | `num → f` | Tangent |
-| `asin(x)` | `num → f` | Arc sine |
-| `acos(x)` | `num → f` | Arc cosine |
-| `atan(x)` | `num → f` | Arc tangent |
-| `atan2(y, x)` | `num, num → f` | Two-argument arc tangent |
-| `min(a, b)` | `num, num → num` | Minimum of two values |
-| `max(a, b)` | `num, num → num` | Maximum of two values |
-| `random()` | `→ f` | Random float 0-1 |
-| `randomInt(min, max)` | `i, i → i` | Random int in range |
-| `PI()` | `→ f` | Pi constant (3.14159...) |
-| `E()` | `→ f` | Euler's number (2.71828...) |
+| Function              | Signature        | Description                 |
+| --------------------- | ---------------- | --------------------------- |
+| `abs(x)`              | `num → num`      | Absolute value              |
+| `floor(x)`            | `num → i`        | Round down                  |
+| `ceil(x)`             | `num → i`        | Round up                    |
+| `round(x)`            | `num → i`        | Round to nearest            |
+| `trunc(x)`            | `num → i`        | Truncate decimals           |
+| `sign(x)`             | `num → i`        | Sign (-1, 0, or 1)          |
+| `sqrt(x)`             | `num → f`        | Square root                 |
+| `cbrt(x)`             | `num → f`        | Cube root                   |
+| `pow(x, y)`           | `num, num → num` | Power                       |
+| `exp(x)`              | `num → f`        | e^x                         |
+| `log(x)`              | `num → f`        | Natural log                 |
+| `log10(x)`            | `num → f`        | Log base 10                 |
+| `log2(x)`             | `num → f`        | Log base 2                  |
+| `sin(x)`              | `num → f`        | Sine                        |
+| `cos(x)`              | `num → f`        | Cosine                      |
+| `tan(x)`              | `num → f`        | Tangent                     |
+| `asin(x)`             | `num → f`        | Arc sine                    |
+| `acos(x)`             | `num → f`        | Arc cosine                  |
+| `atan(x)`             | `num → f`        | Arc tangent                 |
+| `atan2(y, x)`         | `num, num → f`   | Two-argument arc tangent    |
+| `min(a, b)`           | `num, num → num` | Minimum of two values       |
+| `max(a, b)`           | `num, num → num` | Maximum of two values       |
+| `random()`            | `→ f`            | Random float 0-1            |
+| `randomInt(min, max)` | `i, i → i`       | Random int in range         |
+| `PI()`                | `→ f`            | Pi constant (3.14159...)    |
+| `E()`                 | `→ f`            | Euler's number (2.71828...) |
 
 **Example:**
 
@@ -978,31 +992,31 @@ Array utility functions:
 <- { reverse, sort, includes, indexOf, sum, unique, first, last } = "./std/array"
 ```
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `includes(arr, val)` | `T[], T → b` | Check if array contains value |
-| `indexOf(arr, val)` | `T[], T → i` | Find index of value (-1 if not found) |
-| `lastIndexOf(arr, val)` | `T[], T → i` | Find last index of value |
-| `reverse(arr)` | `T[] → T[]` | Return reversed copy |
-| `slice(arr, start, end)` | `T[], i, i → T[]` | Extract sub-array |
-| `concat(arr1, arr2)` | `T[], T[] → T[]` | Concatenate arrays |
-| `flat(arr)` | `T[][] → T[]` | Flatten one level |
-| `flatDeep(arr)` | `T[][] → T[]` | Flatten all levels |
-| `fill(arr, val)` | `T[], T → T[]` | Fill array with value |
-| `join(arr, sep)` | `T[], s → s` | Join to string |
-| `first(arr)` | `T[] → T` | Get first element |
-| `last(arr)` | `T[] → T` | Get last element |
-| `isEmpty(arr)` | `T[] → b` | Check if empty |
-| `sort(arr)` | `num[] → num[]` | Sort numbers ascending |
-| `sortDesc(arr)` | `num[] → num[]` | Sort numbers descending |
-| `sortStr(arr)` | `s[] → s[]` | Sort strings alphabetically |
-| `sum(arr)` | `num[] → num` | Sum of elements |
-| `product(arr)` | `num[] → num` | Product of elements |
-| `average(arr)` | `num[] → num` | Average of elements |
-| `minVal(arr)` | `num[] → num` | Minimum value |
-| `maxVal(arr)` | `num[] → num` | Maximum value |
-| `unique(arr)` | `T[] → T[]` | Remove duplicates |
-| `count(arr, val)` | `T[], T → i` | Count occurrences |
+| Function                 | Signature         | Description                           |
+| ------------------------ | ----------------- | ------------------------------------- |
+| `includes(arr, val)`     | `T[], T → b`      | Check if array contains value         |
+| `indexOf(arr, val)`      | `T[], T → i`      | Find index of value (-1 if not found) |
+| `lastIndexOf(arr, val)`  | `T[], T → i`      | Find last index of value              |
+| `reverse(arr)`           | `T[] → T[]`       | Return reversed copy                  |
+| `slice(arr, start, end)` | `T[], i, i → T[]` | Extract sub-array                     |
+| `concat(arr1, arr2)`     | `T[], T[] → T[]`  | Concatenate arrays                    |
+| `flat(arr)`              | `T[][] → T[]`     | Flatten one level                     |
+| `flatDeep(arr)`          | `T[][] → T[]`     | Flatten all levels                    |
+| `fill(arr, val)`         | `T[], T → T[]`    | Fill array with value                 |
+| `join(arr, sep)`         | `T[], s → s`      | Join to string                        |
+| `first(arr)`             | `T[] → T`         | Get first element                     |
+| `last(arr)`              | `T[] → T`         | Get last element                      |
+| `isEmpty(arr)`           | `T[] → b`         | Check if empty                        |
+| `sort(arr)`              | `num[] → num[]`   | Sort numbers ascending                |
+| `sortDesc(arr)`          | `num[] → num[]`   | Sort numbers descending               |
+| `sortStr(arr)`           | `s[] → s[]`       | Sort strings alphabetically           |
+| `sum(arr)`               | `num[] → num`     | Sum of elements                       |
+| `product(arr)`           | `num[] → num`     | Product of elements                   |
+| `average(arr)`           | `num[] → num`     | Average of elements                   |
+| `minVal(arr)`            | `num[] → num`     | Minimum value                         |
+| `maxVal(arr)`            | `num[] → num`     | Maximum value                         |
+| `unique(arr)`            | `T[] → T[]`       | Remove duplicates                     |
+| `count(arr, val)`        | `T[], T → i`      | Count occurrences                     |
 
 **Example:**
 
@@ -1033,6 +1047,7 @@ print(nums.reverse())       // [6, 2, 9, 5, 1, 4, 1, 3]
 ```
 
 **Example:**
+
 ```zz
 s~result = "default"
 
@@ -1046,6 +1061,7 @@ print(result)
 ```
 
 **Nested try-catch:**
+
 ```zz
 ?
   print("Outer try")
@@ -1068,6 +1084,7 @@ Use `>X(expression)` to throw an error:
 ```
 
 **With try-catch:**
+
 ```zz
 ?
   >X("Oops!")
@@ -1144,7 +1161,9 @@ print(math.VERSION)
 
 ```javascript
 // Exports become:
-export function add(a, b) { return a + b; }
+export function add(a, b) {
+	return a + b;
+}
 export const VERSION = "1.0.0";
 
 // Imports become:
@@ -1184,57 +1203,57 @@ fizzbuzz(15)
 
 ## Syntax Quick Reference
 
-| ZZ | JavaScript | Description |
-|----|------------|-------------|
-| `s#x = "hi"` | `const x = "hi"` | Immutable string |
-| `i~x = 0` | `let x = 0` | Mutable int |
-| `print(x)` | `console.log(x)` | Print |
-| `?(cond) ... ;` | `if (cond) { ... }` | If statement |
-| `:?(cond)` | `else if (cond)` | Else if |
-| `:` | `else` | Else |
-| `@(cond) ... ;` | `while (cond) { ... }` | While loop |
-| `@(i#1..5) ... ;` | `for (let i=1; i<=5; i++)` | For loop |
-| `>!` | `break` | Break |
-| `>>` | `continue` | Continue |
-| `Z fn() ... ;` | `function fn() { ... }` | Void function |
-| `i Z fn() ... ;` | `function fn() { return ...; }` | Function with return |
-| `? ... :(e) ... ;` | `try { ... } catch(e) { ... }` | Try-catch |
-| `>X(expr)` | `throw expr` | Throw error |
-| `error(x)` | `console.error(x)` | Print to stderr |
-| `s"...{x}..."` | `` `...${x}...` `` | String interpolation |
-| `i(x)` | `Math.trunc(Number(x))` | Cast to int |
-| `_` | `null` | Null value |
-| `1..5` | `[1,2,3,4,5]` | Range |
-| `i[]#arr` | `const arr = [...]` | Dynamic array |
-| `i[5]#arr` | `const arr = [...]` | Fixed-size array (no push/pop) |
-| `ti5#tup` | `Object.freeze([...])` | Tuple (5 ints, immutable) |
-| `tiN#tup` | `Object.freeze([...])` | Tuple (inferred length) |
-| `(1, 2, 3)` | `Object.freeze([1,2,3])` | Tuple literal |
-| `tiN(arr)` | `Object.freeze([...arr])` | Array to tuple cast |
-| `i[](tup)` | `[...tup]` | Tuple to array cast |
-| `E Color Red Green ;` | `const Color = Object.freeze({...})` | Enum declaration |
-| `Color#c = Color.Red` | `const c = Color.Red` | Enum variable |
-| `Color.Red` | `Color.Red` | Enum access |
-| `S Name ... ;` | `class Name { ... }` | Struct declaration |
-| `Name#x = Name(...)` | `const x = new Name(...)` | Immutable struct instance |
-| `Name~x = Name(...)` | `let x = new Name(...)` | Mutable struct instance |
-| `x.field` | `x.field` | Field access |
-| `x.method()` | `x.method()` | Method call |
-| `x++` | `x++` | Increment |
-| `x--` | `x--` | Decrement |
-| `x += 5` | `x += 5` | Add assign |
-| `x -= 5` | `x -= 5` | Subtract assign |
-| `x *= 5` | `x *= 5` | Multiply assign |
-| `x /= 5` | `x /= 5` | Divide assign |
-| `x %= 5` | `x %= 5` | Modulo assign |
-| `x **= 5` | `x **= 5` | Power assign |
-| `->i Z fn()` | `export function fn()` | Export function |
-| `->s#x = "hi"` | `export const x = "hi"` | Export variable |
-| `<- { a } = "./m"` | `import { a } from "./m.js"` | Named import |
-| `<- m = "./m"` | `import * as m from "./m.js"` | Namespace import |
-| `str.len()` | `str.length` | String length |
-| `str.at(i)` | `str.charAt(i)` | Character at index |
-| `str.upper()` | `upper(str)` | UFCS: calls imported function |
+| ZZ                    | JavaScript                           | Description                    |
+| --------------------- | ------------------------------------ | ------------------------------ |
+| `s#x = "hi"`          | `const x = "hi"`                     | Immutable string               |
+| `i~x = 0`             | `let x = 0`                          | Mutable int                    |
+| `print(x)`            | `console.log(x)`                     | Print                          |
+| `?(cond) ... ;`       | `if (cond) { ... }`                  | If statement                   |
+| `:?(cond)`            | `else if (cond)`                     | Else if                        |
+| `:`                   | `else`                               | Else                           |
+| `@(cond) ... ;`       | `while (cond) { ... }`               | While loop                     |
+| `@(i#1..5) ... ;`     | `for (let i=1; i<=5; i++)`           | For loop                       |
+| `>!`                  | `break`                              | Break                          |
+| `>>`                  | `continue`                           | Continue                       |
+| `Z fn() ... ;`        | `function fn() { ... }`              | Void function                  |
+| `i Z fn() ... ;`      | `function fn() { return ...; }`      | Function with return           |
+| `? ... :(e) ... ;`    | `try { ... } catch(e) { ... }`       | Try-catch                      |
+| `>X(expr)`            | `throw expr`                         | Throw error                    |
+| `error(x)`            | `console.error(x)`                   | Print to stderr                |
+| `s"...{x}..."`        | `` `...${x}...` ``                   | String interpolation           |
+| `i(x)`                | `Math.trunc(Number(x))`              | Cast to int                    |
+| `_`                   | `null`                               | Null value                     |
+| `1..5`                | `[1,2,3,4,5]`                        | Range                          |
+| `i[]#arr`             | `const arr = [...]`                  | Dynamic array                  |
+| `i[5]#arr`            | `const arr = [...]`                  | Fixed-size array (no push/pop) |
+| `ti5#tup`             | `Object.freeze([...])`               | Tuple (5 ints, immutable)      |
+| `tiN#tup`             | `Object.freeze([...])`               | Tuple (inferred length)        |
+| `(1, 2, 3)`           | `Object.freeze([1,2,3])`             | Tuple literal                  |
+| `tiN(arr)`            | `Object.freeze([...arr])`            | Array to tuple cast            |
+| `i[](tup)`            | `[...tup]`                           | Tuple to array cast            |
+| `E Color Red Green ;` | `const Color = Object.freeze({...})` | Enum declaration               |
+| `Color#c = Color.Red` | `const c = Color.Red`                | Enum variable                  |
+| `Color.Red`           | `Color.Red`                          | Enum access                    |
+| `S Name ... ;`        | `class Name { ... }`                 | Struct declaration             |
+| `Name#x = Name(...)`  | `const x = new Name(...)`            | Immutable struct instance      |
+| `Name~x = Name(...)`  | `let x = new Name(...)`              | Mutable struct instance        |
+| `x.field`             | `x.field`                            | Field access                   |
+| `x.method()`          | `x.method()`                         | Method call                    |
+| `x++`                 | `x++`                                | Increment                      |
+| `x--`                 | `x--`                                | Decrement                      |
+| `x += 5`              | `x += 5`                             | Add assign                     |
+| `x -= 5`              | `x -= 5`                             | Subtract assign                |
+| `x *= 5`              | `x *= 5`                             | Multiply assign                |
+| `x /= 5`              | `x /= 5`                             | Divide assign                  |
+| `x %= 5`              | `x %= 5`                             | Modulo assign                  |
+| `x **= 5`             | `x **= 5`                            | Power assign                   |
+| `->i Z fn()`          | `export function fn()`               | Export function                |
+| `->s#x = "hi"`        | `export const x = "hi"`              | Export variable                |
+| `<- { a } = "./m"`    | `import { a } from "./m.js"`         | Named import                   |
+| `<- m = "./m"`        | `import * as m from "./m.js"`        | Namespace import               |
+| `str.len()`           | `str.length`                         | String length                  |
+| `str.at(i)`           | `str.charAt(i)`                      | Character at index             |
+| `str.upper()`         | `upper(str)`                         | UFCS: calls imported function  |
 
 ---
 

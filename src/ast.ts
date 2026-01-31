@@ -69,7 +69,7 @@ export interface Program extends ASTNode {
 }
 
 // Statements
-export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration;
+export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression;
 
 export interface VariableDeclaration extends ASTNode {
   type: 'VariableDeclaration';
@@ -148,7 +148,7 @@ export interface TryStatement extends ASTNode {
 }
 
 // Expressions
-export type Expression = StringLiteral | NumberLiteral | BoolLiteral | NullLiteral | Identifier | BinaryExpression | UnaryExpression | InterpolatedString | CastExpression | FunctionCall | ArrayLiteral | TupleLiteral | RangeExpression | IndexAccess | MethodCall | MemberExpression | EnumAccess | StructInstantiation;
+export type Expression = StringLiteral | NumberLiteral | BoolLiteral | NullLiteral | Identifier | BinaryExpression | UnaryExpression | InterpolatedString | CastExpression | FunctionCall | ArrayLiteral | TupleLiteral | RangeExpression | IndexAccess | MethodCall | MemberExpression | EnumAccess | StructInstantiation | MatchExpression;
 
 export interface StringLiteral extends ASTNode {
   type: 'StringLiteral';
@@ -386,4 +386,73 @@ export interface StructInstantiation extends ASTNode {
   type: 'StructInstantiation';
   structName: string;
   arguments: FunctionArgument[];
+}
+
+// Pattern matching types
+export type Pattern =
+  | EnumPattern
+  | LiteralPattern
+  | StructPattern
+  | TuplePattern
+  | WildcardPattern
+  | BindingPattern;
+
+// Enum pattern: Color.Red
+export interface EnumPattern {
+  kind: 'enum';
+  enumName: string;
+  variant: string;
+}
+
+// Literal pattern: 42, "hello", true
+export interface LiteralPattern {
+  kind: 'literal';
+  value: Expression;
+}
+
+// Struct pattern: Point(x, y) or Point(0, y)
+export interface StructPattern {
+  kind: 'struct';
+  structName: string;
+  fields: PatternField[];
+}
+
+// Pattern field: binding or nested pattern
+export interface PatternField {
+  binding?: string;      // Variable name to bind
+  pattern?: Pattern;     // Nested pattern (e.g., literal 0)
+}
+
+// Tuple pattern: (x, y, z) or (0, y)
+export interface TuplePattern {
+  kind: 'tuple';
+  elements: PatternField[];
+}
+
+// Wildcard pattern: _
+export interface WildcardPattern {
+  kind: 'wildcard';
+}
+
+// Binding pattern: n (captures value into variable n)
+export interface BindingPattern {
+  kind: 'binding';
+  name: string;
+}
+
+// Match arm: | pattern => body
+export interface MatchArm {
+  pattern: Pattern;
+  guard?: Expression;          // Optional guard condition
+  body: Statement[];
+  resultExpression?: Expression;  // Result for expression context
+  line: number;
+  column: number;
+}
+
+// Match expression: ??(value) | pattern => body ;
+export interface MatchExpression extends ASTNode {
+  type: 'MatchExpression';
+  value: Expression;
+  arms: MatchArm[];
 }

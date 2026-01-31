@@ -59,6 +59,16 @@ import {
   StructField,
   StructMethod,
   StructInstantiation,
+  MatchExpression,
+  MatchArm,
+  Pattern,
+  PatternField,
+  EnumPattern,
+  LiteralPattern,
+  StructPattern,
+  TuplePattern,
+  WildcardPattern,
+  BindingPattern,
 } from './ast.js';
 
 export class Parser {
@@ -222,6 +232,11 @@ export class Parser {
         // No parenthesis = try statement
         return this.parseTryStatement();
       }
+    }
+
+    // Match expression: ??(value) | pattern => body ;
+    if (token.type === TokenType.MATCH) {
+      return this.parseMatchExpression();
     }
 
     // Assignment: name = value
@@ -793,6 +808,240 @@ export class Parser {
       line: tryToken.line,
       column: tryToken.column,
     };
+  }
+
+  private parseMatchExpression(): MatchExpression {
+    const matchToken = this.advance(); // consume ??
+
+    this.expect([TokenType.LPAREN]);
+    const value = this.parseExpression();
+    this.expect([TokenType.RPAREN]);
+    this.skipNewlines();
+
+    const arms: MatchArm[] = [];
+    while (this.peek().type === TokenType.PIPE) {
+      arms.push(this.parseMatchArm());
+      this.skipNewlines();
+    }
+
+    this.expect([TokenType.SEMICOLON]);
+    this.skipNewlines();
+
+    return {
+      type: 'MatchExpression',
+      value,
+      arms,
+      line: matchToken.line,
+      column: matchToken.column,
+    };
+  }
+
+  private parseMatchArm(): MatchArm {
+    const pipeToken = this.advance(); // consume |
+    this.skipNewlines();
+
+    const pattern = this.parsePattern();
+
+    // Check for guard: & condition
+    let guard: Expression | undefined;
+    if (this.peek().type === TokenType.AMPERSAND) {
+      this.advance(); // consume &
+      guard = this.parseExpression();
+    }
+
+    this.expect([TokenType.FAT_ARROW]);
+    this.skipNewlines();
+
+    // Parse body until next | or ;
+    const body: Statement[] = [];
+    let resultExpression: Expression | undefined;
+
+    while (this.peek().type !== TokenType.PIPE &&
+           this.peek().type !== TokenType.SEMICOLON &&
+           !this.isAtEnd()) {
+      this.skipNewlines();
+      if (this.peek().type === TokenType.PIPE ||
+          this.peek().type === TokenType.SEMICOLON) break;
+
+      const token = this.peek();
+      const nextType = this.peekNext()?.type;
+
+      // Check if this looks like a statement
+      const isStatement =
+        (this.isTypeToken(token.type) && nextType !== TokenType.FUNC) ||
+        token.type === TokenType.PRINT ||
+        token.type === TokenType.ERROR ||
+        token.type === TokenType.WHILE ||
+        token.type === TokenType.IF ||
+        token.type === TokenType.MATCH ||
+        token.type === TokenType.FUNC ||
+        token.type === TokenType.BREAK ||
+        token.type === TokenType.CONTINUE ||
+        token.type === TokenType.THROW ||
+        (token.type === TokenType.IDENTIFIER && nextType === TokenType.EQUALS) ||
+        (token.type === TokenType.IDENTIFIER && (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
+        (token.type === TokenType.IDENTIFIER && this.isCompoundAssignmentToken(nextType)) ||
+        (token.type === TokenType.IDENTIFIER && this.enumNames.has(token.value) && nextType === TokenType.IMMUTABLE) ||
+        (token.type === TokenType.IDENTIFIER && this.structNames.has(token.value) && nextType === TokenType.IMMUTABLE);
+
+      if (isStatement) {
+        body.push(this.parseStatement());
+      } else {
+        // Parse as expression (potential result value)
+        const expr = this.parseExpression();
+        this.skipNewlines();
+
+        // Check if this is followed by | or ; (end of arm)
+        if (this.peek().type === TokenType.PIPE ||
+            this.peek().type === TokenType.SEMICOLON) {
+          resultExpression = expr;
+        } else {
+          // More statements follow
+          body.push({
+            type: 'ExpressionStatement',
+            expression: expr,
+            line: token.line,
+            column: token.column,
+          });
+        }
+      }
+    }
+
+    return {
+      pattern,
+      guard,
+      body,
+      resultExpression,
+      line: pipeToken.line,
+      column: pipeToken.column,
+    };
+  }
+
+  private parsePattern(): Pattern {
+    const token = this.peek();
+
+    // Wildcard: _
+    if (token.type === TokenType.NULL) {
+      this.advance();
+      return { kind: 'wildcard' };
+    }
+
+    // Literal: 42, "hello", true
+    if (token.type === TokenType.NUMBER_LITERAL) {
+      return { kind: 'literal', value: this.parseNumberLiteral() };
+    }
+
+    if (token.type === TokenType.STRING_LITERAL) {
+      return { kind: 'literal', value: this.parseStringLiteral() };
+    }
+
+    if (token.type === TokenType.BOOL_LITERAL) {
+      return { kind: 'literal', value: this.parseBoolLiteral() };
+    }
+
+    // Tuple pattern: (x, y, z)
+    if (token.type === TokenType.LPAREN) {
+      return this.parseTuplePattern();
+    }
+
+    // Identifier-based patterns
+    if (token.type === TokenType.IDENTIFIER) {
+      // Enum pattern: Color.Red
+      if (this.enumNames.has(token.value)) {
+        this.advance(); // consume enum name
+        this.expect([TokenType.DOT]);
+        const variantToken = this.expect([TokenType.IDENTIFIER]);
+        return {
+          kind: 'enum',
+          enumName: token.value,
+          variant: variantToken.value,
+        } as EnumPattern;
+      }
+
+      // Struct pattern: Point(x, y)
+      if (this.structNames.has(token.value)) {
+        return this.parseStructPattern();
+      }
+
+      // Binding pattern: variable name
+      this.advance();
+      return { kind: 'binding', name: token.value } as BindingPattern;
+    }
+
+    throw new Error(`Unexpected pattern at line ${token.line}, column ${token.column}`);
+  }
+
+  private parseStructPattern(): StructPattern {
+    const structNameToken = this.advance();
+    const structName = structNameToken.value;
+
+    this.expect([TokenType.LPAREN]);
+
+    const fields: PatternField[] = [];
+    while (this.peek().type !== TokenType.RPAREN) {
+      fields.push(this.parsePatternField());
+      if (this.peek().type === TokenType.COMMA) {
+        this.advance();
+      }
+    }
+
+    this.expect([TokenType.RPAREN]);
+
+    return {
+      kind: 'struct',
+      structName,
+      fields,
+    };
+  }
+
+  private parseTuplePattern(): TuplePattern {
+    this.advance(); // consume (
+
+    const elements: PatternField[] = [];
+    while (this.peek().type !== TokenType.RPAREN) {
+      elements.push(this.parsePatternField());
+      if (this.peek().type === TokenType.COMMA) {
+        this.advance();
+      }
+    }
+
+    this.expect([TokenType.RPAREN]);
+
+    return {
+      kind: 'tuple',
+      elements,
+    };
+  }
+
+  private parsePatternField(): PatternField {
+    const token = this.peek();
+
+    // Wildcard in field position: _
+    if (token.type === TokenType.NULL) {
+      this.advance();
+      return { pattern: { kind: 'wildcard' } };
+    }
+
+    // Literal in field position: 42, "hello", true
+    if (token.type === TokenType.NUMBER_LITERAL) {
+      return { pattern: { kind: 'literal', value: this.parseNumberLiteral() } };
+    }
+
+    if (token.type === TokenType.STRING_LITERAL) {
+      return { pattern: { kind: 'literal', value: this.parseStringLiteral() } };
+    }
+
+    if (token.type === TokenType.BOOL_LITERAL) {
+      return { pattern: { kind: 'literal', value: this.parseBoolLiteral() } };
+    }
+
+    // Binding: variable name
+    if (token.type === TokenType.IDENTIFIER) {
+      this.advance();
+      return { binding: token.value };
+    }
+
+    throw new Error(`Expected pattern field at line ${token.line}, column ${token.column}`);
   }
 
   private parseEnumDeclaration(exported: boolean = false): EnumDeclaration {
@@ -1664,6 +1913,11 @@ export class Parser {
     // Array literal: [1, 2, 3]
     if (token.type === TokenType.LBRACKET) {
       return this.parseArrayLiteral();
+    }
+
+    // Match expression as expression: i#x = ??(val) | ... ;
+    if (token.type === TokenType.MATCH) {
+      return this.parseMatchExpression();
     }
 
     throw new Error(`Expected expression at line ${token.line}, column ${token.column}, got '${token.value}'`);

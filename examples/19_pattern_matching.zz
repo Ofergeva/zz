@@ -1,0 +1,104 @@
+// Pattern Matching in ZZ
+// The ?? operator enables exhaustive pattern matching
+
+// === Enum Matching ===
+E Color Red Green Blue ;
+
+Z describeColor(Color#c)
+  ??(c)
+    | Color.Red   => print("Warm color: Red")
+    | Color.Green => print("Nature color: Green")
+    | Color.Blue  => print("Cool color: Blue")
+  ;
+;
+
+print("=== Enum Matching ===")
+describeColor(Color.Red)
+describeColor(Color.Green)
+describeColor(Color.Blue)
+
+// === Literal Matching ===
+Z describeNumber(i#n)
+  ??(n)
+    | 0 => print("Zero")
+    | 1 => print("One")
+    | _ => print("Some other number")
+  ;
+;
+
+print("")
+print("=== Literal Matching ===")
+describeNumber(0)
+describeNumber(1)
+describeNumber(42)
+
+// === Struct Destructuring ===
+S Point i#x i#y ;
+
+Z describePoint(Point#p)
+  ??(p)
+    | Point(0, 0)    => print("Origin")
+    | Point(0, y)    => print(s"Y-axis at y={y}")
+    | Point(x, 0)    => print(s"X-axis at x={x}")
+    | Point(x, y)    => print(s"Point at ({x}, {y})")
+  ;
+;
+
+print("")
+print("=== Struct Destructuring ===")
+describePoint(Point(0, 0))
+describePoint(Point(0, 5))
+describePoint(Point(3, 0))
+describePoint(Point(3, 4))
+
+// === Pattern Matching with Guards ===
+Z classifyPoint(Point#p)
+  ??(p)
+    | Point(x, y) & x > 0 && y > 0 => print("Quadrant I")
+    | Point(x, y) & x < 0 && y > 0 => print("Quadrant II")
+    | Point(x, y) & x < 0 && y < 0 => print("Quadrant III")
+    | Point(x, y) & x > 0 && y < 0 => print("Quadrant IV")
+    | _                            => print("On an axis")
+  ;
+;
+
+print("")
+print("=== Guards ===")
+classifyPoint(Point(1, 1))
+classifyPoint(Point(-1, 1))
+classifyPoint(Point(-1, -1))
+classifyPoint(Point(1, -1))
+classifyPoint(Point(0, 5))
+
+// === Match as Expression ===
+i Z scoreGrade(i#score)
+  ??(score)
+    | 100 => 10
+    | _   => 0
+  ;
+;
+
+print("")
+print("=== Match as Expression ===")
+i#perfectScore = scoreGrade(100)
+i#otherScore = scoreGrade(85)
+print(s"Perfect score bonus: {perfectScore}")
+print(s"Other score bonus: {otherScore}")
+
+// === Binding Pattern ===
+Z processValue(i#n)
+  ??(n)
+    | v & v > 100 => print(s"Large value: {v}")
+    | v & v > 50  => print(s"Medium value: {v}")
+    | v           => print(s"Small value: {v}")
+  ;
+;
+
+print("")
+print("=== Binding Pattern ===")
+processValue(150)
+processValue(75)
+processValue(25)
+
+print("")
+print("Pattern matching complete!")
