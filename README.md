@@ -674,6 +674,152 @@ Color#d = Color.Purple    // ❌ Unknown variant
 
 ---
 
+## Structs
+
+Structs are user-defined types with fields and methods. They provide a foundation for object-oriented programming with encapsulated behavior.
+
+### Declaration
+
+```zz
+S Point
+  i#x
+  i#y
+
+  s Z toString()
+    s"({x}, {y})"
+  ;
+
+  i Z manhattanDistance()
+    x + y
+  ;
+;
+```
+
+- `S` keyword starts declaration
+- Fields use `type#name` syntax
+- Methods use standard function syntax inside the struct body
+- Fields are accessible directly in methods (implicit self)
+- `;` terminates both methods and the struct declaration
+
+### Struct Instantiation
+
+```zz
+// Positional arguments (in field order)
+Point#p1 = Point(10, 20)
+
+// Named arguments
+Point#p2 = Point(x=5, y=15)
+```
+
+### Field Access
+
+```zz
+print(p1.x)         // 10
+print(p1.y)         // 20
+```
+
+### Method Calls
+
+```zz
+print(p1.toString())           // "(10, 20)"
+print(p1.manhattanDistance())  // 30
+```
+
+### Mutability
+
+Struct instances follow the same mutability rules as other types:
+
+```zz
+// Immutable instance - cannot modify fields
+Point#immutable = Point(1, 2)
+immutable.x = 5    // ❌ Compile error
+
+// Mutable instance - can modify fields
+Point~mutable = Point(1, 2)
+mutable.x = 5      // ✅ OK
+print(mutable.x)   // 5
+```
+
+### Struct with Multiple Types
+
+```zz
+S Person
+  s#name
+  i#age
+
+  s Z greet()
+    s"Hello, I'm {name}!"
+  ;
+
+  b Z isAdult()
+    age >= 18
+  ;
+;
+
+Person#alice = Person("Alice", 30)
+print(alice.greet())      // "Hello, I'm Alice!"
+print(alice.isAdult())    // true
+```
+
+### Methods with Parameters
+
+```zz
+S Rectangle
+  i#width
+  i#height
+
+  i Z area()
+    width * height
+  ;
+
+  b Z fitsInside(i#maxW i#maxH)
+    width <= maxW && height <= maxH
+  ;
+;
+
+Rectangle#rect = Rectangle(10, 5)
+print(rect.area())              // 50
+print(rect.fitsInside(20, 20))  // true
+print(rect.fitsInside(8, 8))    // false
+```
+
+### Functions with Structs
+
+```zz
+// Struct parameter
+Z printPoint(Point#p)
+  print(p.toString())
+;
+
+// Struct return type
+Point Z origin()
+  Point(0, 0)
+;
+
+printPoint(Point(3, 4))
+Point#o = origin()
+```
+
+### Type Safety
+
+```zz
+S Point
+  i#x
+  i#y
+;
+
+S Size
+  i#w
+  i#h
+;
+
+Point#p = Size(10, 20)     // ❌ Type mismatch
+Point#q = Point("a", "b")  // ❌ Field type mismatch
+print(p.z)                 // ❌ Unknown field
+```
+
+---
+
 ## Strings
 
 ### Core String Methods
@@ -1069,6 +1215,11 @@ fizzbuzz(15)
 | `E Color Red Green ;` | `const Color = Object.freeze({...})` | Enum declaration |
 | `Color#c = Color.Red` | `const c = Color.Red` | Enum variable |
 | `Color.Red` | `Color.Red` | Enum access |
+| `S Name ... ;` | `class Name { ... }` | Struct declaration |
+| `Name#x = Name(...)` | `const x = new Name(...)` | Immutable struct instance |
+| `Name~x = Name(...)` | `let x = new Name(...)` | Mutable struct instance |
+| `x.field` | `x.field` | Field access |
+| `x.method()` | `x.method()` | Method call |
 | `x++` | `x++` | Increment |
 | `x--` | `x--` | Decrement |
 | `x += 5` | `x += 5` | Add assign |

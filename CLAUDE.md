@@ -43,8 +43,11 @@ vscode-zz/         # VS Code extension
 ### Types & Variables
 - `s#name = "text"` → `const name = "text"` (string, immutable)
 - `i~count = 0` → `let count = 0` (int, mutable)
-- Types: `s` (string), `i` (int), `f` (float), `b` (bool)
+- Primitives: `s` (string), `i` (int), `f` (float), `b` (bool)
 - Arrays: `i[]` (dynamic), `i[5]` (fixed-size)
+- Tuples: `ti5` (5 ints), `tiN` (inferred length), always immutable
+- Null: `_` (no undefined in ZZ)
+- String interpolation: `s"Hello, {name}!"`
 
 ### Control Flow
 - `?(cond) ... ;` → if
@@ -56,7 +59,32 @@ vscode-zz/         # VS Code extension
 
 ### Functions
 - `Z funcName() ... ;` → void function
-- `i Z add(i#a, i#b) -> a + b ;` → typed return
+- `i Z add(i#a i#b) a + b ;` → typed return (last expr is return value)
+
+### Enums
+```zz
+E Color Red Green Blue ;     // Declaration
+Color#c = Color.Red          // Usage
+```
+
+### Structs
+```zz
+S Person                     // Declaration
+  s#name                     // Fields use type#name
+  i#age
+
+  s Z greet()                // Methods inside struct
+    s"Hello, {name}!"        // Implicit self (fields accessible directly)
+  ;
+;
+
+Person#p = Person("Alice", 30)   // Immutable instance
+Person~q = Person("Bob", 25)     // Mutable instance (can modify fields)
+print(p.name)                    // Field access
+print(p.greet())                 // Method call
+q.age = 26                       // Field assignment (mutable only)
+```
+Generated as JavaScript classes.
 
 ### Modules
 - `->` export, `<-` import
@@ -74,9 +102,12 @@ vscode-zz/         # VS Code extension
 - `print()`, `error()` → console.log/error
 - `.len()` → .length
 - `s()`, `i()`, `f()`, `b()` → type casting
+- UFCS: `str.upper()` calls `upper(str)` (any function can be method-called)
 
 ## Conventions
 - 2-space indentation in generated JS
-- Variables names preserved exactly
+- Variable names preserved exactly
 - Parentheses added for operator precedence safety
 - Range loops generate ascending/descending handling
+- Two-pass parsing: collect enum/struct names first, then parse (enables forward references)
+- Structs compile to JS classes, enums to frozen objects
