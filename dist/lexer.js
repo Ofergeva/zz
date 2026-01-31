@@ -44,6 +44,7 @@ export var TokenType;
     // Control flow
     TokenType["WHILE"] = "WHILE";
     TokenType["IF"] = "IF";
+    TokenType["MATCH"] = "MATCH";
     TokenType["ELSE_IF"] = "ELSE_IF";
     TokenType["ELSE"] = "ELSE";
     TokenType["SEMICOLON"] = "SEMICOLON";
@@ -51,6 +52,9 @@ export var TokenType;
     TokenType["CONTINUE"] = "CONTINUE";
     TokenType["THROW"] = "THROW";
     TokenType["NULL"] = "NULL";
+    TokenType["PIPE"] = "PIPE";
+    TokenType["FAT_ARROW"] = "FAT_ARROW";
+    TokenType["AMPERSAND"] = "AMPERSAND";
     // Functions
     TokenType["FUNC"] = "FUNC";
     TokenType["ENUM"] = "ENUM";
@@ -174,18 +178,26 @@ export class Lexer {
             }
             return this.makeToken(TokenType.DOT, '.');
         }
-        // = and ==
+        // = , ==, and => (fat arrow)
         if (char === '=') {
             this.advance();
             if (this.peek() === '=') {
                 this.advance();
                 return this.makeToken(TokenType.EQ, '==');
             }
+            if (this.peek() === '>') {
+                this.advance();
+                return this.makeToken(TokenType.FAT_ARROW, '=>');
+            }
             return this.makeToken(TokenType.EQUALS, '=');
         }
-        // ? (if)
+        // ? (if) and ?? (pattern match)
         if (char === '?') {
             this.advance();
+            if (this.peek() === '?') {
+                this.advance();
+                return this.makeToken(TokenType.MATCH, '??');
+            }
             return this.makeToken(TokenType.IF, '?');
         }
         // : and :? (else and else-if)
@@ -240,22 +252,23 @@ export class Lexer {
             }
             return this.makeToken(TokenType.NOT, '!');
         }
-        // && and ||
+        // & (guard), && (logical and)
         if (char === '&') {
             this.advance();
             if (this.peek() === '&') {
                 this.advance();
                 return this.makeToken(TokenType.AND, '&&');
             }
-            throw new Error(`Unexpected character '&' at line ${this.line}, column ${this.column}. Did you mean '&&'?`);
+            return this.makeToken(TokenType.AMPERSAND, '&');
         }
+        // | (match arm), || (logical or)
         if (char === '|') {
             this.advance();
             if (this.peek() === '|') {
                 this.advance();
                 return this.makeToken(TokenType.OR, '||');
             }
-            throw new Error(`Unexpected character '|' at line ${this.line}, column ${this.column}. Did you mean '||'?`);
+            return this.makeToken(TokenType.PIPE, '|');
         }
         // Arithmetic operators (check multi-char first)
         // + , ++, +=

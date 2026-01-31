@@ -25,4 +25,8 @@ export declare class CodeGenerator {
     private generateIfStatement;
     private generateFunctionDeclaration;
     private generateExpression;
+    private generateMatchExpression;
+    private generatePatternCondition;
+    private substituteBindingsInGuard;
+    private generatePatternBindings;
 }

@@ -194,6 +194,9 @@ export class TypeChecker {
                 // Check struct methods (struct is already registered in first pass)
                 this.checkStructDeclaration(statement);
                 break;
+            case 'MatchExpression':
+                this.checkMatchExpression(statement);
+                break;
         }
     }
     checkStructDeclaration(decl) {
@@ -241,6 +244,126 @@ export class TypeChecker {
         }
         // Restore variables (exit scope)
         this.variables = savedVariables;
+    }
+    checkMatchExpression(match) {
+        // Check the value being matched
+        this.checkExpression(match.value, match.line);
+        const valueType = this.inferExpressionType(match.value);
+        const coveredVariants = new Set();
+        let hasWildcard = false;
+        for (const arm of match.arms) {
+            // Validate pattern matches value type
+            this.checkPatternType(arm.pattern, valueType, arm.line);
+            // Save scope, add bindings from pattern
+            const savedVars = new Map(this.variables);
+            this.addPatternBindings(arm.pattern, valueType, arm.line);
+            // Check guard expression if present
+            if (arm.guard) {
+                this.checkExpression(arm.guard, arm.line);
+                this.requireBooleanCondition(arm.guard, arm.line, 'Match guard');
+            }
+            // Check body statements
+            for (const stmt of arm.body) {
+                this.checkStatement(stmt);
+            }
+            // Check result expression if present
+            if (arm.resultExpression) {
+                this.checkExpression(arm.resultExpression, arm.line);
+            }
+            // Track coverage for exhaustiveness checking
+            if (arm.pattern.kind === 'wildcard' || arm.pattern.kind === 'binding') {
+                hasWildcard = true;
+            }
+            if (arm.pattern.kind === 'enum') {
+                coveredVariants.add(arm.pattern.variant);
+            }
+            // Restore variables (exit arm scope)
+            this.variables = savedVars;
+        }
+        // Exhaustiveness check for enums
+        if (valueType && isEnumType(valueType) && !hasWildcard) {
+            const allVariants = this.enums.get(valueType.name);
+            if (allVariants) {
+                for (const variant of allVariants) {
+                    if (!coveredVariants.has(variant)) {
+                        this.errors.push(`Non-exhaustive match at line ${match.line}: missing pattern for ${valueType.name}.${variant}.`);
+                    }
+                }
+            }
+        }
+    }
+    checkPatternType(pattern, expected, line) {
+        if (!expected)
+            return;
+        switch (pattern.kind) {
+            case 'enum':
+                if (!isEnumType(expected) || expected.name !== pattern.enumName) {
+                    this.errors.push(`Pattern type mismatch at line ${line}: expected ${this.typeToString(expected)}, got ${pattern.enumName}.`);
+                }
+                // Validate variant exists
+                const variants = this.enums.get(pattern.enumName);
+                if (variants && !variants.includes(pattern.variant)) {
+                    this.errors.push(`Unknown variant '${pattern.variant}' in enum '${pattern.enumName}' at line ${line}.`);
+                }
+                break;
+            case 'struct':
+                if (!isStructType(expected) || expected.name !== pattern.structName) {
+                    this.errors.push(`Pattern type mismatch at line ${line}: expected ${this.typeToString(expected)}, got ${pattern.structName}.`);
+                }
+                break;
+            case 'tuple':
+                if (!isTupleType(expected)) {
+                    this.errors.push(`Cannot use tuple pattern on ${this.typeToString(expected)} at line ${line}.`);
+                }
+                break;
+            case 'literal':
+                const litType = this.inferExpressionType(pattern.value);
+                if (litType && !this.typesEqual(litType, expected)) {
+                    this.errors.push(`Literal pattern type mismatch at line ${line}: expected ${this.typeToString(expected)}, got ${this.typeToString(litType)}.`);
+                }
+                break;
+        }
+    }
+    addPatternBindings(pattern, valueType, line) {
+        switch (pattern.kind) {
+            case 'binding':
+                if (valueType) {
+                    this.variables.set(pattern.name, {
+                        dataType: valueType,
+                        mutability: 'immutable',
+                        line,
+                    });
+                }
+                break;
+            case 'struct': {
+                const structInfo = this.structs.get(pattern.structName);
+                if (structInfo) {
+                    pattern.fields.forEach((field, i) => {
+                        if (field.binding && structInfo.fields[i]) {
+                            this.variables.set(field.binding, {
+                                dataType: structInfo.fields[i].dataType,
+                                mutability: 'immutable',
+                                line,
+                            });
+                        }
+                    });
+                }
+                break;
+            }
+            case 'tuple':
+                if (valueType && isTupleType(valueType)) {
+                    for (const elem of pattern.elements) {
+                        if (elem.binding) {
+                            this.variables.set(elem.binding, {
+                                dataType: valueType.elementType,
+                                mutability: 'immutable',
+                                line,
+                            });
+                        }
+                    }
+                }
+                break;
+        }
     }
     checkTryStatement(stmt) {
         // Check try body
@@ -881,6 +1004,9 @@ export class TypeChecker {
         else if (expr.type === 'StructInstantiation') {
             this.checkStructInstantiation(expr, line);
         }
+        else if (expr.type === 'MatchExpression') {
+            this.checkMatchExpression(expr);
+        }
     }
     checkStructInstantiation(expr, line) {
         const structInfo = this.structs.get(expr.structName);
@@ -1237,6 +1363,14 @@ export class TypeChecker {
                 // Return the struct type
                 if (this.structs.has(expr.structName)) {
                     return { kind: 'struct', name: expr.structName };
+                }
+                return null;
+            case 'MatchExpression':
+                // Infer type from the first arm's result expression
+                for (const arm of expr.arms) {
+                    if (arm.resultExpression) {
+                        return this.inferExpressionType(arm.resultExpression);
+                    }
                 }
                 return null;
             default:

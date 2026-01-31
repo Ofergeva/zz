@@ -24,6 +24,12 @@ export declare class Parser {
     private parseForLoop;
     private parseIfStatement;
     private parseTryStatement;
+    private parseMatchExpression;
+    private parseMatchArm;
+    private parsePattern;
+    private parseStructPattern;
+    private parseTuplePattern;
+    private parsePatternField;
     private parseEnumDeclaration;
     private parseEnumVariableDeclaration;
     private parseStructDeclaration;

@@ -67,6 +67,8 @@ export class CodeGenerator {
                 return this.generateEnumDeclaration(statement);
             case 'StructDeclaration':
                 return this.generateStructDeclaration(statement);
+            case 'MatchExpression':
+                return this.generateMatchExpression(statement);
         }
     }
     generateEnumDeclaration(decl) {
@@ -428,6 +430,142 @@ ${methods}
                     return `new ${expr.structName}(${args})`;
                 }
             }
+            case 'MatchExpression':
+                return this.generateMatchExpression(expr);
         }
+    }
+    generateMatchExpression(match) {
+        const value = this.generateExpression(match.value);
+        const tempVar = `__match_${match.line}`;
+        const lines = [];
+        lines.push(`(function() {`);
+        lines.push(`  const ${tempVar} = ${value};`);
+        let first = true;
+        for (const arm of match.arms) {
+            const cond = this.generatePatternCondition(arm.pattern, tempVar, arm.guard);
+            const keyword = first ? 'if' : ' else if';
+            first = false;
+            lines.push(`  ${keyword} (${cond}) {`);
+            // Generate bindings
+            for (const binding of this.generatePatternBindings(arm.pattern, tempVar)) {
+                lines.push(`    ${binding}`);
+            }
+            // Generate body statements
+            for (const stmt of arm.body) {
+                lines.push(`    ${this.generateStatement(stmt)}`);
+            }
+            // Generate result expression if present
+            if (arm.resultExpression) {
+                lines.push(`    return ${this.generateExpression(arm.resultExpression)};`);
+            }
+            lines.push(`  }`);
+        }
+        lines.push(`})();`);
+        return lines.join('\n');
+    }
+    generatePatternCondition(pattern, tempVar, guard) {
+        let cond;
+        switch (pattern.kind) {
+            case 'wildcard':
+            case 'binding':
+                cond = 'true';
+                break;
+            case 'enum':
+                cond = `${tempVar} === ${pattern.enumName}.${pattern.variant}`;
+                break;
+            case 'literal':
+                cond = `${tempVar} === ${this.generateExpression(pattern.value)}`;
+                break;
+            case 'struct': {
+                const structConds = [];
+                const fieldNames = this.structFields.get(pattern.structName);
+                if (fieldNames) {
+                    pattern.fields.forEach((f, i) => {
+                        if (f.pattern?.kind === 'literal') {
+                            structConds.push(`${tempVar}.${fieldNames[i]} === ${this.generateExpression(f.pattern.value)}`);
+                        }
+                    });
+                }
+                cond = structConds.length > 0 ? structConds.join(' && ') : 'true';
+                break;
+            }
+            case 'tuple': {
+                const tupleConds = [];
+                pattern.elements.forEach((e, i) => {
+                    if (e.pattern?.kind === 'literal') {
+                        tupleConds.push(`${tempVar}[${i}] === ${this.generateExpression(e.pattern.value)}`);
+                    }
+                });
+                cond = tupleConds.length > 0 ? tupleConds.join(' && ') : 'true';
+                break;
+            }
+        }
+        if (guard) {
+            // Generate guard code and replace binding names with accessor expressions
+            let guardCode = this.generateExpression(guard);
+            guardCode = this.substituteBindingsInGuard(guardCode, pattern, tempVar);
+            cond = `(${cond}) && (${guardCode})`;
+        }
+        return cond;
+    }
+    substituteBindingsInGuard(guardCode, pattern, tempVar) {
+        switch (pattern.kind) {
+            case 'binding':
+                // Replace the binding name with the temp variable
+                const bindingRegex = new RegExp(`(?<![a-zA-Z0-9_])${pattern.name}(?![a-zA-Z0-9_])`, 'g');
+                return guardCode.replace(bindingRegex, tempVar);
+            case 'struct': {
+                let result = guardCode;
+                const fieldNames = this.structFields.get(pattern.structName);
+                if (fieldNames) {
+                    pattern.fields.forEach((f, i) => {
+                        if (f.binding) {
+                            const regex = new RegExp(`(?<![a-zA-Z0-9_])${f.binding}(?![a-zA-Z0-9_])`, 'g');
+                            result = result.replace(regex, `${tempVar}.${fieldNames[i]}`);
+                        }
+                    });
+                }
+                return result;
+            }
+            case 'tuple': {
+                let result = guardCode;
+                pattern.elements.forEach((e, i) => {
+                    if (e.binding) {
+                        const regex = new RegExp(`(?<![a-zA-Z0-9_])${e.binding}(?![a-zA-Z0-9_])`, 'g');
+                        result = result.replace(regex, `${tempVar}[${i}]`);
+                    }
+                });
+                return result;
+            }
+            default:
+                return guardCode;
+        }
+    }
+    generatePatternBindings(pattern, tempVar) {
+        const bindings = [];
+        switch (pattern.kind) {
+            case 'binding':
+                bindings.push(`const ${pattern.name} = ${tempVar};`);
+                break;
+            case 'struct': {
+                const fieldNames = this.structFields.get(pattern.structName);
+                if (fieldNames) {
+                    pattern.fields.forEach((f, i) => {
+                        if (f.binding) {
+                            bindings.push(`const ${f.binding} = ${tempVar}.${fieldNames[i]};`);
+                        }
+                    });
+                }
+                break;
+            }
+            case 'tuple':
+                pattern.elements.forEach((e, i) => {
+                    if (e.binding) {
+                        bindings.push(`const ${e.binding} = ${tempVar}[${i}];`);
+                    }
+                });
+                break;
+        }
+        return bindings;
     }
 }

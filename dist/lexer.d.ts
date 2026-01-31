@@ -33,6 +33,7 @@ export declare enum TokenType {
     NOT = "NOT",// !
     WHILE = "WHILE",// @
     IF = "IF",// ?
+    MATCH = "MATCH",// ?? (pattern matching)
     ELSE_IF = "ELSE_IF",// :?
     ELSE = "ELSE",// :
     SEMICOLON = "SEMICOLON",// ;
@@ -40,6 +41,9 @@ export declare enum TokenType {
     CONTINUE = "CONTINUE",// >>
     THROW = "THROW",// >X
     NULL = "NULL",// _
+    PIPE = "PIPE",// | (match arm)
+    FAT_ARROW = "FAT_ARROW",// => (match result)
+    AMPERSAND = "AMPERSAND",// & (match guard)
     FUNC = "FUNC",// Z
     ENUM = "ENUM",// E
     STRUCT = "STRUCT",// S

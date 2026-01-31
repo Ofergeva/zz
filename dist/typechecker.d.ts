@@ -14,6 +14,9 @@ export declare class TypeChecker {
     private checkStatement;
     private checkStructDeclaration;
     private checkStructMethod;
+    private checkMatchExpression;
+    private checkPatternType;
+    private addPatternBindings;
     private checkTryStatement;
     private checkIndexAssignment;
     private checkFieldAssignment;
