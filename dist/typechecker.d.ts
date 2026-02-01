@@ -1,4 +1,4 @@
-import { Program } from './ast.js';
+import { Program, ImportedModuleInfo } from './ast.js';
 export declare class TypeChecker {
     private variables;
     private functions;
@@ -7,6 +7,8 @@ export declare class TypeChecker {
     private errors;
     private loopDepth;
     private currentStructName;
+    private moduleTypes;
+    constructor(moduleTypes?: Map<string, ImportedModuleInfo>);
     check(program: Program): string[];
     private registerEnum;
     private registerStruct;
@@ -29,6 +31,8 @@ export declare class TypeChecker {
     private checkThrowStatement;
     private checkWhileStatement;
     private checkForStatement;
+    private checkForEachStatement;
+    private checkImportStatement;
     private checkIfStatement;
     private checkFunctionDeclaration;
     private checkFunctionCall;
@@ -38,6 +42,7 @@ export declare class TypeChecker {
     private requireBooleanCondition;
     private isComparisonOperator;
     private typesEqual;
+    private typesCompatible;
     private typeToString;
     private inferExpressionType;
 }

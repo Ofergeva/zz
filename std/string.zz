@@ -1,0 +1,55 @@
+->s Z upper(s#str)
+  $js{ return str.toUpperCase(); }
+;
+
+->s Z lower(s#str)
+  $js{ return str.toLowerCase(); }
+;
+
+->s Z trim(s#str)
+  $js{ return str.trim(); }
+;
+
+->s[] Z split(s#str s#sep)
+  $js{ return str.split(sep); }
+;
+
+->b Z has(s#str s#sub)
+  $js{ return str.includes(sub); }
+;
+
+->i Z find(s#str s#sub)
+  $js{ return str.indexOf(sub); }
+;
+
+->b Z starts(s#str s#prefix)
+  $js{ return str.startsWith(prefix); }
+;
+
+->b Z ends(s#str s#suffix)
+  $js{ return str.endsWith(suffix); }
+;
+
+->s Z slice(s#str i#start i#end)
+  $js{ return str.slice(start, end); }
+;
+
+->s Z replace(s#str s#old s#replacement)
+  $js{ return str.replaceAll(old, replacement); }
+;
+
+->s Z repeat(s#str i#n)
+  $js{ return str.repeat(n); }
+;
+
+->s Z padStart(s#str i#len s#pad)
+  $js{ return str.padStart(len, pad || " "); }
+;
+
+->s Z padEnd(s#str i#len s#pad)
+  $js{ return str.padEnd(len, pad || " "); }
+;
+
+->s Z join(s[]#arr s#sep)
+  $js{ return arr.join(sep); }
+;

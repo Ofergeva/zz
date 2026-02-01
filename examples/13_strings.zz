@@ -2,7 +2,7 @@
 // Demonstrates core string methods and UFCS with std/string
 
 // Import string functions from standard library
-<- { upper, lower, trim, split, has, find, starts, ends, replace, repeat } = "../std/string"
+<- { upper, lower, trim, split, has, find, starts, ends, replace, repeat } = std/string
 
 // ==============================
 // Core String Methods (built-in)

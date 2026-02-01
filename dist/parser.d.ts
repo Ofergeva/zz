@@ -5,7 +5,10 @@ export declare class Parser {
     private pos;
     private enumNames;
     private structNames;
-    constructor(tokens: Token[]);
+    constructor(tokens: Token[], externalTypes?: {
+        structNames?: Set<string>;
+        enumNames?: Set<string>;
+    });
     parse(): Program;
     private collectTypeNames;
     private parseStatement;

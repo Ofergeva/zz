@@ -1,24 +1,32 @@
-export function sort(arr) {
-  return [...arr].sort((a, b) => a - b);
-}
-export function sortDesc(arr) {
-  return [...arr].sort((a, b) => b - a);
-}
-export function sum(arr) {
-  return arr.reduce((a, b) => a + b, 0);
-}
-export function product(arr) {
-  return arr.reduce((a, b) => a * b, 1);
-}
-export function average(arr) {
-  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-}
-export function minVal(arr) {
-  return Math.min(...arr);
-}
-export function maxVal(arr) {
-  return Math.max(...arr);
-}
+->i[] Z sort(i[]#arr)
+  $js{ return [...arr].sort((a, b) => a - b); }
+;
+
+->i[] Z sortDesc(i[]#arr)
+  $js{ return [...arr].sort((a, b) => b - a); }
+;
+
+->i Z sum(i[]#arr)
+  $js{ return arr.reduce((a, b) => a + b, 0); }
+;
+
+->i Z product(i[]#arr)
+  $js{ return arr.reduce((a, b) => a * b, 1); }
+;
+
+->f Z average(i[]#arr)
+  $js{ return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
+;
+
+->i Z minVal(i[]#arr)
+  $js{ return Math.min(...arr); }
+;
+
+->i Z maxVal(i[]#arr)
+  $js{ return Math.max(...arr); }
+;
+
+$js{
 export function includes(arr, val) { return arr.includes(val); }
 export function indexOf(arr, val) { return arr.indexOf(val); }
 export function lastIndexOf(arr, val) { return arr.lastIndexOf(val); }
@@ -36,3 +44,4 @@ export function isEmpty(arr) { return arr.length === 0; }
 export function sortStr(arr) { return [...arr].sort(); }
 export function unique(arr) { return [...new Set(arr)]; }
 export function count(arr, val) { return arr.filter(x => x === val).length; }
+}

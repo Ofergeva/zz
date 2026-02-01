@@ -1,0 +1,14 @@
+<-! {importedValue} = "../lib/test"
+<- {Instant, now, format} = std/time
+<- {cof} = "../lib/test2"
+
+i#num = 57
+print("Imported value: " + importedValue)
+print(s"Local number: {num}")
+$js{ 
+  console.log(typeof importedValue);
+}
+Instant#nowTime = now()
+print(s"Current time: {nowTime.format('YYYY-MM-DD HH:mm:ss')}")
+print(s"COF value from test2.zz: {cof}"
+)

@@ -1,0 +1,92 @@
+$js{ import pathModule from "path"; }
+
+->S Path
+  s#path
+
+  s Z basename()
+    $js{ return pathModule.basename(path); }
+  ;
+
+  s Z dirname()
+    $js{ return pathModule.dirname(path); }
+  ;
+
+  s Z ext()
+    $js{ return pathModule.extname(path); }
+  ;
+
+  s Z stem()
+    $js{
+      const base = pathModule.basename(path);
+      const ext = pathModule.extname(path);
+      return ext.length > 0 ? base.slice(0, -ext.length) : base;
+    }
+  ;
+
+  s Z resolve()
+    $js{ return pathModule.resolve(path); }
+  ;
+
+  s Z normalize()
+    $js{ return pathModule.normalize(path); }
+  ;
+
+  b Z isAbsolute()
+    $js{ return pathModule.isAbsolute(path); }
+  ;
+
+  b Z isRelative()
+    $js{ return !pathModule.isAbsolute(path); }
+  ;
+
+  s Z relative(s#to)
+    $js{ return pathModule.relative(path, to); }
+  ;
+
+  s Z string()
+    $js{ return path; }
+  ;
+
+  s Z valueOf()
+    $js{ return path; }
+  ;
+;
+
+->s Z dirname(s#pathString)
+  $js{ return pathModule.dirname(pathString); }
+;
+
+->s Z basename(s#pathString)
+  $js{ return pathModule.basename(pathString); }
+;
+
+->s Z ext(s#pathString)
+  $js{ return pathModule.extname(pathString); }
+;
+
+->s Z resolve(s#pathString)
+  $js{ return pathModule.resolve(pathString); }
+;
+
+->s Z normalize(s#pathString)
+  $js{ return pathModule.normalize(pathString); }
+;
+
+->b Z isAbsolute(s#pathString)
+  $js{ return pathModule.isAbsolute(pathString); }
+;
+
+->s Z relative(s#from s#to)
+  $js{ return pathModule.relative(from, to); }
+;
+
+->Z pwd()
+  $js{ console.log(process.cwd()); }
+;
+
+$js{
+export function join(...parts) { return pathModule.join(...parts); }
+export const sep = pathModule.sep;
+export const cwd = process.cwd();
+export const delimiter = pathModule.delimiter;
+}

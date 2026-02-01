@@ -1,5 +1,5 @@
-<- {platform, arch, type, cpus} = "../../lib/node/os.js"
-<- {Path, sep} = "../../lib/node/path.js"
+<-! {platform, arch, type, cpus} = "../lib/node/os"
+<-! {Path, sep} = "../lib/node/path"
 
 s#platformS = platform()
 s#archS = arch()

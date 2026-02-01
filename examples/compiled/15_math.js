@@ -1,4 +1,4 @@
-import { sqrt, floor, ceil, round, abs, sin, cos, tan, PI, pow, min, max, random, randomInt, log, exp } from "../std/math.js";
+import { sqrt, floor, ceil, round, abs, sin, cos, tan, PI, pow, min, max, random, randomInt, log, exp } from "../../std/math.js";
 const x = (-7.8);
 console.log(`Original: ${x}`);
 console.log(`Absolute: ${abs(x)}`);

@@ -9,6 +9,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "build:std": "for f in std/*.zz; do node dist/index.js \"$f\" --stdout > \"std/$(basename \"$f\" .zz).js\"; done",
+    "build:all": "npm run build && npm run build:std",
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js"
   },

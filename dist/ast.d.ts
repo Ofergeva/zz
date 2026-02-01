@@ -33,7 +33,7 @@ export interface Program extends ASTNode {
     type: 'Program';
     statements: Statement[];
 }
-export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression | JSBlockStatement;
+export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | ForEachStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression | JSBlockStatement;
 export interface VariableDeclaration extends ASTNode {
     type: 'VariableDeclaration';
     dataType: DataType;
@@ -149,6 +149,12 @@ export interface ForStatement extends ASTNode {
     end: Expression;
     body: Statement[];
 }
+export interface ForEachStatement extends ASTNode {
+    type: 'ForEachStatement';
+    variable: string;
+    iterable: Expression;
+    body: Statement[];
+}
 export interface IfBranch {
     condition: Expression;
     body: Statement[];
@@ -235,6 +241,8 @@ export interface ImportStatement extends ASTNode {
     specifiers: ImportSpecifier[];
     namespace?: string;
     source: string;
+    isStdLib: boolean;
+    isUnsafe: boolean;
 }
 export interface EnumDeclaration extends ASTNode {
     type: 'EnumDeclaration';
@@ -318,4 +326,18 @@ export interface MatchExpression extends ASTNode {
 export interface JSBlockStatement extends ASTNode {
     type: 'JSBlockStatement';
     code: string;
+}
+export interface ImportedModuleInfo {
+    functions: Map<string, {
+        parameters: Parameter[];
+        returnType: DataType | 'void';
+    }>;
+    variables: Map<string, {
+        dataType: DataType;
+        mutability: Mutability;
+    }>;
+    structs: Map<string, {
+        fields: StructField[];
+    }>;
+    enums: Map<string, string[]>;
 }

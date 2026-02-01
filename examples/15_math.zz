@@ -2,7 +2,8 @@
 // Demonstrates std/math functions with UFCS
 
 // Import math functions from standard library
-<- { sqrt, floor, ceil, round, abs, sin, cos, tan, PI, pow, min, max, random, randomInt, log, exp } = "../std/math"
+<- { sqrt, floor, ceil, round, abs, sin, cos, tan, PI, pow, min, max, log, exp } = std/math
+<- { rand, randRange } = std/rand
 
 // ==============================
 // Basic Operations
@@ -52,9 +53,9 @@ print(s"max({a}, {b}) = {max(a, b)}")
 // Random Numbers
 // ==============================
 
-print(s"Random float: {random()}")
-print(s"Random int 1-100: {randomInt(1, 100)}")
-print(s"Random int 1-100: {randomInt(1, 100)}")
+print(s"Random float: {rand()}")
+print(s"Random int 1-100: {randRange(1, 100)}")
+print(s"Random int 1-100: {randRange(1, 100)}")
 
 // ==============================
 // Practical Example: Distance

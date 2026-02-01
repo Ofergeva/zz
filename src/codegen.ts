@@ -1,5 +1,6 @@
 // JavaScript Code Generator for ZZ Language
 
+import * as path from 'path';
 import {
   Program,
   Statement,
@@ -9,6 +10,7 @@ import {
   ErrorStatement,
   WhileStatement,
   ForStatement,
+  ForEachStatement,
   IfStatement,
   TryStatement,
   FunctionDeclaration,
@@ -32,6 +34,12 @@ import {
   isTupleType,
 } from './ast.js';
 
+export interface CodeGenOptions {
+  sourceDir: string;   // Absolute path to source .zz file's directory
+  outputDir: string;   // Absolute path to output .js file's directory
+  stdLibDir: string;   // Absolute path to std/ directory
+}
+
 export class CodeGenerator {
   // Store function parameter info for named argument reordering
   private functionParams: Map<string, string[]> = new Map();
@@ -39,6 +47,11 @@ export class CodeGenerator {
   private structFields: Map<string, string[]> = new Map();
   // Store struct method names to distinguish from UFCS
   private structMethods: Map<string, Set<string>> = new Map();
+  private options?: CodeGenOptions;
+
+  constructor(options?: CodeGenOptions) {
+    this.options = options;
+  }
 
   generate(program: Program): string {
     this.functionParams.clear();
@@ -78,6 +91,8 @@ export class CodeGenerator {
         return this.generateWhileStatement(statement);
       case 'ForStatement':
         return this.generateForStatement(statement);
+      case 'ForEachStatement':
+        return this.generateForEachStatement(statement);
       case 'IfStatement':
         return this.generateIfStatement(statement);
       case 'FunctionDeclaration':
@@ -179,15 +194,36 @@ ${methods}
   }
 
   private generateImportStatement(stmt: ImportStatement): string {
-    // Add .js extension to the source path
-    const sourcePath = stmt.source.endsWith('.js') ? stmt.source : stmt.source + '.js';
+    let resolvedPath: string;
 
-    if (stmt.namespace) {
-      // Namespace import: import * as name from "path"
-      return `import * as ${stmt.namespace} from "${sourcePath}";`;
+    if (this.options) {
+      if (stmt.isStdLib) {
+        // std/string → <stdLibDir>/string → relative to outputDir
+        const moduleName = stmt.source.replace(/^std\//, '');
+        const absTarget = path.join(this.options.stdLibDir, moduleName);
+        resolvedPath = path.relative(this.options.outputDir, absTarget);
+      } else {
+        // "./lib/math" → resolve against sourceDir → relative to outputDir
+        const absTarget = path.resolve(this.options.sourceDir, stmt.source);
+        resolvedPath = path.relative(this.options.outputDir, absTarget);
+      }
+      // Ensure starts with ./ or ../
+      if (!resolvedPath.startsWith('.')) {
+        resolvedPath = './' + resolvedPath;
+      }
+      // Normalize path separators for JS imports
+      resolvedPath = resolvedPath.split(path.sep).join('/');
+    } else {
+      resolvedPath = stmt.source;
     }
 
-    // Destructured import: import { a, b as c } from "path"
+    // Normalize extension: strip .js/.zz if present, always append .js
+    resolvedPath = resolvedPath.replace(/\.(js|zz)$/, '') + '.js';
+
+    if (stmt.namespace) {
+      return `import * as ${stmt.namespace} from "${resolvedPath}";`;
+    }
+
     const specifiers = stmt.specifiers.map(spec => {
       if (spec.alias) {
         return `${spec.name} as ${spec.alias}`;
@@ -195,7 +231,7 @@ ${methods}
       return spec.name;
     }).join(', ');
 
-    return `import { ${specifiers} } from "${sourcePath}";`;
+    return `import { ${specifiers} } from "${resolvedPath}";`;
   }
 
   private generateIndexAssignment(stmt: IndexAssignment): string {
@@ -260,6 +296,13 @@ ${methods}
     const body = stmt.body.map(s => '  ' + this.generateStatement(s)).join('\n');
     // Handle both forward (1..5) and reverse (5..1) loops
     return `for (let __start = ${start}, __end = ${end}, ${v} = __start; __start <= __end ? ${v} <= __end : ${v} >= __end; __start <= __end ? ${v}++ : ${v}--) {\n${body}\n}`;
+  }
+
+  private generateForEachStatement(stmt: ForEachStatement): string {
+    const iterable = this.generateExpression(stmt.iterable);
+    const v = stmt.variable;
+    const body = stmt.body.map(s => '  ' + this.generateStatement(s)).join('\n');
+    return `for (const ${v} of ${iterable}) {\n${body}\n}`;
   }
 
   private generateIfStatement(stmt: IfStatement): string {

@@ -334,6 +334,30 @@ i#to = 10
 ;
 ```
 
+### For-Each Loop
+
+```zz
+@(variable#array)
+  // body uses variable
+;
+```
+
+**Example:**
+
+```zz
+s[]#people = ["Sam", "Anna", "Ben"]
+@(person#people)
+  print(person)
+;
+// Output: Sam, Anna, Ben
+
+// Works with any array type
+i[]#numbers = [10, 20, 30]
+@(n#numbers)
+  print(s"Number: {n}")
+;
+```
+
 ### Break and Continue
 
 ```zz
@@ -476,8 +500,8 @@ i#last = arr.pop()    // returns 4, arr is now [1, 2, 3]
 ```zz
 i Z sum(i[]#numbers)
   i~total = 0
-  @(i#0..numbers.len() - 1)
-    total = total + numbers[i]
+  @(n#numbers)
+    total += n
   ;
   total
 ;
@@ -955,13 +979,13 @@ Pattern matching compiles to an IIFE with an if/else-if chain:
 Becomes:
 
 ```javascript
-(function() {
-  const __match = n;
-  if (__match === 0) {
-    console.log("Zero");
-  } else if (true) {
-    console.log("Other");
-  }
+(function () {
+    const __match = n;
+    if (__match === 0) {
+        console.log("Zero");
+    } else if (true) {
+        console.log("Other");
+    }
 })();
 ```
 
@@ -1047,7 +1071,7 @@ ZZ supports **UFCS**: any function `f(x, ...)` can be called as `x.f(...)`. This
 
 ```zz
 // Import string functions
-<- { upper, trim } = "./std/string"
+<- { upper, trim } = std/string
 
 // These are equivalent:
 upper(str)
@@ -1081,7 +1105,7 @@ ZZ includes a minimal standard library. Import functions and use them with UFCS 
 String manipulation functions:
 
 ```zz
-<- { upper, lower, trim, split, has, find, starts, ends, slice, replace, replaceAll, repeat, padStart, padEnd, join } = "./std/string"
+<- { upper, lower, trim, split, has, find, starts, ends, slice, replace, replaceAll, repeat, padStart, padEnd, join } = std/string
 ```
 
 | Function                  | Signature     | Description                               |
@@ -1105,7 +1129,7 @@ String manipulation functions:
 **Example:**
 
 ```zz
-<- { upper, trim, split, has } = "./std/string"
+<- { upper, trim, split, has } = std/string
 
 s#input = "  hello, world  "
 
@@ -1129,7 +1153,7 @@ print(words[1])  // "world"
 Math functions for numerical operations:
 
 ```zz
-<- { sqrt, floor, ceil, sin, cos, abs, min, max, random, PI } = "./std/math"
+<- { sqrt, floor, ceil, sin, cos, abs, min, max, random, PI } = std/math
 ```
 
 | Function              | Signature        | Description                 |
@@ -1164,7 +1188,7 @@ Math functions for numerical operations:
 **Example:**
 
 ```zz
-<- { sqrt, floor, sin, PI } = "./std/math"
+<- { sqrt, floor, sin, PI } = std/math
 
 f#x = 16.0
 print(x.sqrt())      // 4
@@ -1179,7 +1203,7 @@ print(angle.sin())   // 1
 Array utility functions:
 
 ```zz
-<- { reverse, sort, includes, indexOf, sum, unique, first, last } = "./std/array"
+<- { reverse, sort, includes, indexOf, sum, unique, first, last } = std/array
 ```
 
 | Function                 | Signature         | Description                           |
@@ -1211,7 +1235,7 @@ Array utility functions:
 **Example:**
 
 ```zz
-<- { sort, sum, reverse, includes, unique } = "./std/array"
+<- { sort, sum, reverse, includes, unique } = std/array
 
 i[]#nums = [3, 1, 4, 1, 5, 9, 2, 6]
 
@@ -1296,7 +1320,7 @@ print("This goes to stdout")
 
 ## Modules
 
-ZZ supports ES modules for code organization and reuse.
+ZZ supports ES modules for code organization and reuse. There are two import modes: **safe** (`<-`) for ZZ modules with full type checking, and **unsafe** (`<-!`) for JavaScript/npm modules without type safety.
 
 ### Exporting
 
@@ -1320,12 +1344,16 @@ i Z helper(i#x)
 ;
 ```
 
-### Importing
+### Safe Imports (`<-`)
 
-Use `<-` to import from other modules:
+Use `<-` to import from other `.zz` modules. The compiler parses the imported file and **resolves full type information** — function signatures, variable types, struct definitions, and enums are all type-checked:
 
 ```zz
-// Import specific items
+// Import from standard library (unquoted path)
+<- { sqrt, floor, PI } = std/math
+<- { upper, trim, split } = std/string
+
+// Import from your own .zz modules (quoted path, relative to source file)
 <- { add, subtract } = "./math"
 
 // Import with alias
@@ -1334,6 +1362,45 @@ Use `<-` to import from other modules:
 // Import all as namespace
 <- math = "./math"
 ```
+
+**Type safety with safe imports:**
+
+```zz
+<- { upper } = std/string
+<- { sqrt } = std/math
+
+upper(42)          // ❌ Compile error: expects string, got int
+sqrt()             // ❌ Compile error: missing argument
+upper("hello")     // ✅ Returns string
+```
+
+**Auto-compilation:** Safe imports automatically compile the imported `.zz` file to `.js` if the output is missing or stale (based on file timestamps). This means you don't need to manually compile dependencies — just run your main file.
+
+### Unsafe Imports (`<-!`)
+
+Use `<-!` to import from JavaScript or npm modules. No type checking is performed — all imported bindings are treated as untyped:
+
+```zz
+// Import from a JS file
+<-! { readFile } = "fs"
+
+// Import from npm packages
+<-! { fetch } = "node-fetch"
+
+// Import from local JS files
+<-! { helper } = "./lib/utils"
+```
+
+Use unsafe imports when:
+- Importing npm packages
+- Importing plain JavaScript files (no `.zz` source)
+- Working with Node.js built-in modules
+
+### Path Resolution
+
+- **Standard library** (`std/xxx`): Unquoted. The compiler resolves the path to the built-in `std/` directory automatically.
+- **Regular imports** (`"./path"`): Quoted. Paths are relative to the source `.zz` file. The compiler adjusts them for the output location.
+- `.js` extension is optional — the compiler appends it automatically.
 
 ### Using Imports
 
@@ -1352,7 +1419,7 @@ print(math.VERSION)
 ```javascript
 // Exports become:
 export function add(a, b) {
-	return a + b;
+    return a + b;
 }
 export const VERSION = "1.0.0";
 
@@ -1360,6 +1427,7 @@ export const VERSION = "1.0.0";
 import { add, subtract } from "./math.js";
 import { PI as pi } from "./math.js";
 import * as math from "./math.js";
+import { sqrt, floor, PI } from "../../std/math.js";
 ```
 
 ---
@@ -1402,7 +1470,8 @@ fizzbuzz(15)
 | `:?(cond)`            | `else if (cond)`                     | Else if                        |
 | `:`                   | `else`                               | Else                           |
 | `@(cond) ... ;`       | `while (cond) { ... }`               | While loop                     |
-| `@(i#1..5) ... ;`     | `for (let i=1; i<=5; i++)`           | For loop                       |
+| `@(i#1..5) ... ;`     | `for (let i=1; i<=5; i++)`           | For loop (range)               |
+| `@(x#arr) ... ;`      | `for (const x of arr)`               | For-each loop                  |
 | `>!`                  | `break`                              | Break                          |
 | `>>`                  | `continue`                           | Continue                       |
 | `Z fn() ... ;`        | `function fn() { ... }`              | Void function                  |
@@ -1439,14 +1508,16 @@ fizzbuzz(15)
 | `x **= 5`             | `x **= 5`                            | Power assign                   |
 | `->i Z fn()`          | `export function fn()`               | Export function                |
 | `->s#x = "hi"`        | `export const x = "hi"`              | Export variable                |
-| `<- { a } = "./m"`    | `import { a } from "./m.js"`         | Named import                   |
+| `<- { a } = "./m"`    | `import { a } from "./m.js"`         | Safe import (typed, .zz module)|
+| `<-! { a } = "pkg"`   | `import { a } from "pkg"`           | Unsafe import (untyped, JS)    |
+| `<- { a } = std/math` | `import { a } from "../../std/math.js"` | Std library import          |
 | `<- m = "./m"`        | `import * as m from "./m.js"`        | Namespace import               |
-| `??(val) \| p => ;`   | `if/else-if chain (IIFE)`           | Pattern matching               |
+| `??(val) \| p => ;`   | `if/else-if chain (IIFE)`            | Pattern matching               |
 | `\| Color.Red =>`     | `if (v === Color.Red)`               | Enum pattern                   |
 | `\| 42 =>`            | `if (v === 42)`                      | Literal pattern                |
 | `\| Point(x, y) =>`   | destructure + bind fields            | Struct pattern                 |
 | `\| _ =>`             | `else`                               | Wildcard (catch-all)           |
-| `\| v & v > 0 =>`     | `if (true && (v > 0))`              | Guard condition                |
+| `\| v & v > 0 =>`     | `if (true && (v > 0))`               | Guard condition                |
 | `$js { code }`        | raw JS output verbatim               | JS injection block             |
 | `str.len()`           | `str.length`                         | String length                  |
 | `str.at(i)`           | `str.charAt(i)`                      | Character at index             |
@@ -1462,7 +1533,7 @@ Syntax highlighting is available for multiple editors.
 
 ```bash
 # Install the extension
-cp -r vscode-zz ~/.vscode/extensions/zz-language-0.1.0
+cp -r editors/vscode ~/.vscode/extensions/zz-language-0.1.0
 
 # Restart VS Code
 ```
@@ -1509,10 +1580,10 @@ zz/
 │   ├── ast.ts         # AST type definitions
 │   ├── typechecker.ts # Static type validation
 │   └── codegen.ts     # JavaScript code generator
-├── std/               # Standard library (JS)
-│   ├── string.js      # String functions
-│   ├── math.js        # Math functions
-│   └── array.js       # Array functions
+├── std/               # Standard library (.zz source, auto-compiled to .js)
+│   ├── string.zz      # String functions
+│   ├── math.zz        # Math functions
+│   └── array.zz       # Array functions (+ time, rand, path, json, convert, http)
 ├── editors/           # Editor syntax highlighting
 ├── vscode-zz/         # VS Code extension
 ├── examples/          # Example ZZ programs

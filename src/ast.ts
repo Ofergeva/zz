@@ -69,7 +69,7 @@ export interface Program extends ASTNode {
 }
 
 // Statements
-export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression | JSBlockStatement;
+export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | ForEachStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression | JSBlockStatement;
 
 export interface VariableDeclaration extends ASTNode {
   type: 'VariableDeclaration';
@@ -220,6 +220,14 @@ export interface ForStatement extends ASTNode {
   body: Statement[];
 }
 
+// For-each statement: @(item#array) ... ;
+export interface ForEachStatement extends ASTNode {
+  type: 'ForEachStatement';
+  variable: string;
+  iterable: Expression;
+  body: Statement[];
+}
+
 // If statement: ?(condition) ... :?(condition) ... : ... ;
 export interface IfBranch {
   condition: Expression;
@@ -332,12 +340,15 @@ export interface ImportSpecifier {
   alias?: string;     // Local name (if aliased)
 }
 
-// Import statement: <- { add, sub } = "./math" or <- utils = "./utils"
+// Import statement: <- { add, sub } = "./math" or <- utils = "./utils" or <- { x } = std/math
+// Unsafe import: <-! { x } = "npm-package" (JS modules, no type safety)
 export interface ImportStatement extends ASTNode {
   type: 'ImportStatement';
   specifiers: ImportSpecifier[];  // Empty for namespace import
   namespace?: string;              // For namespace import: <- utils = "./path"
   source: string;                  // Module path
+  isStdLib: boolean;               // true for unquoted std/xxx imports
+  isUnsafe: boolean;               // true for <-! imports (JS modules)
 }
 
 // Enum declaration: E Color Red Green Blue ;
@@ -461,4 +472,20 @@ export interface MatchExpression extends ASTNode {
 export interface JSBlockStatement extends ASTNode {
   type: 'JSBlockStatement';
   code: string;
+}
+
+// Type information extracted from an imported .zz module
+export interface ImportedModuleInfo {
+  functions: Map<string, {
+    parameters: Parameter[];
+    returnType: DataType | 'void';
+  }>;
+  variables: Map<string, {
+    dataType: DataType;
+    mutability: Mutability;
+  }>;
+  structs: Map<string, {
+    fields: StructField[];
+  }>;
+  enums: Map<string, string[]>;
 }

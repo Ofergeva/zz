@@ -54,6 +54,7 @@ export declare enum TokenType {
     DOT = "DOT",// . (method call)
     EXPORT = "EXPORT",// ->
     IMPORT = "IMPORT",// <-
+    IMPORT_UNSAFE = "IMPORT_UNSAFE",// <-!
     LBRACE = "LBRACE",// {
     RBRACE = "RBRACE",// }
     STRING_LITERAL = "STRING_LITERAL",

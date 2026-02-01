@@ -1,0 +1,107 @@
+->f Z abs(f#x)
+  $js{ return Math.abs(x); }
+;
+
+->i Z floor(f#x)
+  $js{ return Math.floor(x); }
+;
+
+->i Z ceil(f#x)
+  $js{ return Math.ceil(x); }
+;
+
+->i Z round(f#x)
+  $js{ return Math.round(x); }
+;
+
+->i Z trunc(f#x)
+  $js{ return Math.trunc(x); }
+;
+
+->i Z sign(f#x)
+  $js{ return Math.sign(x); }
+;
+
+->f Z sqrt(f#x)
+  $js{ return Math.sqrt(x); }
+;
+
+->f Z cbrt(f#x)
+  $js{ return Math.cbrt(x); }
+;
+
+->f Z pow(f#x f#y)
+  $js{ return Math.pow(x, y); }
+;
+
+->f Z exp(f#x)
+  $js{ return Math.exp(x); }
+;
+
+->f Z log(f#x)
+  $js{ return Math.log(x); }
+;
+
+->f Z log10(f#x)
+  $js{ return Math.log10(x); }
+;
+
+->f Z log2(f#x)
+  $js{ return Math.log2(x); }
+;
+
+->f Z sin(f#x)
+  $js{ return Math.sin(x); }
+;
+
+->f Z cos(f#x)
+  $js{ return Math.cos(x); }
+;
+
+->f Z tan(f#x)
+  $js{ return Math.tan(x); }
+;
+
+->f Z asin(f#x)
+  $js{ return Math.asin(x); }
+;
+
+->f Z acos(f#x)
+  $js{ return Math.acos(x); }
+;
+
+->f Z atan(f#x)
+  $js{ return Math.atan(x); }
+;
+
+->f Z atan2(f#y f#x)
+  $js{ return Math.atan2(y, x); }
+;
+
+->f Z sinh(f#x)
+  $js{ return Math.sinh(x); }
+;
+
+->f Z cosh(f#x)
+  $js{ return Math.cosh(x); }
+;
+
+->f Z tanh(f#x)
+  $js{ return Math.tanh(x); }
+;
+
+->f Z min(f#a f#b)
+  $js{ return Math.min(a, b); }
+;
+
+->f Z max(f#a f#b)
+  $js{ return Math.max(a, b); }
+;
+
+->f Z PI()
+  $js{ return Math.PI; }
+;
+
+$js{
+export function E() { return Math.E; }
+}

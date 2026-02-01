@@ -1,4 +1,5 @@
 // JavaScript Code Generator for ZZ Language
+import * as path from 'path';
 import { isArrayType, isTupleType, } from './ast.js';
 export class CodeGenerator {
     // Store function parameter info for named argument reordering
@@ -7,6 +8,10 @@ export class CodeGenerator {
     structFields = new Map();
     // Store struct method names to distinguish from UFCS
     structMethods = new Map();
+    options;
+    constructor(options) {
+        this.options = options;
+    }
     generate(program) {
         this.functionParams.clear();
         this.structFields.clear();
@@ -41,6 +46,8 @@ export class CodeGenerator {
                 return this.generateWhileStatement(statement);
             case 'ForStatement':
                 return this.generateForStatement(statement);
+            case 'ForEachStatement':
+                return this.generateForEachStatement(statement);
             case 'IfStatement':
                 return this.generateIfStatement(statement);
             case 'FunctionDeclaration':
@@ -130,20 +137,41 @@ ${methods}
         return `try {\n${tryBody}\n} catch (${stmt.catchVariable}) {\n${catchBody}\n}`;
     }
     generateImportStatement(stmt) {
-        // Add .js extension to the source path
-        const sourcePath = stmt.source.endsWith('.js') ? stmt.source : stmt.source + '.js';
-        if (stmt.namespace) {
-            // Namespace import: import * as name from "path"
-            return `import * as ${stmt.namespace} from "${sourcePath}";`;
+        let resolvedPath;
+        if (this.options) {
+            if (stmt.isStdLib) {
+                // std/string → <stdLibDir>/string → relative to outputDir
+                const moduleName = stmt.source.replace(/^std\//, '');
+                const absTarget = path.join(this.options.stdLibDir, moduleName);
+                resolvedPath = path.relative(this.options.outputDir, absTarget);
+            }
+            else {
+                // "./lib/math" → resolve against sourceDir → relative to outputDir
+                const absTarget = path.resolve(this.options.sourceDir, stmt.source);
+                resolvedPath = path.relative(this.options.outputDir, absTarget);
+            }
+            // Ensure starts with ./ or ../
+            if (!resolvedPath.startsWith('.')) {
+                resolvedPath = './' + resolvedPath;
+            }
+            // Normalize path separators for JS imports
+            resolvedPath = resolvedPath.split(path.sep).join('/');
         }
-        // Destructured import: import { a, b as c } from "path"
+        else {
+            resolvedPath = stmt.source;
+        }
+        // Normalize extension: strip .js/.zz if present, always append .js
+        resolvedPath = resolvedPath.replace(/\.(js|zz)$/, '') + '.js';
+        if (stmt.namespace) {
+            return `import * as ${stmt.namespace} from "${resolvedPath}";`;
+        }
         const specifiers = stmt.specifiers.map(spec => {
             if (spec.alias) {
                 return `${spec.name} as ${spec.alias}`;
             }
             return spec.name;
         }).join(', ');
-        return `import { ${specifiers} } from "${sourcePath}";`;
+        return `import { ${specifiers} } from "${resolvedPath}";`;
     }
     generateIndexAssignment(stmt) {
         const array = this.generateExpression(stmt.array);
@@ -197,6 +225,12 @@ ${methods}
         const body = stmt.body.map(s => '  ' + this.generateStatement(s)).join('\n');
         // Handle both forward (1..5) and reverse (5..1) loops
         return `for (let __start = ${start}, __end = ${end}, ${v} = __start; __start <= __end ? ${v} <= __end : ${v} >= __end; __start <= __end ? ${v}++ : ${v}--) {\n${body}\n}`;
+    }
+    generateForEachStatement(stmt) {
+        const iterable = this.generateExpression(stmt.iterable);
+        const v = stmt.variable;
+        const body = stmt.body.map(s => '  ' + this.generateStatement(s)).join('\n');
+        return `for (const ${v} of ${iterable}) {\n${body}\n}`;
     }
     generateIfStatement(stmt) {
         const lines = [];

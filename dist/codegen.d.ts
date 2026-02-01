@@ -1,8 +1,15 @@
 import { Program } from './ast.js';
+export interface CodeGenOptions {
+    sourceDir: string;
+    outputDir: string;
+    stdLibDir: string;
+}
 export declare class CodeGenerator {
     private functionParams;
     private structFields;
     private structMethods;
+    private options?;
+    constructor(options?: CodeGenOptions);
     generate(program: Program): string;
     private generateStatement;
     private generateEnumDeclaration;
@@ -22,6 +29,7 @@ export declare class CodeGenerator {
     private generateThrowStatement;
     private generateWhileStatement;
     private generateForStatement;
+    private generateForEachStatement;
     private generateIfStatement;
     private generateFunctionDeclaration;
     private generateExpression;

@@ -79,6 +79,7 @@ export enum TokenType {
   // Modules
   EXPORT = 'EXPORT',             // ->
   IMPORT = 'IMPORT',             // <-
+  IMPORT_UNSAFE = 'IMPORT_UNSAFE', // <-!
   LBRACE = 'LBRACE',             // {
   RBRACE = 'RBRACE',             // }
 
@@ -239,11 +240,15 @@ export class Lexer {
       return this.makeToken(TokenType.GT, '>');
     }
 
-    // <, <=, and <- (import)
+    // <, <=, <- (import), and <-! (unsafe import)
     if (char === '<') {
       this.advance();
       if (this.peek() === '-') {
         this.advance();
+        if (this.peek() === '!') {
+          this.advance();
+          return this.makeToken(TokenType.IMPORT_UNSAFE, '<-!');
+        }
         return this.makeToken(TokenType.IMPORT, '<-');
       }
       if (this.peek() === '=') {
@@ -358,9 +363,9 @@ export class Lexer {
       return this.makeToken(TokenType.NEWLINE, '\n');
     }
 
-    // String literal
-    if (char === '"') {
-      return this.readString();
+    // String literal (double or single quotes)
+    if (char === '"' || char === "'") {
+      return this.readString(char);
     }
 
     // Number literal
@@ -390,12 +395,12 @@ export class Lexer {
     throw new Error(`Unexpected character '${char}' at line ${this.line}, column ${this.column}`);
   }
 
-  private readString(): Token {
+  private readString(quoteChar: string = '"'): Token {
     const startColumn = this.column;
     this.advance(); // consume opening quote
 
     let value = '';
-    while (!this.isAtEnd() && this.peek() !== '"') {
+    while (!this.isAtEnd() && this.peek() !== quoteChar) {
       if (this.peek() === '\n') {
         throw new Error(`Unterminated string at line ${this.line}`);
       }
@@ -404,7 +409,7 @@ export class Lexer {
         const escaped = this.peek();
         if (escaped === 'n') value += '\n';
         else if (escaped === 't') value += '\t';
-        else if (escaped === '"') value += '"';
+        else if (escaped === quoteChar) value += quoteChar;
         else if (escaped === '\\') value += '\\';
         else value += escaped;
       } else {

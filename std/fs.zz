@@ -1,0 +1,104 @@
+$js{
+import fs from "fs";
+import fsPath from "path";
+}
+
+->s Z read(s#filePath)
+  $js{ return fs.readFileSync(filePath, "utf8"); }
+;
+
+->Z write(s#filePath s#content)
+  $js{ fs.writeFileSync(filePath, content, "utf8"); }
+;
+
+->Z append(s#filePath s#content)
+  $js{ fs.appendFileSync(filePath, content, "utf8"); }
+;
+
+->Z touch(s#filePath)
+  $js{ if (!fs.existsSync(filePath)) { fs.writeFileSync(filePath, ""); } }
+;
+
+->b Z exists(s#filePath)
+  $js{ return fs.existsSync(filePath); }
+;
+
+->b Z isFile(s#filePath)
+  $js{ try { return fs.statSync(filePath).isFile(); } catch { return false; } }
+;
+
+->b Z isDir(s#filePath)
+  $js{ try { return fs.statSync(filePath).isDirectory(); } catch { return false; } }
+;
+
+->i Z size(s#filePath)
+  $js{ return fs.statSync(filePath).size; }
+;
+
+->f Z mtime(s#filePath)
+  $js{ return fs.statSync(filePath).mtimeMs; }
+;
+
+->Z mkdir(s#dirPath)
+  $js{ if (!fs.existsSync(dirPath)) { fs.mkdirSync(dirPath, { recursive: true }); } }
+;
+
+->Z rmdir(s#dirPath)
+  $js{ fs.rmdirSync(dirPath); }
+;
+
+->Z rmrf(s#dirPath)
+  $js{ fs.rmSync(dirPath, { recursive: true, force: true }); }
+;
+
+->Z rm(s#filePath)
+  $js{ fs.unlinkSync(filePath); }
+;
+
+->Z cp(s#src s#dst)
+  $js{ fs.copyFileSync(src, dst); }
+;
+
+->Z mv(s#oldPath s#newPath)
+  $js{ fs.renameSync(oldPath, newPath); }
+;
+
+->s Z basename(s#filePath)
+  $js{ return fsPath.basename(filePath); }
+;
+
+->s Z dirname(s#filePath)
+  $js{ return fsPath.dirname(filePath); }
+;
+
+->s Z ext(s#filePath)
+  $js{ return fsPath.extname(filePath); }
+;
+
+->s Z realpath(s#filePath)
+  $js{ return fsPath.resolve(filePath); }
+;
+
+->s Z relpath(s#from s#to)
+  $js{ return fsPath.relative(from, to); }
+;
+
+->Z cprf(s#src s#dst)
+  $js{ fs.cpSync(src, dst, { recursive: true }); }
+;
+
+$js{
+export function readBuf(filePath) { return fs.readFileSync(filePath); }
+export function writeBuf(filePath, buffer) { fs.writeFileSync(filePath, buffer); }
+export function ls(dirPath) { return fs.readdirSync(dirPath); }
+export function lsl(dirPath) {
+  const files = fs.readdirSync(dirPath, { withFileTypes: true });
+  return files.map((f) => ({ name: f.name, isFile: f.isFile(), isDir: f.isDirectory() }));
+}
+export function join(...parts) { return fsPath.join(...parts); }
+export function find(dirPath) {
+  const files = fs.readdirSync(dirPath);
+  return files.map((f) => fsPath.join(dirPath, f));
+}
+export function rmBatch(filePaths) { filePaths.forEach((f) => fs.unlinkSync(f)); }
+}

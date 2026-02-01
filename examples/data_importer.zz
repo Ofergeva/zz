@@ -1,6 +1,6 @@
-<- {read} = "../../std/fs.js"
-<- {join, sep, cwd} = "../../std/path.js"
-<- {starts,ends,slice,split,trim,replace} = "../../std/string.js"
+<- {read} = std/fs
+<- {join, sep, cwd} = std/path
+<- {starts,ends,slice,split,trim,replace} = std/string
 
 s#fileData = cwd.join("examples/compiled/data/sample.json").read()
 

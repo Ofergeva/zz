@@ -63,6 +63,7 @@ vscode-zz/         # VS Code extension
 - `: ... ;` → else
 - `@(cond) ... ;` → while
 - `@(i#1..5) ... ;` → for loop (range)
+- `@(item#array) ... ;` → for-each loop
 - `>!` → break, `>>` → continue
 
 ### Functions
@@ -129,7 +130,16 @@ Generated as JavaScript classes.
 
 ### Modules
 
-- `->` export, `<-` import
+- `->` export, `<-` safe import (ZZ modules), `<-!` unsafe import (JS modules)
+- Standard library: `<- { trim, split } = std/string` (unquoted, compiler resolves path)
+- ZZ module imports: `<- { add } = "./lib/math"` (requires .zz source file)
+- JS module imports: `<-! { fetch } = "./lib/http"` (for npm/JS libraries without .zz source)
+- Import paths in ZZ are relative to the source `.zz` file, not the compiled output
+- `.js` extension is optional (auto-appended by compiler)
+- **Safe import type resolution**: `<-` imports parse the imported .zz file and extract full type signatures (function params/return types, variable types, structs, enums). The type checker validates calls against real types.
+- **Auto-compilation**: Safe imports auto-compile the imported .zz file to .js if missing or stale (timestamp check). 1 level only — transitive imports are not followed.
+- Functions exported inside raw `$js{}` blocks fall back to placeholder types (untyped)
+- **Unsafe imports** (`<-!`): No type checking — all bindings get placeholder types
 
 ### Error Handling
 
@@ -157,3 +167,4 @@ Generated as JavaScript classes.
 - Range loops generate ascending/descending handling
 - Two-pass parsing: collect enum/struct names first, then parse (enables forward references)
 - Structs compile to JS classes, enums to frozen objects
+- Implicit int→float widening: passing `int` where `float` is expected is allowed (assignments, arguments, returns)

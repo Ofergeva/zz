@@ -10,6 +10,7 @@ import {
   ErrorStatement,
   WhileStatement,
   ForStatement,
+  ForEachStatement,
   IfStatement,
   IfBranch,
   TryStatement,
@@ -78,8 +79,14 @@ export class Parser {
   private enumNames: Set<string> = new Set();  // Track known enum names for type resolution
   private structNames: Set<string> = new Set();  // Track known struct names for type resolution
 
-  constructor(tokens: Token[]) {
+  constructor(tokens: Token[], externalTypes?: { structNames?: Set<string>, enumNames?: Set<string> }) {
     this.tokens = tokens;
+    if (externalTypes?.structNames) {
+      externalTypes.structNames.forEach(n => this.structNames.add(n));
+    }
+    if (externalTypes?.enumNames) {
+      externalTypes.enumNames.forEach(n => this.enumNames.add(n));
+    }
   }
 
   parse(): Program {
@@ -130,7 +137,8 @@ export class Parser {
     const token = this.peek();
 
     // Import statement: <- { name } = "./path" or <- name = "./path"
-    if (token.type === TokenType.IMPORT) {
+    // Unsafe import: <-! { name } = "npm-package"
+    if (token.type === TokenType.IMPORT || token.type === TokenType.IMPORT_UNSAFE) {
       return this.parseImportStatement();
     }
 
@@ -309,8 +317,10 @@ export class Parser {
   }
 
   // Parse import statement: <- { name, alias=original } = "./path" or <- namespace = "./path"
+  // Also handles unsafe imports: <-! { name } = "npm-package"
   private parseImportStatement(): ImportStatement {
-    const importToken = this.advance(); // consume <-
+    const importToken = this.advance(); // consume <- or <-!
+    const isUnsafe = importToken.type === TokenType.IMPORT_UNSAFE;
 
     let specifiers: ImportSpecifier[] = [];
     let namespace: string | undefined;
@@ -348,9 +358,27 @@ export class Parser {
       throw new Error(`Expected { or identifier after <- at line ${importToken.line}`);
     }
 
-    // Expect = "path"
+    // Expect = "path" or = std/module
     this.expect([TokenType.EQUALS]);
-    const pathToken = this.expect([TokenType.STRING_LITERAL]);
+
+    let source: string;
+    let isStdLib = false;
+
+    if (this.peek().type === TokenType.STRING_LITERAL) {
+      // Quoted path: <- { x } = "./path"
+      source = this.advance().value;
+    } else if (this.peek().type === TokenType.IDENTIFIER) {
+      // Unquoted module path: <- { x } = std/string
+      const parts: string[] = [this.advance().value];
+      while (this.peek().type === TokenType.SLASH) {
+        this.advance(); // consume /
+        parts.push(this.expect([TokenType.IDENTIFIER]).value);
+      }
+      source = parts.join('/');
+      isStdLib = true;
+    } else {
+      throw new Error(`Expected string path or module name after = in import at line ${importToken.line}`);
+    }
 
     this.expectEndOfStatement();
 
@@ -358,7 +386,9 @@ export class Parser {
       type: 'ImportStatement',
       specifiers,
       namespace,
-      source: pathToken.value,
+      source,
+      isStdLib,
+      isUnsafe,
       line: importToken.line,
       column: importToken.column,
     };
@@ -669,7 +699,7 @@ export class Parser {
     };
   }
 
-  private parseWhileStatement(): WhileStatement | ForStatement {
+  private parseWhileStatement(): WhileStatement | ForStatement | ForEachStatement {
     const loopToken = this.advance(); // consume @
 
     this.expect([TokenType.LPAREN]);
@@ -701,33 +731,49 @@ export class Parser {
     };
   }
 
-  private parseForLoop(loopToken: Token): ForStatement {
+  private parseForLoop(loopToken: Token): ForStatement | ForEachStatement {
     // Already consumed @ and (, now at identifier (or type token used as variable name)
     const varToken = this.advance(); // consume identifier/type
     const variable = varToken.value;
 
     this.expect([TokenType.IMMUTABLE]); // consume #
 
-    // Parse the range expression (start..end)
-    const start = this.parseAdditive(); // Parse up to but not including ..
-    this.expect([TokenType.DOT_DOT]);
-    const end = this.parseAdditive();
+    // Parse the first expression after #
+    const firstExpr = this.parseAdditive();
 
-    this.expect([TokenType.RPAREN]);
+    if (this.peek().type === TokenType.DOT_DOT) {
+      // Range loop: @(i#1..5)
+      this.advance(); // consume ..
+      const end = this.parseAdditive();
 
-    this.skipNewlines();
+      this.expect([TokenType.RPAREN]);
+      this.skipNewlines();
+      const body = this.parseBlock();
 
-    const body = this.parseBlock();
+      return {
+        type: 'ForStatement',
+        variable,
+        start: firstExpr,
+        end,
+        body,
+        line: loopToken.line,
+        column: loopToken.column,
+      };
+    } else {
+      // For-each loop: @(person#people)
+      this.expect([TokenType.RPAREN]);
+      this.skipNewlines();
+      const body = this.parseBlock();
 
-    return {
-      type: 'ForStatement',
-      variable,
-      start,
-      end,
-      body,
-      line: loopToken.line,
-      column: loopToken.column,
-    };
+      return {
+        type: 'ForEachStatement',
+        variable,
+        iterable: firstExpr,
+        body,
+        line: loopToken.line,
+        column: loopToken.column,
+      };
+    }
   }
 
   private parseIfStatement(): IfStatement {
@@ -891,6 +937,7 @@ export class Parser {
         token.type === TokenType.BREAK ||
         token.type === TokenType.CONTINUE ||
         token.type === TokenType.THROW ||
+        token.type === TokenType.JS_BLOCK ||
         (token.type === TokenType.IDENTIFIER && nextType === TokenType.EQUALS) ||
         (token.type === TokenType.IDENTIFIER && (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
         (token.type === TokenType.IDENTIFIER && this.isCompoundAssignmentToken(nextType)) ||
@@ -1334,6 +1381,7 @@ export class Parser {
         token.type === TokenType.WHILE ||
         token.type === TokenType.IF ||
         token.type === TokenType.FUNC ||
+        token.type === TokenType.JS_BLOCK ||
         (token.type === TokenType.IDENTIFIER && nextType === TokenType.EQUALS) ||
         (token.type === TokenType.IDENTIFIER && (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
         (token.type === TokenType.IDENTIFIER && this.isCompoundAssignmentToken(nextType));
@@ -1544,6 +1592,7 @@ export class Parser {
         token.type === TokenType.WHILE ||
         token.type === TokenType.IF ||
         token.type === TokenType.FUNC ||
+        token.type === TokenType.JS_BLOCK ||
         (token.type === TokenType.IDENTIFIER && nextType === TokenType.EQUALS) ||
         (token.type === TokenType.IDENTIFIER && (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
         (token.type === TokenType.IDENTIFIER && this.isCompoundAssignmentToken(nextType));

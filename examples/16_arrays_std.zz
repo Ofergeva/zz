@@ -2,7 +2,7 @@
 // Demonstrates std/array functions with UFCS
 
 // Import array functions from standard library
-<- { sort, sortDesc, reverse, includes, indexOf, sum, average, minVal, maxVal, unique, first, last, isEmpty, slice, concat, join, count } = "../std/array"
+<- { sort, sortDesc, reverse, includes, indexOf, sum, average, minVal, maxVal, unique, first, last, isEmpty, slice, concat, join, count } = std/array
 
 // ==============================
 // Basic Array Operations

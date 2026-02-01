@@ -1,42 +1,57 @@
-export function rand() {
-  return Math.random();
-}
-export function randInt(max) {
-  return Math.floor(Math.random() * max);
-}
-export function randRange(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-export function randFloat(min, max) {
-  return Math.random() * (max - min) + min;
-}
-export function randBool() {
-  return Math.random() < 0.5;
-}
-export function dice(sides) {
-  return Math.floor(Math.random() * sides) + 1;
-}
-export function rollDice(count, sides) {
-  let total = 0;
+->f Z rand()
+  $js{ return Math.random(); }
+;
+
+->i Z randInt(i#max)
+  $js{ return Math.floor(Math.random() * max); }
+;
+
+->i Z randRange(i#min i#max)
+  $js{ return Math.floor(Math.random() * (max - min + 1)) + min; }
+;
+
+->f Z randFloat(f#min f#max)
+  $js{ return Math.random() * (max - min) + min; }
+;
+
+->b Z randBool()
+  $js{ return Math.random() < 0.5; }
+;
+
+->i Z dice(i#sides)
+  $js{ return Math.floor(Math.random() * sides) + 1; }
+;
+
+->i Z rollDice(i#count i#sides)
+  $js{
+    let total = 0;
     for (let i = 0; i < count; i++) {
       total += Math.floor(Math.random() * sides) + 1;
     }
     return total;
-}
-export function coin() {
-  return Math.random() < 0.5 ? "heads" : "tails";
-}
-export function chance(probability) {
-  return Math.random() < probability;
-}
-export function randomId(length) {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  }
+;
+
+->s Z coin()
+  $js{ return Math.random() < 0.5 ? "heads" : "tails"; }
+;
+
+->b Z chance(f#probability)
+  $js{ return Math.random() < probability; }
+;
+
+->s Z randomId(i#length)
+  $js{
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
     let result = "";
     for (let i = 0; i < length; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
-}
+  }
+;
+
+$js{
 export function choice(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -86,4 +101,5 @@ export function weighted(items, weights) {
 
 export function pickN(arr, n) {
   return sample(arr, n);
+}
 }
