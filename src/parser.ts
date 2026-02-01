@@ -88,6 +88,8 @@ export class Parser {
 		if (externalTypes?.enumNames) {
 			externalTypes.enumNames.forEach((n) => this.enumNames.add(n));
 		}
+		// Pre-register Spawn as a known struct so Spawn#s = ~> func() works
+		this.structNames.add("Spawn");
 	}
 
 	parse(): Program {
@@ -307,6 +309,11 @@ export class Parser {
 			} as ContinueStatement;
 		}
 
+		// Spawn expression: ~> functionCall()
+		if (token.type === TokenType.SPAWN) {
+			return this.parseSpawnStatement();
+		}
+
 		// Raw JavaScript injection: $js { ... }
 		if (token.type === TokenType.JS_BLOCK) {
 			this.advance();
@@ -317,11 +324,6 @@ export class Parser {
 				line: token.line,
 				column: token.column,
 			} as JSBlockStatement;
-		}
-
-		// Spawn expression: ~> functionCall()
-		if (token.type === TokenType.SPAWN) {
-			return this.parseSpawnStatement();
 		}
 
 		throw new Error(`Unexpected token '${token.value}' at line ${token.line}, column ${token.column}`);
@@ -987,36 +989,29 @@ export class Parser {
 		};
 	}
 
-	private parseSpawnExpression(): SpawnExpression {
+	private parseSpawnExpression(): Expression {
 		const spawnToken = this.advance(); // consume ~>
+		const nameToken = this.expect([TokenType.IDENTIFIER]);
 
 		// Parse the function call
-		const nameToken = this.expect([TokenType.IDENTIFIER]);
 		this.expect([TokenType.LPAREN]);
-
 		const args: FunctionArgument[] = [];
 		while (this.peek().type !== TokenType.RPAREN) {
-			// Check for named argument: name=value
 			if (this.peek().type === TokenType.IDENTIFIER && this.peekNext()?.type === TokenType.EQUALS) {
 				const argNameToken = this.advance();
 				this.advance(); // consume =
 				const value = this.parseExpression();
 				args.push({ name: argNameToken.value, value });
 			} else {
-				// Positional argument
 				const value = this.parseExpression();
 				args.push({ value });
 			}
-
-			// Optional comma between arguments
 			if (this.peek().type === TokenType.COMMA) {
 				this.advance();
 			}
 		}
-
 		this.expect([TokenType.RPAREN]);
 
-		// Create the function call
 		const call: FunctionCall = {
 			type: "FunctionCall",
 			name: nameToken.value,
@@ -1025,37 +1020,37 @@ export class Parser {
 			column: nameToken.column,
 		};
 
-		// Check for optional .onError(handler) method call
-		let spawnExpr: SpawnExpression | MethodCall = {
+		let expr: Expression = {
 			type: "SpawnExpression",
 			call,
 			line: spawnToken.line,
 			column: spawnToken.column,
 		} as SpawnExpression;
 
-		if (this.peek().type === TokenType.DOT) {
+		// Handle method chaining: ~> func().onError(handler)
+		while (this.peek().type === TokenType.DOT) {
 			this.advance(); // consume .
 			const methodToken = this.expect([TokenType.IDENTIFIER]);
-			if (methodToken.value === "onError") {
-				this.expect([TokenType.LPAREN]);
-				const errorHandler = this.parseExpression();
-				this.expect([TokenType.RPAREN]);
-
-				// Create a method call on the spawn result
-				spawnExpr = {
-					type: "MethodCall",
-					object: spawnExpr,
-					method: "onError",
-					arguments: [{ value: errorHandler }],
-					line: spawnToken.line,
-					column: spawnToken.column,
-				} as MethodCall;
-			} else {
-				throw new Error(`Unknown method on Spawn: ${methodToken.value}`);
+			this.expect([TokenType.LPAREN]);
+			const methodArgs: Expression[] = [];
+			while (this.peek().type !== TokenType.RPAREN) {
+				methodArgs.push(this.parseExpression());
+				if (this.peek().type === TokenType.COMMA) {
+					this.advance();
+				}
 			}
+			this.expect([TokenType.RPAREN]);
+			expr = {
+				type: "MethodCall",
+				object: expr,
+				method: methodToken.value,
+				arguments: methodArgs,
+				line: methodToken.line,
+				column: methodToken.column,
+			} as MethodCall;
 		}
 
-		return spawnExpr as SpawnExpression;
+		return expr;
 	}
 
 	private parsePattern(): Pattern {
@@ -1460,9 +1455,14 @@ export class Parser {
 			const isStatement =
 				(this.isTypeToken(token.type) && nextType !== TokenType.FUNC) ||
 				token.type === TokenType.PRINT ||
+				token.type === TokenType.ERROR ||
 				token.type === TokenType.WHILE ||
 				token.type === TokenType.IF ||
 				token.type === TokenType.FUNC ||
+				token.type === TokenType.THROW ||
+				token.type === TokenType.BREAK ||
+				token.type === TokenType.CONTINUE ||
+				token.type === TokenType.SPAWN ||
 				token.type === TokenType.JS_BLOCK ||
 				(token.type === TokenType.IDENTIFIER && nextType === TokenType.EQUALS) ||
 				(token.type === TokenType.IDENTIFIER &&
@@ -1672,9 +1672,14 @@ export class Parser {
 			const isStatement =
 				(this.isTypeToken(token.type) && nextType !== TokenType.FUNC) ||
 				token.type === TokenType.PRINT ||
+				token.type === TokenType.ERROR ||
 				token.type === TokenType.WHILE ||
 				token.type === TokenType.IF ||
 				token.type === TokenType.FUNC ||
+				token.type === TokenType.THROW ||
+				token.type === TokenType.BREAK ||
+				token.type === TokenType.CONTINUE ||
+				token.type === TokenType.SPAWN ||
 				token.type === TokenType.JS_BLOCK ||
 				(token.type === TokenType.IDENTIFIER && nextType === TokenType.EQUALS) ||
 				(token.type === TokenType.IDENTIFIER &&
@@ -1792,10 +1797,9 @@ export class Parser {
 			this.advance(); // consume .
 			const methodToken = this.expect([TokenType.IDENTIFIER]);
 			this.expect([TokenType.LPAREN]);
-			const methodArgs: FunctionArgument[] = [];
+			const methodArgs: Expression[] = [];
 			while (this.peek().type !== TokenType.RPAREN) {
-				const methodArg = this.parseExpression();
-				methodArgs.push({ value: methodArg });
+				methodArgs.push(this.parseExpression());
 				if (this.peek().type === TokenType.COMMA) {
 					this.advance();
 				}

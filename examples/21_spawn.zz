@@ -1,12 +1,21 @@
 // Synchronous by default - every call blocks
 // Spawn (~>) for non-blocking calls
-<- { Duration, millis, sleep } = std/time
+
+<- { sleep, seconds } = std/time
 
 // A regular function - blocks until complete
 i Z slowAdd(i#a i#b)
-    Duration#d = millis(2000)
-    sleep(d) // Simulate a slow operation
-    a + b
+  sleep(seconds(1))
+  print(s"Starting slowAdd with {a} and {b}")
+  ?(b == 200) 
+    >X("Simulated error for b == 200")
+  ;
+  a + b
+;
+
+// An error handler function
+Z handleError(s#e)
+  error(s"Spawn error: {e}")
 ;
 
 // Regular (blocking) function calls
@@ -15,5 +24,8 @@ print(s"Blocking result: {result}")
 
 // Spawn (non-blocking) function call
 ~> slowAdd(10, 20)
+
+// Spawn with error handling
+~> slowAdd(100, 200).onError(handleError)
 
 print("This prints before spawned calls complete")

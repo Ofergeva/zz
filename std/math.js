@@ -1,79 +1,79 @@
-export function abs(x) {
+export async function abs(x) {
   return Math.abs(x);
 }
-export function floor(x) {
+export async function floor(x) {
   return Math.floor(x);
 }
-export function ceil(x) {
+export async function ceil(x) {
   return Math.ceil(x);
 }
-export function round(x) {
+export async function round(x) {
   return Math.round(x);
 }
-export function trunc(x) {
+export async function trunc(x) {
   return Math.trunc(x);
 }
-export function sign(x) {
+export async function sign(x) {
   return Math.sign(x);
 }
-export function sqrt(x) {
+export async function sqrt(x) {
   return Math.sqrt(x);
 }
-export function cbrt(x) {
+export async function cbrt(x) {
   return Math.cbrt(x);
 }
-export function pow(x, y) {
+export async function pow(x, y) {
   return Math.pow(x, y);
 }
-export function exp(x) {
+export async function exp(x) {
   return Math.exp(x);
 }
-export function log(x) {
+export async function log(x) {
   return Math.log(x);
 }
-export function log10(x) {
+export async function log10(x) {
   return Math.log10(x);
 }
-export function log2(x) {
+export async function log2(x) {
   return Math.log2(x);
 }
-export function sin(x) {
+export async function sin(x) {
   return Math.sin(x);
 }
-export function cos(x) {
+export async function cos(x) {
   return Math.cos(x);
 }
-export function tan(x) {
+export async function tan(x) {
   return Math.tan(x);
 }
-export function asin(x) {
+export async function asin(x) {
   return Math.asin(x);
 }
-export function acos(x) {
+export async function acos(x) {
   return Math.acos(x);
 }
-export function atan(x) {
+export async function atan(x) {
   return Math.atan(x);
 }
-export function atan2(y, x) {
+export async function atan2(y, x) {
   return Math.atan2(y, x);
 }
-export function sinh(x) {
+export async function sinh(x) {
   return Math.sinh(x);
 }
-export function cosh(x) {
+export async function cosh(x) {
   return Math.cosh(x);
 }
-export function tanh(x) {
+export async function tanh(x) {
   return Math.tanh(x);
 }
-export function min(a, b) {
+export async function min(a, b) {
   return Math.min(a, b);
 }
-export function max(a, b) {
+export async function max(a, b) {
   return Math.max(a, b);
 }
-export function PI() {
+export async function PI() {
   return Math.PI;
 }
 export function E() { return Math.E; }

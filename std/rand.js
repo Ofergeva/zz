@@ -1,35 +1,35 @@
-export function rand() {
+export async function rand() {
   return Math.random();
 }
-export function randInt(max) {
+export async function randInt(max) {
   return Math.floor(Math.random() * max);
 }
-export function randRange(min, max) {
+export async function randRange(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-export function randFloat(min, max) {
+export async function randFloat(min, max) {
   return Math.random() * (max - min) + min;
 }
-export function randBool() {
+export async function randBool() {
   return Math.random() < 0.5;
 }
-export function dice(sides) {
+export async function dice(sides) {
   return Math.floor(Math.random() * sides) + 1;
 }
-export function rollDice(count, sides) {
+export async function rollDice(count, sides) {
   let total = 0;
     for (let i = 0; i < count; i++) {
       total += Math.floor(Math.random() * sides) + 1;
     }
     return total;
 }
-export function coin() {
+export async function coin() {
   return Math.random() < 0.5 ? "heads" : "tails";
 }
-export function chance(probability) {
+export async function chance(probability) {
   return Math.random() < probability;
 }
-export function randomId(length) {
+export async function randomId(length) {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
     let result = "";
     for (let i = 0; i < length; i++) {

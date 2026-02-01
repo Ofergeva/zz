@@ -94,6 +94,13 @@ export class TypeChecker {
 		this.structs.clear();
 		this.errors = [];
 
+		// Register Spawn as a built-in struct type (for ~> operator)
+		this.structs.set("Spawn", {
+			fields: [],
+			methods: new Map([["onError", { parameters: [{ dataType: "string" as DataType, name: "handler" }], returnType: { kind: "struct", name: "Spawn" } }]]),
+			line: 0,
+		});
+
 		// First pass: collect enum and struct declarations
 		for (const statement of program.statements) {
 			if (statement.type === "EnumDeclaration") {
@@ -1048,7 +1055,7 @@ export class TypeChecker {
 
 	private checkExpression(expr: Expression, line: number): void {
 		if (expr.type === "Identifier") {
-			if (!this.variables.has(expr.name)) {
+			if (!this.variables.has(expr.name) && !this.functions.has(expr.name)) {
 				this.errors.push(`Undeclared variable '${expr.name}' at line ${line}.`);
 			}
 		} else if (expr.type === "BinaryExpression") {

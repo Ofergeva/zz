@@ -1,66 +1,66 @@
 import fs from "fs";
 import fsPath from "path";
-export function read(filePath) {
+export async function read(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
-export function write(filePath, content) {
+export async function write(filePath, content) {
   fs.writeFileSync(filePath, content, "utf8");
 }
-export function append(filePath, content) {
+export async function append(filePath, content) {
   fs.appendFileSync(filePath, content, "utf8");
 }
-export function touch(filePath) {
+export async function touch(filePath) {
   if (!fs.existsSync(filePath)) { fs.writeFileSync(filePath, ""); }
 }
-export function exists(filePath) {
+export async function exists(filePath) {
   return fs.existsSync(filePath);
 }
-export function isFile(filePath) {
+export async function isFile(filePath) {
   try { return fs.statSync(filePath).isFile(); } catch { return false; }
 }
-export function isDir(filePath) {
+export async function isDir(filePath) {
   try { return fs.statSync(filePath).isDirectory(); } catch { return false; }
 }
-export function size(filePath) {
+export async function size(filePath) {
   return fs.statSync(filePath).size;
 }
-export function mtime(filePath) {
+export async function mtime(filePath) {
   return fs.statSync(filePath).mtimeMs;
 }
-export function mkdir(dirPath) {
+export async function mkdir(dirPath) {
   if (!fs.existsSync(dirPath)) { fs.mkdirSync(dirPath, { recursive: true }); }
 }
-export function rmdir(dirPath) {
+export async function rmdir(dirPath) {
   fs.rmdirSync(dirPath);
 }
-export function rmrf(dirPath) {
+export async function rmrf(dirPath) {
   fs.rmSync(dirPath, { recursive: true, force: true });
 }
-export function rm(filePath) {
+export async function rm(filePath) {
   fs.unlinkSync(filePath);
 }
-export function cp(src, dst) {
+export async function cp(src, dst) {
   fs.copyFileSync(src, dst);
 }
-export function mv(oldPath, newPath) {
+export async function mv(oldPath, newPath) {
   fs.renameSync(oldPath, newPath);
 }
-export function basename(filePath) {
+export async function basename(filePath) {
   return fsPath.basename(filePath);
 }
-export function dirname(filePath) {
+export async function dirname(filePath) {
   return fsPath.dirname(filePath);
 }
-export function ext(filePath) {
+export async function ext(filePath) {
   return fsPath.extname(filePath);
 }
-export function realpath(filePath) {
+export async function realpath(filePath) {
   return fsPath.resolve(filePath);
 }
-export function relpath(from, to) {
+export async function relpath(from, to) {
   return fsPath.relative(from, to);
 }
-export function cprf(src, dst) {
+export async function cprf(src, dst) {
   fs.cpSync(src, dst, { recursive: true });
 }
 export function readBuf(filePath) { return fs.readFileSync(filePath); }

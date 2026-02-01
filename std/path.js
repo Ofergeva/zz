@@ -3,64 +3,64 @@ export class Path {
   constructor(path) {
     this.path = path;
   }
-  basename() {
+  async basename() {
     return pathModule.basename(this.path);
   }
-  dirname() {
+  async dirname() {
     return pathModule.dirname(this.path);
   }
-  ext() {
+  async ext() {
     return pathModule.extname(this.path);
   }
-  stem() {
+  async stem() {
     const base = pathModule.basename(this.path);
       const ext = pathModule.extname(this.path);
       return ext.length > 0 ? base.slice(0, -ext.length) : base;
   }
-  resolve() {
+  async resolve() {
     return pathModule.resolve(this.path);
   }
-  normalize() {
+  async normalize() {
     return pathModule.normalize(this.path);
   }
-  isAbsolute() {
+  async isAbsolute() {
     return pathModule.isAbsolute(this.path);
   }
-  isRelative() {
+  async isRelative() {
     return !pathModule.isAbsolute(this.path);
   }
-  relative(to) {
+  async relative(to) {
     return pathModule.relative(this.path, to);
   }
-  string() {
+  async string() {
     return this.path;
   }
-  valueOf() {
+  async valueOf() {
     return this.path;
   }
 }
-export function dirname(pathString) {
+export async function dirname(pathString) {
   return pathModule.dirname(pathString);
 }
-export function basename(pathString) {
+export async function basename(pathString) {
   return pathModule.basename(pathString);
 }
-export function ext(pathString) {
+export async function ext(pathString) {
   return pathModule.extname(pathString);
 }
-export function resolve(pathString) {
+export async function resolve(pathString) {
   return pathModule.resolve(pathString);
 }
-export function normalize(pathString) {
+export async function normalize(pathString) {
   return pathModule.normalize(pathString);
 }
-export function isAbsolute(pathString) {
+export async function isAbsolute(pathString) {
   return pathModule.isAbsolute(pathString);
 }
-export function relative(from, to) {
+export async function relative(from, to) {
   return pathModule.relative(from, to);
 }
-export function pwd() {
+export async function pwd() {
   console.log(process.cwd());
 }
 export function join(...parts) { return pathModule.join(...parts); }

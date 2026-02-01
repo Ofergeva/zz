@@ -64,6 +64,9 @@ export class CodeGenerator {
 		this.structMethods.clear();
 		this.hasSpawn = false;
 
+		// Register built-in struct methods (Spawn)
+		this.structMethods.set("Spawn", new Set(["onError"]));
+
 		// First pass: collect struct info
 		for (const statement of program.statements) {
 			if (statement.type === "StructDeclaration") {
@@ -362,13 +365,8 @@ ${methods}
 
 		const exportPrefix = decl.exported ? "export " : "";
 		const params = decl.parameters.map((p) => p.name).join(", ");
-		const isNonVoid = decl.returnType !== "void";
-
-		// Generate body statements, converting expression statements to returns in non-void functions
+		// Generate body statements
 		const bodyLines = decl.body.map((s) => {
-			if (isNonVoid && s.type === "ExpressionStatement") {
-				return "  return " + this.generateExpression(s.expression) + ";";
-			}
 			return "  " + this.generateStatement(s);
 		});
 
