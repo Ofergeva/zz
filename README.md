@@ -980,12 +980,12 @@ Becomes:
 
 ```javascript
 (function () {
-    const __match = n;
-    if (__match === 0) {
-        console.log("Zero");
-    } else if (true) {
-        console.log("Other");
-    }
+	const __match = n;
+	if (__match === 0) {
+		console.log("Zero");
+	} else if (true) {
+		console.log("Other");
+	}
 })();
 ```
 
@@ -1105,26 +1105,25 @@ ZZ includes a minimal standard library. Import functions and use them with UFCS 
 String manipulation functions:
 
 ```zz
-<- { upper, lower, trim, split, has, find, starts, ends, slice, replace, replaceAll, repeat, padStart, padEnd, join } = std/string
+<- { upper, lower, trim, split, has, find, starts, ends, slice, replace, repeat, padStart, padEnd, join } = std/string
 ```
 
-| Function                  | Signature     | Description                               |
-| ------------------------- | ------------- | ----------------------------------------- |
-| `upper(s)`                | `s → s`       | Convert to uppercase                      |
-| `lower(s)`                | `s → s`       | Convert to lowercase                      |
-| `trim(s)`                 | `s → s`       | Remove leading/trailing whitespace        |
-| `split(s, sep)`           | `s, s → s[]`  | Split by separator                        |
-| `has(s, sub)`             | `s, s → b`    | Check if contains substring               |
-| `find(s, sub)`            | `s, s → i`    | Find index of substring (-1 if not found) |
-| `starts(s, pre)`          | `s, s → b`    | Check if starts with prefix               |
-| `ends(s, suf)`            | `s, s → b`    | Check if ends with suffix                 |
-| `slice(s, start, end)`    | `s, i, i → s` | Extract substring                         |
-| `replace(s, old, new)`    | `s, s, s → s` | Replace first occurrence                  |
-| `replaceAll(s, old, new)` | `s, s, s → s` | Replace all occurrences                   |
-| `repeat(s, n)`            | `s, i → s`    | Repeat string n times                     |
-| `padStart(s, len, pad)`   | `s, i, s → s` | Pad start to reach length                 |
-| `padEnd(s, len, pad)`     | `s, i, s → s` | Pad end to reach length                   |
-| `join(arr, sep)`          | `s[], s → s`  | Join array with separator                 |
+| Function                | Signature     | Description                               |
+| ----------------------- | ------------- | ----------------------------------------- |
+| `upper(s)`              | `s → s`       | Convert to uppercase                      |
+| `lower(s)`              | `s → s`       | Convert to lowercase                      |
+| `trim(s)`               | `s → s`       | Remove leading/trailing whitespace        |
+| `split(s, sep)`         | `s, s → s[]`  | Split by separator                        |
+| `has(s, sub)`           | `s, s → b`    | Check if contains substring               |
+| `find(s, sub)`          | `s, s → i`    | Find index of substring (-1 if not found) |
+| `starts(s, pre)`        | `s, s → b`    | Check if starts with prefix               |
+| `ends(s, suf)`          | `s, s → b`    | Check if ends with suffix                 |
+| `slice(s, start, end)`  | `s, i, i → s` | Extract substring                         |
+| `replace(s, old, new)`  | `s, s, s → s` | Replace all occurrences                   |
+| `repeat(s, n)`          | `s, i → s`    | Repeat string n times                     |
+| `padStart(s, len, pad)` | `s, i, s → s` | Pad start to reach length                 |
+| `padEnd(s, len, pad)`   | `s, i, s → s` | Pad end to reach length                   |
+| `join(arr, sep)`        | `s[], s → s`  | Join array with separator                 |
 
 **Example:**
 
@@ -1392,6 +1391,7 @@ Use `<-!` to import from JavaScript or npm modules. No type checking is performe
 ```
 
 Use unsafe imports when:
+
 - Importing npm packages
 - Importing plain JavaScript files (no `.zz` source)
 - Working with Node.js built-in modules
@@ -1419,7 +1419,7 @@ print(math.VERSION)
 ```javascript
 // Exports become:
 export function add(a, b) {
-    return a + b;
+	return a + b;
 }
 export const VERSION = "1.0.0";
 
@@ -1461,67 +1461,67 @@ fizzbuzz(15)
 
 ## Syntax Quick Reference
 
-| ZZ                    | JavaScript                           | Description                    |
-| --------------------- | ------------------------------------ | ------------------------------ |
-| `s#x = "hi"`          | `const x = "hi"`                     | Immutable string               |
-| `i~x = 0`             | `let x = 0`                          | Mutable int                    |
-| `print(x)`            | `console.log(x)`                     | Print                          |
-| `?(cond) ... ;`       | `if (cond) { ... }`                  | If statement                   |
-| `:?(cond)`            | `else if (cond)`                     | Else if                        |
-| `:`                   | `else`                               | Else                           |
-| `@(cond) ... ;`       | `while (cond) { ... }`               | While loop                     |
-| `@(i#1..5) ... ;`     | `for (let i=1; i<=5; i++)`           | For loop (range)               |
-| `@(x#arr) ... ;`      | `for (const x of arr)`               | For-each loop                  |
-| `>!`                  | `break`                              | Break                          |
-| `>>`                  | `continue`                           | Continue                       |
-| `Z fn() ... ;`        | `function fn() { ... }`              | Void function                  |
-| `i Z fn() ... ;`      | `function fn() { return ...; }`      | Function with return           |
-| `? ... :(e) ... ;`    | `try { ... } catch(e) { ... }`       | Try-catch                      |
-| `>X(expr)`            | `throw expr`                         | Throw error                    |
-| `error(x)`            | `console.error(x)`                   | Print to stderr                |
-| `s"...{x}..."`        | `` `...${x}...` ``                   | String interpolation           |
-| `i(x)`                | `Math.trunc(Number(x))`              | Cast to int                    |
-| `_`                   | `null`                               | Null value                     |
-| `1..5`                | `[1,2,3,4,5]`                        | Range                          |
-| `i[]#arr`             | `const arr = [...]`                  | Dynamic array                  |
-| `i[5]#arr`            | `const arr = [...]`                  | Fixed-size array (no push/pop) |
-| `ti5#tup`             | `Object.freeze([...])`               | Tuple (5 ints, immutable)      |
-| `tiN#tup`             | `Object.freeze([...])`               | Tuple (inferred length)        |
-| `(1, 2, 3)`           | `Object.freeze([1,2,3])`             | Tuple literal                  |
-| `tiN(arr)`            | `Object.freeze([...arr])`            | Array to tuple cast            |
-| `i[](tup)`            | `[...tup]`                           | Tuple to array cast            |
-| `E Color Red Green ;` | `const Color = Object.freeze({...})` | Enum declaration               |
-| `Color#c = Color.Red` | `const c = Color.Red`                | Enum variable                  |
-| `Color.Red`           | `Color.Red`                          | Enum access                    |
-| `S Name ... ;`        | `class Name { ... }`                 | Struct declaration             |
-| `Name#x = Name(...)`  | `const x = new Name(...)`            | Immutable struct instance      |
-| `Name~x = Name(...)`  | `let x = new Name(...)`              | Mutable struct instance        |
-| `x.field`             | `x.field`                            | Field access                   |
-| `x.method()`          | `x.method()`                         | Method call                    |
-| `x++`                 | `x++`                                | Increment                      |
-| `x--`                 | `x--`                                | Decrement                      |
-| `x += 5`              | `x += 5`                             | Add assign                     |
-| `x -= 5`              | `x -= 5`                             | Subtract assign                |
-| `x *= 5`              | `x *= 5`                             | Multiply assign                |
-| `x /= 5`              | `x /= 5`                             | Divide assign                  |
-| `x %= 5`              | `x %= 5`                             | Modulo assign                  |
-| `x **= 5`             | `x **= 5`                            | Power assign                   |
-| `->i Z fn()`          | `export function fn()`               | Export function                |
-| `->s#x = "hi"`        | `export const x = "hi"`              | Export variable                |
-| `<- { a } = "./m"`    | `import { a } from "./m.js"`         | Safe import (typed, .zz module)|
-| `<-! { a } = "pkg"`   | `import { a } from "pkg"`           | Unsafe import (untyped, JS)    |
-| `<- { a } = std/math` | `import { a } from "../../std/math.js"` | Std library import          |
-| `<- m = "./m"`        | `import * as m from "./m.js"`        | Namespace import               |
-| `??(val) \| p => ;`   | `if/else-if chain (IIFE)`            | Pattern matching               |
-| `\| Color.Red =>`     | `if (v === Color.Red)`               | Enum pattern                   |
-| `\| 42 =>`            | `if (v === 42)`                      | Literal pattern                |
-| `\| Point(x, y) =>`   | destructure + bind fields            | Struct pattern                 |
-| `\| _ =>`             | `else`                               | Wildcard (catch-all)           |
-| `\| v & v > 0 =>`     | `if (true && (v > 0))`               | Guard condition                |
-| `$js { code }`        | raw JS output verbatim               | JS injection block             |
-| `str.len()`           | `str.length`                         | String length                  |
-| `str.at(i)`           | `str.charAt(i)`                      | Character at index             |
-| `str.upper()`         | `upper(str)`                         | UFCS: calls imported function  |
+| ZZ                    | JavaScript                              | Description                     |
+| --------------------- | --------------------------------------- | ------------------------------- |
+| `s#x = "hi"`          | `const x = "hi"`                        | Immutable string                |
+| `i~x = 0`             | `let x = 0`                             | Mutable int                     |
+| `print(x)`            | `console.log(x)`                        | Print                           |
+| `?(cond) ... ;`       | `if (cond) { ... }`                     | If statement                    |
+| `:?(cond)`            | `else if (cond)`                        | Else if                         |
+| `:`                   | `else`                                  | Else                            |
+| `@(cond) ... ;`       | `while (cond) { ... }`                  | While loop                      |
+| `@(i#1..5) ... ;`     | `for (let i=1; i<=5; i++)`              | For loop (range)                |
+| `@(x#arr) ... ;`      | `for (const x of arr)`                  | For-each loop                   |
+| `>!`                  | `break`                                 | Break                           |
+| `>>`                  | `continue`                              | Continue                        |
+| `Z fn() ... ;`        | `function fn() { ... }`                 | Void function                   |
+| `i Z fn() ... ;`      | `function fn() { return ...; }`         | Function with return            |
+| `? ... :(e) ... ;`    | `try { ... } catch(e) { ... }`          | Try-catch                       |
+| `>X(expr)`            | `throw expr`                            | Throw error                     |
+| `error(x)`            | `console.error(x)`                      | Print to stderr                 |
+| `s"...{x}..."`        | `` `...${x}...` ``                      | String interpolation            |
+| `i(x)`                | `Math.trunc(Number(x))`                 | Cast to int                     |
+| `_`                   | `null`                                  | Null value                      |
+| `1..5`                | `[1,2,3,4,5]`                           | Range                           |
+| `i[]#arr`             | `const arr = [...]`                     | Dynamic array                   |
+| `i[5]#arr`            | `const arr = [...]`                     | Fixed-size array (no push/pop)  |
+| `ti5#tup`             | `Object.freeze([...])`                  | Tuple (5 ints, immutable)       |
+| `tiN#tup`             | `Object.freeze([...])`                  | Tuple (inferred length)         |
+| `(1, 2, 3)`           | `Object.freeze([1,2,3])`                | Tuple literal                   |
+| `tiN(arr)`            | `Object.freeze([...arr])`               | Array to tuple cast             |
+| `i[](tup)`            | `[...tup]`                              | Tuple to array cast             |
+| `E Color Red Green ;` | `const Color = Object.freeze({...})`    | Enum declaration                |
+| `Color#c = Color.Red` | `const c = Color.Red`                   | Enum variable                   |
+| `Color.Red`           | `Color.Red`                             | Enum access                     |
+| `S Name ... ;`        | `class Name { ... }`                    | Struct declaration              |
+| `Name#x = Name(...)`  | `const x = new Name(...)`               | Immutable struct instance       |
+| `Name~x = Name(...)`  | `let x = new Name(...)`                 | Mutable struct instance         |
+| `x.field`             | `x.field`                               | Field access                    |
+| `x.method()`          | `x.method()`                            | Method call                     |
+| `x++`                 | `x++`                                   | Increment                       |
+| `x--`                 | `x--`                                   | Decrement                       |
+| `x += 5`              | `x += 5`                                | Add assign                      |
+| `x -= 5`              | `x -= 5`                                | Subtract assign                 |
+| `x *= 5`              | `x *= 5`                                | Multiply assign                 |
+| `x /= 5`              | `x /= 5`                                | Divide assign                   |
+| `x %= 5`              | `x %= 5`                                | Modulo assign                   |
+| `x **= 5`             | `x **= 5`                               | Power assign                    |
+| `->i Z fn()`          | `export function fn()`                  | Export function                 |
+| `->s#x = "hi"`        | `export const x = "hi"`                 | Export variable                 |
+| `<- { a } = "./m"`    | `import { a } from "./m.js"`            | Safe import (typed, .zz module) |
+| `<-! { a } = "pkg"`   | `import { a } from "pkg"`               | Unsafe import (untyped, JS)     |
+| `<- { a } = std/math` | `import { a } from "../../std/math.js"` | Std library import              |
+| `<- m = "./m"`        | `import * as m from "./m.js"`           | Namespace import                |
+| `??(val) \| p => ;`   | `if/else-if chain (IIFE)`               | Pattern matching                |
+| `\| Color.Red =>`     | `if (v === Color.Red)`                  | Enum pattern                    |
+| `\| 42 =>`            | `if (v === 42)`                         | Literal pattern                 |
+| `\| Point(x, y) =>`   | destructure + bind fields               | Struct pattern                  |
+| `\| _ =>`             | `else`                                  | Wildcard (catch-all)            |
+| `\| v & v > 0 =>`     | `if (true && (v > 0))`                  | Guard condition                 |
+| `$js { code }`        | raw JS output verbatim                  | JS injection block              |
+| `str.len()`           | `str.length`                            | String length                   |
+| `str.at(i)`           | `str.charAt(i)`                         | Character at index              |
+| `str.upper()`         | `upper(str)`                            | UFCS: calls imported function   |
 
 ---
 
