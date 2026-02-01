@@ -5,6 +5,7 @@ export declare enum TokenType {
     TYPE_BOOL = "TYPE_BOOL",// b
     IMMUTABLE = "IMMUTABLE",// #
     MUTABLE = "MUTABLE",// ~
+    SPAWN = "SPAWN",// ~>
     EQUALS = "EQUALS",// =
     LPAREN = "LPAREN",// (
     RPAREN = "RPAREN",// )

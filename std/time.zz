@@ -77,6 +77,10 @@
   }
 ;
 
+->Z sleep(Duration#dur)
+  $js{ return new Promise((resolve) => setTimeout(resolve, dur.millis)); }
+;
+
 $js{
 export function format(inst, fmt) {
   const d = new Date(inst.millis);
@@ -113,8 +117,5 @@ export function parse(fmt, value) {
   if (Number.isNaN(ms)) return null;
   return new Instant(ms);
 }
+}
 
-export function sleep(duration) {
-  return new Promise((resolve) => setTimeout(resolve, duration.millis));
-}
-}

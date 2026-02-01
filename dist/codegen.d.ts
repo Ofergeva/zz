@@ -1,4 +1,4 @@
-import { Program } from './ast.js';
+import { Program } from "./ast.js";
 export interface CodeGenOptions {
     sourceDir: string;
     outputDir: string;
@@ -9,6 +9,7 @@ export declare class CodeGenerator {
     private structFields;
     private structMethods;
     private options?;
+    private hasSpawn;
     constructor(options?: CodeGenOptions);
     generate(program: Program): string;
     private generateStatement;
@@ -32,7 +33,9 @@ export declare class CodeGenerator {
     private generateForEachStatement;
     private generateIfStatement;
     private generateFunctionDeclaration;
+    private generateFunctionCallCode;
     private generateExpression;
+    private generateMethodCallCodeWithoutAwait;
     private generateMatchExpression;
     private generatePatternCondition;
     private substituteBindingsInGuard;

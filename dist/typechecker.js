@@ -1,5 +1,5 @@
 // Type Checker for ZZ Language
-import { isArrayType, isTupleType, isPrimitiveType, isEnumType, isStructType, } from './ast.js';
+import { isArrayType, isTupleType, isPrimitiveType, isEnumType, isStructType, } from "./ast.js";
 export class TypeChecker {
     variables = new Map();
     functions = new Map();
@@ -20,10 +20,10 @@ export class TypeChecker {
         this.errors = [];
         // First pass: collect enum and struct declarations
         for (const statement of program.statements) {
-            if (statement.type === 'EnumDeclaration') {
+            if (statement.type === "EnumDeclaration") {
                 this.registerEnum(statement);
             }
-            else if (statement.type === 'StructDeclaration') {
+            else if (statement.type === "StructDeclaration") {
                 this.registerStruct(statement);
             }
         }
@@ -107,78 +107,78 @@ export class TypeChecker {
     }
     checkStatement(statement) {
         switch (statement.type) {
-            case 'VariableDeclaration':
+            case "VariableDeclaration":
                 this.checkVariableDeclaration(statement);
                 break;
-            case 'Assignment':
+            case "Assignment":
                 this.checkAssignment(statement);
                 break;
-            case 'PrintStatement':
+            case "PrintStatement":
                 this.checkPrintStatement(statement);
                 break;
-            case 'ErrorStatement':
+            case "ErrorStatement":
                 this.checkErrorStatement(statement);
                 break;
-            case 'ThrowStatement':
+            case "ThrowStatement":
                 this.checkThrowStatement(statement);
                 break;
-            case 'WhileStatement':
+            case "WhileStatement":
                 this.checkWhileStatement(statement);
                 break;
-            case 'ForStatement':
+            case "ForStatement":
                 this.checkForStatement(statement);
                 break;
-            case 'ForEachStatement':
+            case "ForEachStatement":
                 this.checkForEachStatement(statement);
                 break;
-            case 'IfStatement':
+            case "IfStatement":
                 this.checkIfStatement(statement);
                 break;
-            case 'FunctionDeclaration':
+            case "FunctionDeclaration":
                 this.checkFunctionDeclaration(statement);
                 break;
-            case 'ExpressionStatement':
+            case "ExpressionStatement":
                 this.checkExpression(statement.expression, statement.line);
                 break;
-            case 'IndexAssignment':
+            case "IndexAssignment":
                 this.checkIndexAssignment(statement);
                 break;
-            case 'FieldAssignment':
+            case "FieldAssignment":
                 this.checkFieldAssignment(statement);
                 break;
-            case 'BreakStatement':
+            case "BreakStatement":
                 if (this.loopDepth === 0) {
                     this.errors.push(`Break statement (>!) at line ${statement.line} must be inside a loop.`);
                 }
                 break;
-            case 'ContinueStatement':
+            case "ContinueStatement":
                 if (this.loopDepth === 0) {
                     this.errors.push(`Continue statement (>>) at line ${statement.line} must be inside a loop.`);
                 }
                 break;
-            case 'TryStatement':
+            case "TryStatement":
                 this.checkTryStatement(statement);
                 break;
-            case 'ImportStatement':
+            case "ImportStatement":
                 this.checkImportStatement(statement);
                 break;
-            case 'IncrementStatement':
+            case "IncrementStatement":
                 this.checkIncrementStatement(statement);
                 break;
-            case 'CompoundAssignment':
+            case "CompoundAssignment":
                 this.checkCompoundAssignment(statement);
                 break;
-            case 'EnumDeclaration':
+            case "EnumDeclaration":
                 // Already registered in first pass, nothing more to check
                 break;
-            case 'StructDeclaration':
+            case "StructDeclaration":
                 // Check struct methods (struct is already registered in first pass)
                 this.checkStructDeclaration(statement);
                 break;
-            case 'MatchExpression':
+            case "MatchExpression":
                 this.checkMatchExpression(statement);
                 break;
-            case 'JSBlockStatement':
+            case "JSBlockStatement":
                 // Raw JavaScript injection - skip type checking
                 break;
         }
@@ -199,7 +199,7 @@ export class TypeChecker {
         for (const field of structDecl.fields) {
             this.variables.set(field.name, {
                 dataType: field.dataType,
-                mutability: 'mutable', // Fields are accessible but mutation depends on instance
+                mutability: "mutable", // Fields are accessible but mutation depends on instance
                 line: method.line,
             });
         }
@@ -207,7 +207,7 @@ export class TypeChecker {
         for (const param of method.parameters) {
             this.variables.set(param.name, {
                 dataType: param.dataType,
-                mutability: 'immutable', // Parameters are always immutable
+                mutability: "immutable", // Parameters are always immutable
                 line: method.line,
             });
         }
@@ -219,13 +219,13 @@ export class TypeChecker {
         if (method.returnExpression) {
             this.checkExpression(method.returnExpression, method.line);
             const returnExprType = this.inferExpressionType(method.returnExpression);
-            if (returnExprType && method.returnType !== 'void' && !this.typesCompatible(returnExprType, method.returnType)) {
+            if (returnExprType && method.returnType !== "void" && !this.typesCompatible(returnExprType, method.returnType)) {
                 this.errors.push(`Type mismatch at line ${method.line}: method '${method.name}' should return ${this.typeToString(method.returnType)}, but returns ${this.typeToString(returnExprType)}.`);
             }
         }
-        else if (method.returnType !== 'void') {
+        else if (method.returnType !== "void") {
             // Skip this check if the body contains a $js{} block (return handled by JS code)
-            const hasJsBlock = method.body.some(s => s.type === 'JSBlockStatement');
+            const hasJsBlock = method.body.some((s) => s.type === "JSBlockStatement");
             if (!hasJsBlock) {
                 this.errors.push(`Method '${method.name}' at line ${method.line} has return type ${this.typeToString(method.returnType)} but no return expression.`);
             }
@@ -248,7 +248,7 @@ export class TypeChecker {
             // Check guard expression if present
             if (arm.guard) {
                 this.checkExpression(arm.guard, arm.line);
-                this.requireBooleanCondition(arm.guard, arm.line, 'Match guard');
+                this.requireBooleanCondition(arm.guard, arm.line, "Match guard");
             }
             // Check body statements
             for (const stmt of arm.body) {
@@ -259,10 +259,10 @@ export class TypeChecker {
                 this.checkExpression(arm.resultExpression, arm.line);
             }
             // Track coverage for exhaustiveness checking
-            if (arm.pattern.kind === 'wildcard' || arm.pattern.kind === 'binding') {
+            if (arm.pattern.kind === "wildcard" || arm.pattern.kind === "binding") {
                 hasWildcard = true;
             }
-            if (arm.pattern.kind === 'enum') {
+            if (arm.pattern.kind === "enum") {
                 coveredVariants.add(arm.pattern.variant);
             }
             // Restore variables (exit arm scope)
@@ -284,7 +284,7 @@ export class TypeChecker {
         if (!expected)
             return;
         switch (pattern.kind) {
-            case 'enum':
+            case "enum":
                 if (!isEnumType(expected) || expected.name !== pattern.enumName) {
                     this.errors.push(`Pattern type mismatch at line ${line}: expected ${this.typeToString(expected)}, got ${pattern.enumName}.`);
                 }
@@ -294,17 +294,17 @@ export class TypeChecker {
                     this.errors.push(`Unknown variant '${pattern.variant}' in enum '${pattern.enumName}' at line ${line}.`);
                 }
                 break;
-            case 'struct':
+            case "struct":
                 if (!isStructType(expected) || expected.name !== pattern.structName) {
                     this.errors.push(`Pattern type mismatch at line ${line}: expected ${this.typeToString(expected)}, got ${pattern.structName}.`);
                 }
                 break;
-            case 'tuple':
+            case "tuple":
                 if (!isTupleType(expected)) {
                     this.errors.push(`Cannot use tuple pattern on ${this.typeToString(expected)} at line ${line}.`);
                 }
                 break;
-            case 'literal':
+            case "literal":
                 const litType = this.inferExpressionType(pattern.value);
                 if (litType && !this.typesCompatible(litType, expected)) {
                     this.errors.push(`Literal pattern type mismatch at line ${line}: expected ${this.typeToString(expected)}, got ${this.typeToString(litType)}.`);
@@ -314,23 +314,23 @@ export class TypeChecker {
     }
     addPatternBindings(pattern, valueType, line) {
         switch (pattern.kind) {
-            case 'binding':
+            case "binding":
                 if (valueType) {
                     this.variables.set(pattern.name, {
                         dataType: valueType,
-                        mutability: 'immutable',
+                        mutability: "immutable",
                         line,
                     });
                 }
                 break;
-            case 'struct': {
+            case "struct": {
                 const structInfo = this.structs.get(pattern.structName);
                 if (structInfo) {
                     pattern.fields.forEach((field, i) => {
                         if (field.binding && structInfo.fields[i]) {
                             this.variables.set(field.binding, {
                                 dataType: structInfo.fields[i].dataType,
-                                mutability: 'immutable',
+                                mutability: "immutable",
                                 line,
                             });
                         }
@@ -338,13 +338,13 @@ export class TypeChecker {
                 }
                 break;
             }
-            case 'tuple':
+            case "tuple":
                 if (valueType && isTupleType(valueType)) {
                     for (const elem of pattern.elements) {
                         if (elem.binding) {
                             this.variables.set(elem.binding, {
                                 dataType: valueType.elementType,
-                                mutability: 'immutable',
+                                mutability: "immutable",
                                 line,
                             });
                         }
@@ -361,8 +361,8 @@ export class TypeChecker {
         // Save current variables and add catch variable to scope
         const savedVariables = new Map(this.variables);
         this.variables.set(stmt.catchVariable, {
-            dataType: 'string', // Error messages are strings
-            mutability: 'immutable',
+            dataType: "string", // Error messages are strings
+            mutability: "immutable",
             line: stmt.line,
         });
         // Check catch body
@@ -384,7 +384,7 @@ export class TypeChecker {
         }
         // Verify index is an integer
         const indexType = this.inferExpressionType(stmt.index);
-        if (indexType && isPrimitiveType(indexType) && indexType !== 'int') {
+        if (indexType && isPrimitiveType(indexType) && indexType !== "int") {
             this.errors.push(`Array index must be an integer at line ${stmt.line}, got ${indexType}.`);
         }
         // Get the array's element type and verify the value matches
@@ -406,9 +406,9 @@ export class TypeChecker {
         }
         // Check that the struct variable is mutable
         // We need to find the variable holding the struct
-        if (stmt.object.type === 'Identifier') {
+        if (stmt.object.type === "Identifier") {
             const varInfo = this.variables.get(stmt.object.name);
-            if (varInfo && varInfo.mutability === 'immutable') {
+            if (varInfo && varInfo.mutability === "immutable") {
                 this.errors.push(`Cannot assign to field '${stmt.field}' on immutable struct '${stmt.object.name}' at line ${stmt.line}. ` +
                     `Variable was declared as immutable (#) at line ${varInfo.line}.`);
                 return;
@@ -420,7 +420,7 @@ export class TypeChecker {
             this.errors.push(`Unknown struct '${objectType.name}' at line ${stmt.line}.`);
             return;
         }
-        const field = structInfo.fields.find(f => f.name === stmt.field);
+        const field = structInfo.fields.find((f) => f.name === stmt.field);
         if (!field) {
             this.errors.push(`Unknown field '${stmt.field}' on struct '${objectType.name}' at line ${stmt.line}.`);
             return;
@@ -440,7 +440,7 @@ export class TypeChecker {
             return;
         }
         // Tuples must be immutable
-        if (isTupleType(decl.dataType) && decl.mutability === 'mutable') {
+        if (isTupleType(decl.dataType) && decl.mutability === "mutable") {
             this.errors.push(`Tuples must be immutable at line ${decl.line}. Use # instead of ~.`);
         }
         // Validate the expression (checks for type errors in arithmetic, etc.)
@@ -470,7 +470,7 @@ export class TypeChecker {
             return;
         }
         // Check immutability
-        if (varInfo.mutability === 'immutable') {
+        if (varInfo.mutability === "immutable") {
             this.errors.push(`Cannot reassign immutable variable '${assignment.name}' at line ${assignment.line}. ` +
                 `Variable was declared as immutable (#) at line ${varInfo.line}.`);
             return;
@@ -490,7 +490,7 @@ export class TypeChecker {
             return;
         }
         // Check immutability
-        if (varInfo.mutability === 'immutable') {
+        if (varInfo.mutability === "immutable") {
             this.errors.push(`Cannot modify immutable variable '${stmt.name}' with ${stmt.operator} at line ${stmt.line}. ` +
                 `Variable was declared as immutable (#) at line ${varInfo.line}.`);
             return;
@@ -508,7 +508,7 @@ export class TypeChecker {
             return;
         }
         // Check immutability
-        if (varInfo.mutability === 'immutable') {
+        if (varInfo.mutability === "immutable") {
             this.errors.push(`Cannot modify immutable variable '${stmt.name}' with ${stmt.operator} at line ${stmt.line}. ` +
                 `Variable was declared as immutable (#) at line ${varInfo.line}.`);
             return;
@@ -517,8 +517,8 @@ export class TypeChecker {
         this.checkExpression(stmt.value, stmt.line);
         const valueType = this.inferExpressionType(stmt.value);
         // For += with strings, allow string concatenation
-        if (stmt.operator === '+=' && varInfo.dataType === 'string') {
-            if (valueType && valueType !== 'string') {
+        if (stmt.operator === "+=" && varInfo.dataType === "string") {
+            if (valueType && valueType !== "string") {
                 this.errors.push(`Cannot concatenate ${this.typeToString(valueType)} to string variable '${stmt.name}' at line ${stmt.line}. Use s() to convert.`);
             }
             return;
@@ -548,7 +548,7 @@ export class TypeChecker {
     }
     checkWhileStatement(stmt) {
         this.checkExpression(stmt.condition, stmt.line);
-        this.requireBooleanCondition(stmt.condition, stmt.line, 'While loop');
+        this.requireBooleanCondition(stmt.condition, stmt.line, "While loop");
         this.loopDepth++;
         for (const s of stmt.body) {
             this.checkStatement(s);
@@ -561,17 +561,17 @@ export class TypeChecker {
         this.checkExpression(stmt.end, stmt.line);
         const startType = this.inferExpressionType(stmt.start);
         const endType = this.inferExpressionType(stmt.end);
-        if (startType && isPrimitiveType(startType) && startType !== 'int') {
+        if (startType && isPrimitiveType(startType) && startType !== "int") {
             this.errors.push(`For loop range start must be an integer at line ${stmt.line}, got ${startType}.`);
         }
-        if (endType && isPrimitiveType(endType) && endType !== 'int') {
+        if (endType && isPrimitiveType(endType) && endType !== "int") {
             this.errors.push(`For loop range end must be an integer at line ${stmt.line}, got ${endType}.`);
         }
         // Save current variables and add loop variable to scope
         const savedVariables = new Map(this.variables);
         this.variables.set(stmt.variable, {
-            dataType: 'int',
-            mutability: 'immutable',
+            dataType: "int",
+            mutability: "immutable",
             line: stmt.line,
         });
         // Check body with loop depth incremented
@@ -586,19 +586,19 @@ export class TypeChecker {
     checkForEachStatement(stmt) {
         this.checkExpression(stmt.iterable, stmt.line);
         const iterableType = this.inferExpressionType(stmt.iterable);
-        let elementType = 'string'; // fallback
+        let elementType = "string"; // fallback
         if (iterableType) {
             if (isArrayType(iterableType)) {
                 elementType = iterableType.elementType;
             }
             else {
-                this.errors.push(`For-each loop requires an array at line ${stmt.line}, got ${typeof iterableType === 'string' ? iterableType : iterableType.kind}.`);
+                this.errors.push(`For-each loop requires an array at line ${stmt.line}, got ${typeof iterableType === "string" ? iterableType : iterableType.kind}.`);
             }
         }
         const savedVariables = new Map(this.variables);
         this.variables.set(stmt.variable, {
             dataType: elementType,
-            mutability: 'immutable',
+            mutability: "immutable",
             line: stmt.line,
         });
         this.loopDepth++;
@@ -610,11 +610,11 @@ export class TypeChecker {
     }
     checkImportStatement(stmt) {
         // Look up module type info for safe imports
-        const moduleInfo = (!stmt.isUnsafe) ? this.moduleTypes.get(stmt.source) : undefined;
+        const moduleInfo = !stmt.isUnsafe ? this.moduleTypes.get(stmt.source) : undefined;
         if (stmt.namespace) {
             this.variables.set(stmt.namespace, {
-                dataType: 'string',
-                mutability: 'immutable',
+                dataType: "string",
+                mutability: "immutable",
                 line: stmt.line,
             });
         }
@@ -638,7 +638,7 @@ export class TypeChecker {
                 if (varType) {
                     this.variables.set(localName, {
                         dataType: varType.dataType,
-                        mutability: 'immutable',
+                        mutability: "immutable",
                         line: stmt.line,
                     });
                     resolved = true;
@@ -664,13 +664,13 @@ export class TypeChecker {
             // Fallback: placeholder types for unsafe imports or unresolved names
             if (!resolved) {
                 this.variables.set(localName, {
-                    dataType: 'string',
-                    mutability: 'immutable',
+                    dataType: "string",
+                    mutability: "immutable",
                     line: stmt.line,
                 });
                 this.functions.set(localName, {
                     parameters: [],
-                    returnType: 'void',
+                    returnType: "void",
                     line: stmt.line,
                     imported: true,
                 });
@@ -680,14 +680,14 @@ export class TypeChecker {
     checkIfStatement(stmt) {
         // Check if branch
         this.checkExpression(stmt.ifBranch.condition, stmt.line);
-        this.requireBooleanCondition(stmt.ifBranch.condition, stmt.line, 'If');
+        this.requireBooleanCondition(stmt.ifBranch.condition, stmt.line, "If");
         for (const s of stmt.ifBranch.body) {
             this.checkStatement(s);
         }
         // Check else-if branches
         for (const branch of stmt.elseIfBranches) {
             this.checkExpression(branch.condition, stmt.line);
-            this.requireBooleanCondition(branch.condition, stmt.line, 'Else-if');
+            this.requireBooleanCondition(branch.condition, stmt.line, "Else-if");
             for (const s of branch.body) {
                 this.checkStatement(s);
             }
@@ -719,7 +719,7 @@ export class TypeChecker {
         for (const param of decl.parameters) {
             this.variables.set(param.name, {
                 dataType: param.dataType,
-                mutability: 'immutable', // Parameters are always immutable
+                mutability: "immutable", // Parameters are always immutable
                 line: decl.line,
             });
         }
@@ -731,13 +731,13 @@ export class TypeChecker {
         if (decl.returnExpression) {
             this.checkExpression(decl.returnExpression, decl.line);
             const returnExprType = this.inferExpressionType(decl.returnExpression);
-            if (returnExprType && decl.returnType !== 'void' && !this.typesCompatible(returnExprType, decl.returnType)) {
+            if (returnExprType && decl.returnType !== "void" && !this.typesCompatible(returnExprType, decl.returnType)) {
                 this.errors.push(`Type mismatch at line ${decl.line}: function '${decl.name}' should return ${this.typeToString(decl.returnType)}, but returns ${this.typeToString(returnExprType)}.`);
             }
         }
-        else if (decl.returnType !== 'void') {
+        else if (decl.returnType !== "void") {
             // Skip this check if the body contains a $js{} block (return handled by JS code)
-            const hasJsBlock = decl.body.some(s => s.type === 'JSBlockStatement');
+            const hasJsBlock = decl.body.some((s) => s.type === "JSBlockStatement");
             if (!hasJsBlock) {
                 this.errors.push(`Function '${decl.name}' at line ${decl.line} has return type ${decl.returnType} but no return expression.`);
             }
@@ -760,8 +760,8 @@ export class TypeChecker {
             return;
         }
         // Check arguments
-        const positionalArgs = call.arguments.filter(arg => !arg.name);
-        const namedArgs = call.arguments.filter(arg => arg.name);
+        const positionalArgs = call.arguments.filter((arg) => !arg.name);
+        const namedArgs = call.arguments.filter((arg) => arg.name);
         // Build a map of which parameters have been provided
         const providedParams = new Map();
         // Process positional arguments first
@@ -781,7 +781,7 @@ export class TypeChecker {
         }
         // Process named arguments
         for (const arg of namedArgs) {
-            const param = funcInfo.parameters.find(p => p.name === arg.name);
+            const param = funcInfo.parameters.find((p) => p.name === arg.name);
             if (!param) {
                 this.errors.push(`Unknown parameter '${arg.name}' for function '${call.name}' at line ${line}.`);
                 continue;
@@ -806,22 +806,22 @@ export class TypeChecker {
         }
     }
     checkExpression(expr, line) {
-        if (expr.type === 'Identifier') {
+        if (expr.type === "Identifier") {
             if (!this.variables.has(expr.name)) {
                 this.errors.push(`Undeclared variable '${expr.name}' at line ${line}.`);
             }
         }
-        else if (expr.type === 'BinaryExpression') {
+        else if (expr.type === "BinaryExpression") {
             this.checkExpression(expr.left, line);
             this.checkExpression(expr.right, line);
             const leftType = this.inferExpressionType(expr.left);
             const rightType = this.inferExpressionType(expr.right);
             // Logical operators require boolean operands
-            if (expr.operator === '&&' || expr.operator === '||') {
-                if (leftType !== null && leftType !== 'bool') {
+            if (expr.operator === "&&" || expr.operator === "||") {
+                if (leftType !== null && leftType !== "bool") {
                     this.errors.push(`Operator '${expr.operator}' requires boolean operands at line ${line}, got ${this.typeToString(leftType)} on left side.`);
                 }
-                if (rightType !== null && rightType !== 'bool') {
+                if (rightType !== null && rightType !== "bool") {
                     this.errors.push(`Operator '${expr.operator}' requires boolean operands at line ${line}, got ${this.typeToString(rightType)} on right side.`);
                 }
                 return;
@@ -839,9 +839,9 @@ export class TypeChecker {
                 return;
             }
             // Special handling for + operator (string concatenation)
-            if (expr.operator === '+') {
-                const leftIsString = leftType === 'string';
-                const rightIsString = rightType === 'string';
+            if (expr.operator === "+") {
+                const leftIsString = leftType === "string";
+                const rightIsString = rightType === "string";
                 if (leftIsString || rightIsString) {
                     // If either side is string, BOTH must be string (no implicit conversion)
                     if (!leftIsString && leftType) {
@@ -861,12 +861,12 @@ export class TypeChecker {
                 this.errors.push(`Cannot use operator '${expr.operator}' on ${rightType} at line ${line}.`);
             }
         }
-        else if (expr.type === 'UnaryExpression') {
+        else if (expr.type === "UnaryExpression") {
             this.checkExpression(expr.operand, line);
             const operandType = this.inferExpressionType(expr.operand);
             // ! operator requires boolean operand
-            if (expr.operator === '!') {
-                if (operandType !== null && operandType !== 'bool') {
+            if (expr.operator === "!") {
+                if (operandType !== null && operandType !== "bool") {
                     this.errors.push(`Operator '!' requires boolean operand at line ${line}, got ${this.typeToString(operandType)}. Use an explicit comparison (e.g., x == 0, x == _).`);
                 }
                 return;
@@ -876,27 +876,27 @@ export class TypeChecker {
                 this.errors.push(`Cannot use unary '${expr.operator}' on ${operandType} at line ${line}.`);
             }
         }
-        else if (expr.type === 'InterpolatedString') {
+        else if (expr.type === "InterpolatedString") {
             // Check all expressions inside the interpolated string
             for (const part of expr.parts) {
-                if (part.kind === 'expr') {
+                if (part.kind === "expr") {
                     this.checkExpression(part.value, line);
                 }
             }
         }
-        else if (expr.type === 'CastExpression') {
+        else if (expr.type === "CastExpression") {
             this.checkExpression(expr.expression, line);
         }
-        else if (expr.type === 'FunctionCall') {
+        else if (expr.type === "FunctionCall") {
             this.checkFunctionCall(expr, line);
         }
-        else if (expr.type === 'ArrayLiteral') {
+        else if (expr.type === "ArrayLiteral") {
             // Check all elements in the array
             for (const elem of expr.elements) {
                 this.checkExpression(elem, line);
             }
         }
-        else if (expr.type === 'TupleLiteral') {
+        else if (expr.type === "TupleLiteral") {
             // Check all elements in the tuple
             for (const elem of expr.elements) {
                 this.checkExpression(elem, line);
@@ -915,48 +915,48 @@ export class TypeChecker {
                 }
             }
         }
-        else if (expr.type === 'RangeExpression') {
+        else if (expr.type === "RangeExpression") {
             // Check start and end are integers
             this.checkExpression(expr.start, line);
             this.checkExpression(expr.end, line);
             const startType = this.inferExpressionType(expr.start);
             const endType = this.inferExpressionType(expr.end);
-            if (startType && isPrimitiveType(startType) && startType !== 'int') {
+            if (startType && isPrimitiveType(startType) && startType !== "int") {
                 this.errors.push(`Range start must be an integer at line ${line}, got ${startType}.`);
             }
-            if (endType && isPrimitiveType(endType) && endType !== 'int') {
+            if (endType && isPrimitiveType(endType) && endType !== "int") {
                 this.errors.push(`Range end must be an integer at line ${line}, got ${endType}.`);
             }
         }
-        else if (expr.type === 'IndexAccess') {
+        else if (expr.type === "IndexAccess") {
             this.checkExpression(expr.array, line);
             this.checkExpression(expr.index, line);
             const indexType = this.inferExpressionType(expr.index);
-            if (indexType && isPrimitiveType(indexType) && indexType !== 'int') {
+            if (indexType && isPrimitiveType(indexType) && indexType !== "int") {
                 this.errors.push(`Array index must be an integer at line ${line}, got ${indexType}.`);
             }
         }
-        else if (expr.type === 'MethodCall') {
+        else if (expr.type === "MethodCall") {
             this.checkExpression(expr.object, line);
             for (const arg of expr.arguments) {
                 this.checkExpression(arg, line);
             }
             const objectType = this.inferExpressionType(expr.object);
             // Validate method exists for strings
-            if (objectType === 'string') {
-                const stringMethods = ['len', 'at'];
+            if (objectType === "string") {
+                const stringMethods = ["len", "at"];
                 if (stringMethods.includes(expr.method)) {
                     // Built-in string methods
-                    if (expr.method === 'len' && expr.arguments.length > 0) {
+                    if (expr.method === "len" && expr.arguments.length > 0) {
                         this.errors.push(`String method 'len' takes no arguments at line ${line}.`);
                     }
-                    if (expr.method === 'at') {
+                    if (expr.method === "at") {
                         if (expr.arguments.length !== 1) {
                             this.errors.push(`String method 'at' requires exactly 1 argument at line ${line}.`);
                         }
                         else {
                             const argType = this.inferExpressionType(expr.arguments[0]);
-                            if (argType && argType !== 'int') {
+                            if (argType && argType !== "int") {
                                 this.errors.push(`String method 'at' requires int argument at line ${line}, got ${this.typeToString(argType)}.`);
                             }
                         }
@@ -970,44 +970,44 @@ export class TypeChecker {
                         // No additional validation needed for imported functions
                     }
                     else {
-                        this.errors.push(`Unknown string method '${expr.method}' at line ${line}. Built-in methods: ${stringMethods.join(', ')}. Or import a function with this name.`);
+                        this.errors.push(`Unknown string method '${expr.method}' at line ${line}. Built-in methods: ${stringMethods.join(", ")}. Or import a function with this name.`);
                     }
                 }
             }
             // Validate method exists for tuples
             else if (objectType && isTupleType(objectType)) {
-                const validMethods = ['len']; // Tuples only support len
+                const validMethods = ["len"]; // Tuples only support len
                 if (!validMethods.includes(expr.method)) {
                     // UFCS: Check if there's a function with this name
                     const funcInfo = this.functions.get(expr.method);
                     if (!funcInfo) {
-                        this.errors.push(`Invalid method '${expr.method}' on tuple at line ${line}. Tuples only support: ${validMethods.join(', ')}.`);
+                        this.errors.push(`Invalid method '${expr.method}' on tuple at line ${line}. Tuples only support: ${validMethods.join(", ")}.`);
                     }
                 }
                 else {
                     // len takes no arguments
-                    if (expr.method === 'len' && expr.arguments.length > 0) {
+                    if (expr.method === "len" && expr.arguments.length > 0) {
                         this.errors.push(`Tuple method '${expr.method}' takes no arguments at line ${line}.`);
                     }
                 }
             }
             // Validate method exists for arrays
             else if (objectType && isArrayType(objectType)) {
-                const validMethods = ['len', 'push', 'pop'];
+                const validMethods = ["len", "push", "pop"];
                 if (!validMethods.includes(expr.method)) {
                     // UFCS: Check if there's a function with this name
                     const funcInfo = this.functions.get(expr.method);
                     if (!funcInfo) {
-                        this.errors.push(`Unknown array method '${expr.method}' at line ${line}. Valid methods: ${validMethods.join(', ')}.`);
+                        this.errors.push(`Unknown array method '${expr.method}' at line ${line}. Valid methods: ${validMethods.join(", ")}.`);
                     }
                 }
                 else {
                     // Fixed-size arrays cannot use push or pop
-                    if (objectType.size !== undefined && (expr.method === 'push' || expr.method === 'pop')) {
+                    if (objectType.size !== undefined && (expr.method === "push" || expr.method === "pop")) {
                         this.errors.push(`Cannot use '${expr.method}' on fixed-size array at line ${line}. Array was declared with size ${objectType.size}.`);
                     }
                     // push requires one argument of the correct type
-                    if (expr.method === 'push') {
+                    if (expr.method === "push") {
                         if (expr.arguments.length !== 1) {
                             this.errors.push(`Array method 'push' requires exactly 1 argument at line ${line}.`);
                         }
@@ -1019,7 +1019,7 @@ export class TypeChecker {
                         }
                     }
                     // len and pop take no arguments
-                    if ((expr.method === 'len' || expr.method === 'pop') && expr.arguments.length > 0) {
+                    if ((expr.method === "len" || expr.method === "pop") && expr.arguments.length > 0) {
                         this.errors.push(`Array method '${expr.method}' takes no arguments at line ${line}.`);
                     }
                 }
@@ -1061,7 +1061,7 @@ export class TypeChecker {
                 }
             }
         }
-        else if (expr.type === 'MemberExpression') {
+        else if (expr.type === "MemberExpression") {
             // Property access on objects (e.g., namespace imports, struct fields)
             this.checkExpression(expr.object, line);
             // Check if this is a struct field access
@@ -1069,7 +1069,7 @@ export class TypeChecker {
             if (objectType && isStructType(objectType)) {
                 const structInfo = this.structs.get(objectType.name);
                 if (structInfo) {
-                    const field = structInfo.fields.find(f => f.name === expr.property);
+                    const field = structInfo.fields.find((f) => f.name === expr.property);
                     if (!field) {
                         this.errors.push(`Unknown field '${expr.property}' on struct '${objectType.name}' at line ${line}.`);
                     }
@@ -1077,21 +1077,30 @@ export class TypeChecker {
             }
             // For non-structs, we trust that the property exists (e.g., imported modules)
         }
-        else if (expr.type === 'EnumAccess') {
+        else if (expr.type === "EnumAccess") {
             // Validate that the enum exists and the variant is valid
             const variants = this.enums.get(expr.enumName);
             if (!variants) {
                 this.errors.push(`Unknown enum '${expr.enumName}' at line ${line}.`);
             }
             else if (!variants.includes(expr.variant)) {
-                this.errors.push(`Unknown variant '${expr.variant}' in enum '${expr.enumName}' at line ${line}. Valid variants: ${variants.join(', ')}.`);
+                this.errors.push(`Unknown variant '${expr.variant}' in enum '${expr.enumName}' at line ${line}. Valid variants: ${variants.join(", ")}.`);
             }
         }
-        else if (expr.type === 'StructInstantiation') {
+        else if (expr.type === "StructInstantiation") {
             this.checkStructInstantiation(expr, line);
         }
-        else if (expr.type === 'MatchExpression') {
+        else if (expr.type === "MatchExpression") {
             this.checkMatchExpression(expr);
+        }
+        else if (expr.type === "SpawnExpression") {
+            // Type-check the inner function call
+            if (expr.call.type === "FunctionCall") {
+                this.checkFunctionCall(expr.call, line);
+            }
+            else if (expr.call.type === "MethodCall") {
+                this.checkExpression(expr.call, line);
+            }
         }
     }
     checkStructInstantiation(expr, line) {
@@ -1101,8 +1110,8 @@ export class TypeChecker {
             return;
         }
         // Check arguments
-        const positionalArgs = expr.arguments.filter(arg => !arg.name);
-        const namedArgs = expr.arguments.filter(arg => arg.name);
+        const positionalArgs = expr.arguments.filter((arg) => !arg.name);
+        const namedArgs = expr.arguments.filter((arg) => arg.name);
         // Build a map of which fields have been provided
         const providedFields = new Map();
         // Process positional arguments first
@@ -1122,7 +1131,7 @@ export class TypeChecker {
         }
         // Process named arguments
         for (const arg of namedArgs) {
-            const field = structInfo.fields.find(f => f.name === arg.name);
+            const field = structInfo.fields.find((f) => f.name === arg.name);
             if (!field) {
                 this.errors.push(`Unknown field '${arg.name}' for struct '${expr.structName}' at line ${line}.`);
                 continue;
@@ -1147,19 +1156,19 @@ export class TypeChecker {
         }
     }
     isNumeric(type) {
-        return type === 'int' || type === 'float';
+        return type === "int" || type === "float";
     }
     requireBooleanCondition(expr, line, context) {
         const exprType = this.inferExpressionType(expr);
-        if (exprType !== null && exprType !== 'bool') {
+        if (exprType !== null && exprType !== "bool") {
             this.errors.push(`${context} condition must be boolean at line ${line}, got ${this.typeToString(exprType)}. Use an explicit comparison (e.g., x > 0, x != _).`);
         }
     }
     isComparisonOperator(op) {
-        return ['>', '<', '>=', '<=', '==', '!='].includes(op);
+        return [">", "<", ">=", "<=", "==", "!="].includes(op);
     }
     typesEqual(a, b) {
-        if (a === null || b === null || b === 'void') {
+        if (a === null || b === null || b === "void") {
             return false;
         }
         // Both primitives
@@ -1199,19 +1208,19 @@ export class TypeChecker {
         if (this.typesEqual(source, target))
             return true;
         // Allow int → float widening
-        if (source === 'int' && target === 'float')
+        if (source === "int" && target === "float")
             return true;
         return false;
     }
     typeToString(type) {
         if (type === null)
-            return 'unknown';
-        if (type === 'void')
-            return 'void';
+            return "unknown";
+        if (type === "void")
+            return "void";
         if (isPrimitiveType(type))
             return type;
         if (isTupleType(type)) {
-            const lenStr = type.length !== undefined ? type.length.toString() : 'N';
+            const lenStr = type.length !== undefined ? type.length.toString() : "N";
             return `t${type.elementType[0]}${lenStr}`;
         }
         if (isEnumType(type)) {
@@ -1223,84 +1232,84 @@ export class TypeChecker {
         if (isArrayType(type)) {
             return `${type.elementType}[]`;
         }
-        return 'unknown';
+        return "unknown";
     }
     inferExpressionType(expr) {
         switch (expr.type) {
-            case 'StringLiteral':
-                return 'string';
-            case 'InterpolatedString':
-                return 'string';
-            case 'NumberLiteral':
-                return expr.isFloat ? 'float' : 'int';
-            case 'BoolLiteral':
-                return 'bool';
-            case 'NullLiteral':
+            case "StringLiteral":
+                return "string";
+            case "InterpolatedString":
+                return "string";
+            case "NumberLiteral":
+                return expr.isFloat ? "float" : "int";
+            case "BoolLiteral":
+                return "bool";
+            case "NullLiteral":
                 return null; // Null is compatible with any type
-            case 'Identifier':
+            case "Identifier":
                 const varInfo = this.variables.get(expr.name);
                 return varInfo?.dataType || null;
-            case 'BinaryExpression': {
+            case "BinaryExpression": {
                 const leftType = this.inferExpressionType(expr.left);
                 const rightType = this.inferExpressionType(expr.right);
                 // Comparison and logical operators return bool
-                if (this.isComparisonOperator(expr.operator) || expr.operator === '&&' || expr.operator === '||') {
-                    return 'bool';
+                if (this.isComparisonOperator(expr.operator) || expr.operator === "&&" || expr.operator === "||") {
+                    return "bool";
                 }
                 // String concatenation
-                if (expr.operator === '+' && leftType === 'string' && rightType === 'string') {
-                    return 'string';
+                if (expr.operator === "+" && leftType === "string" && rightType === "string") {
+                    return "string";
                 }
                 // If either operand is float, result is float
-                if (leftType === 'float' || rightType === 'float') {
-                    return 'float';
+                if (leftType === "float" || rightType === "float") {
+                    return "float";
                 }
                 // Division always returns float
-                if (expr.operator === '/') {
-                    return 'float';
+                if (expr.operator === "/") {
+                    return "float";
                 }
-                return 'int';
+                return "int";
             }
-            case 'UnaryExpression':
-                if (expr.operator === '!') {
-                    return 'bool';
+            case "UnaryExpression":
+                if (expr.operator === "!") {
+                    return "bool";
                 }
                 return this.inferExpressionType(expr.operand);
-            case 'CastExpression':
+            case "CastExpression":
                 return expr.targetType;
-            case 'FunctionCall': {
+            case "FunctionCall": {
                 const funcInfo = this.functions.get(expr.name);
-                if (funcInfo && funcInfo.returnType !== 'void') {
+                if (funcInfo && funcInfo.returnType !== "void") {
                     return funcInfo.returnType;
                 }
                 return null;
             }
-            case 'ArrayLiteral': {
+            case "ArrayLiteral": {
                 // Infer element type from first element, or default to int
                 if (expr.elements.length === 0) {
-                    return { kind: 'array', elementType: 'int' };
+                    return { kind: "array", elementType: "int" };
                 }
                 const firstElemType = this.inferExpressionType(expr.elements[0]);
                 if (firstElemType && isPrimitiveType(firstElemType)) {
-                    return { kind: 'array', elementType: firstElemType };
+                    return { kind: "array", elementType: firstElemType };
                 }
-                return { kind: 'array', elementType: 'int' };
+                return { kind: "array", elementType: "int" };
             }
-            case 'TupleLiteral': {
+            case "TupleLiteral": {
                 // Infer element type from first element
                 if (expr.elements.length === 0) {
-                    return { kind: 'tuple', elementType: 'int', length: 0 };
+                    return { kind: "tuple", elementType: "int", length: 0 };
                 }
                 const firstElemType = this.inferExpressionType(expr.elements[0]);
                 if (firstElemType && isPrimitiveType(firstElemType)) {
-                    return { kind: 'tuple', elementType: firstElemType, length: expr.elements.length };
+                    return { kind: "tuple", elementType: firstElemType, length: expr.elements.length };
                 }
-                return { kind: 'tuple', elementType: 'int', length: expr.elements.length };
+                return { kind: "tuple", elementType: "int", length: expr.elements.length };
             }
-            case 'RangeExpression':
+            case "RangeExpression":
                 // Range always produces an int array
-                return { kind: 'array', elementType: 'int' };
-            case 'IndexAccess': {
+                return { kind: "array", elementType: "int" };
+            case "IndexAccess": {
                 const containerType = this.inferExpressionType(expr.array);
                 if (containerType && isArrayType(containerType)) {
                     return containerType.elementType;
@@ -1310,15 +1319,15 @@ export class TypeChecker {
                 }
                 return null;
             }
-            case 'MethodCall': {
+            case "MethodCall": {
                 const objectType = this.inferExpressionType(expr.object);
                 // String methods
-                if (objectType === 'string') {
-                    if (expr.method === 'len') {
-                        return 'int';
+                if (objectType === "string") {
+                    if (expr.method === "len") {
+                        return "int";
                     }
-                    if (expr.method === 'at') {
-                        return 'string';
+                    if (expr.method === "at") {
+                        return "string";
                     }
                     // UFCS: check if there's a function with this name
                     const funcInfo = this.functions.get(expr.method);
@@ -1326,31 +1335,31 @@ export class TypeChecker {
                         // For imported functions, infer return type based on known std/string functions
                         if (funcInfo.imported) {
                             // Functions that return bool
-                            if (['has', 'starts', 'ends'].includes(expr.method)) {
-                                return 'bool';
+                            if (["has", "starts", "ends"].includes(expr.method)) {
+                                return "bool";
                             }
                             // Functions that return int
-                            if (['find'].includes(expr.method)) {
-                                return 'int';
+                            if (["find"].includes(expr.method)) {
+                                return "int";
                             }
                             // Functions that return string array
-                            if (['split'].includes(expr.method)) {
-                                return { kind: 'array', elementType: 'string' };
+                            if (["split"].includes(expr.method)) {
+                                return { kind: "array", elementType: "string" };
                             }
                             // Most string functions return string
-                            return 'string';
+                            return "string";
                         }
-                        if (funcInfo.returnType !== 'void') {
+                        if (funcInfo.returnType !== "void") {
                             return funcInfo.returnType;
                         }
                     }
                 }
                 // Array methods
                 if (objectType && isArrayType(objectType)) {
-                    if (expr.method === 'len') {
-                        return 'int';
+                    if (expr.method === "len") {
+                        return "int";
                     }
-                    if (expr.method === 'pop') {
+                    if (expr.method === "pop") {
                         return objectType.elementType;
                     }
                     // UFCS: check if there's a function with this name
@@ -1359,43 +1368,55 @@ export class TypeChecker {
                         // For imported functions, infer return type based on known std/array functions
                         if (funcInfo.imported) {
                             // Functions that return bool
-                            if (['includes', 'isEmpty'].includes(expr.method)) {
-                                return 'bool';
+                            if (["includes", "isEmpty"].includes(expr.method)) {
+                                return "bool";
                             }
                             // Functions that return int
-                            if (['indexOf', 'lastIndexOf', 'count'].includes(expr.method)) {
-                                return 'int';
+                            if (["indexOf", "lastIndexOf", "count"].includes(expr.method)) {
+                                return "int";
                             }
                             // Functions that return float
-                            if (['sum', 'product', 'average', 'minVal', 'maxVal'].includes(expr.method)) {
-                                return objectType.elementType === 'float' ? 'float' : 'int';
+                            if (["sum", "product", "average", "minVal", "maxVal"].includes(expr.method)) {
+                                return objectType.elementType === "float" ? "float" : "int";
                             }
                             // Functions that return string
-                            if (['join'].includes(expr.method)) {
-                                return 'string';
+                            if (["join"].includes(expr.method)) {
+                                return "string";
                             }
                             // Functions that return the element type
-                            if (['first', 'last'].includes(expr.method)) {
+                            if (["first", "last"].includes(expr.method)) {
                                 return objectType.elementType;
                             }
                             // Functions that return same array type
-                            if (['reverse', 'slice', 'concat', 'flat', 'flatDeep', 'fill', 'fillRange', 'sort', 'sortDesc', 'sortStr', 'unique'].includes(expr.method)) {
+                            if ([
+                                "reverse",
+                                "slice",
+                                "concat",
+                                "flat",
+                                "flatDeep",
+                                "fill",
+                                "fillRange",
+                                "sort",
+                                "sortDesc",
+                                "sortStr",
+                                "unique",
+                            ].includes(expr.method)) {
                                 return objectType;
                             }
                         }
-                        if (funcInfo.returnType !== 'void') {
+                        if (funcInfo.returnType !== "void") {
                             return funcInfo.returnType;
                         }
                     }
                 }
                 // Tuple methods
                 if (objectType && isTupleType(objectType)) {
-                    if (expr.method === 'len') {
-                        return 'int';
+                    if (expr.method === "len") {
+                        return "int";
                     }
                     // UFCS: check if there's a function with this name
                     const funcInfo = this.functions.get(expr.method);
-                    if (funcInfo && funcInfo.returnType !== 'void') {
+                    if (funcInfo && funcInfo.returnType !== "void") {
                         return funcInfo.returnType;
                     }
                 }
@@ -1404,7 +1425,7 @@ export class TypeChecker {
                     const structInfo = this.structs.get(objectType.name);
                     if (structInfo) {
                         const methodInfo = structInfo.methods.get(expr.method);
-                        if (methodInfo && methodInfo.returnType !== 'void') {
+                        if (methodInfo && methodInfo.returnType !== "void") {
                             return methodInfo.returnType;
                         }
                     }
@@ -1413,33 +1434,53 @@ export class TypeChecker {
                 const funcInfo = this.functions.get(expr.method);
                 if (funcInfo) {
                     // For imported functions on int/float, infer return type based on known std/math functions
-                    if (funcInfo.imported && (objectType === 'int' || objectType === 'float')) {
+                    if (funcInfo.imported && (objectType === "int" || objectType === "float")) {
                         // Functions that always return int
-                        if (['floor', 'ceil', 'round', 'trunc', 'sign'].includes(expr.method)) {
-                            return 'int';
+                        if (["floor", "ceil", "round", "trunc", "sign"].includes(expr.method)) {
+                            return "int";
                         }
                         // Functions that always return float
-                        if (['sqrt', 'cbrt', 'exp', 'log', 'log10', 'log2', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'sinh', 'cosh', 'tanh', 'random', 'PI', 'E'].includes(expr.method)) {
-                            return 'float';
+                        if ([
+                            "sqrt",
+                            "cbrt",
+                            "exp",
+                            "log",
+                            "log10",
+                            "log2",
+                            "sin",
+                            "cos",
+                            "tan",
+                            "asin",
+                            "acos",
+                            "atan",
+                            "atan2",
+                            "sinh",
+                            "cosh",
+                            "tanh",
+                            "random",
+                            "PI",
+                            "E",
+                        ].includes(expr.method)) {
+                            return "float";
                         }
                         // Functions that preserve type (abs, pow, min, max)
-                        if (['abs', 'pow', 'min', 'max', 'randomInt'].includes(expr.method)) {
+                        if (["abs", "pow", "min", "max", "randomInt"].includes(expr.method)) {
                             return objectType;
                         }
                     }
-                    if (funcInfo.returnType !== 'void') {
+                    if (funcInfo.returnType !== "void") {
                         return funcInfo.returnType;
                     }
                 }
                 return null;
             }
-            case 'MemberExpression': {
+            case "MemberExpression": {
                 // Check if this is a struct field access
                 const objectType = this.inferExpressionType(expr.object);
                 if (objectType && isStructType(objectType)) {
                     const structInfo = this.structs.get(objectType.name);
                     if (structInfo) {
-                        const field = structInfo.fields.find(f => f.name === expr.property);
+                        const field = structInfo.fields.find((f) => f.name === expr.property);
                         if (field) {
                             return field.dataType;
                         }
@@ -1448,19 +1489,19 @@ export class TypeChecker {
                 // Property access on non-struct - can't infer type without module info
                 return null;
             }
-            case 'EnumAccess':
+            case "EnumAccess":
                 // Return the enum type
                 if (this.enums.has(expr.enumName)) {
-                    return { kind: 'enum', name: expr.enumName };
+                    return { kind: "enum", name: expr.enumName };
                 }
                 return null;
-            case 'StructInstantiation':
+            case "StructInstantiation":
                 // Return the struct type
                 if (this.structs.has(expr.structName)) {
-                    return { kind: 'struct', name: expr.structName };
+                    return { kind: "struct", name: expr.structName };
                 }
                 return null;
-            case 'MatchExpression':
+            case "MatchExpression":
                 // Infer type from the first arm's result expression
                 for (const arm of expr.arms) {
                     if (arm.resultExpression) {
@@ -1468,6 +1509,8 @@ export class TypeChecker {
                     }
                 }
                 return null;
+            case "SpawnExpression":
+                return { kind: "struct", name: "Spawn" };
             default:
                 return null;
         }

@@ -1,0 +1,11 @@
+Z handleError(s#e)
+  error(s"Error: {e}")
+;
+
+Z test()
+  print("Starting")
+;
+
+~> test().onError(handleError)
+
+print("Done")

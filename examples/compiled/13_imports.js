@@ -1,0 +1,10 @@
+import { importedValue } from "../../lib/test.js";
+import { Instant, now, format } from "../../std/time.js";
+import { cof } from "../../lib/test2.js";
+const num = 57;
+console.log(("Imported value: " + importedValue));
+console.log(`Local number: ${num}`);
+console.log(typeof importedValue);
+const nowTime = await now();
+console.log(`Current time: ${await format(nowTime, "YYYY-MM-DD HH:mm:ss")}`);
+console.log(`COF value from test2.zz: ${cof}`);

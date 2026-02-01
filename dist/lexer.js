@@ -9,6 +9,8 @@ export var TokenType;
     // Mutability
     TokenType["IMMUTABLE"] = "IMMUTABLE";
     TokenType["MUTABLE"] = "MUTABLE";
+    // Spawn
+    TokenType["SPAWN"] = "SPAWN";
     // Operators
     TokenType["EQUALS"] = "EQUALS";
     TokenType["LPAREN"] = "LPAREN";
@@ -119,7 +121,7 @@ export class Lexer {
                 tokens.push(token);
             }
         }
-        tokens.push(this.makeToken(TokenType.EOF, ''));
+        tokens.push(this.makeToken(TokenType.EOF, ""));
         return tokens;
     }
     nextToken() {
@@ -128,227 +130,231 @@ export class Lexer {
             return null;
         const char = this.peek();
         // Single character tokens
-        if (char === '#') {
+        if (char === "#") {
             this.advance();
-            return this.makeToken(TokenType.IMMUTABLE, '#');
+            return this.makeToken(TokenType.IMMUTABLE, "#");
         }
-        if (char === '~') {
+        if (char === "~") {
             this.advance();
-            return this.makeToken(TokenType.MUTABLE, '~');
+            if (this.peek() === ">") {
+                this.advance();
+                return this.makeToken(TokenType.SPAWN, "~>");
+            }
+            return this.makeToken(TokenType.MUTABLE, "~");
         }
-        if (char === '(') {
+        if (char === "(") {
             this.advance();
-            return this.makeToken(TokenType.LPAREN, '(');
+            return this.makeToken(TokenType.LPAREN, "(");
         }
-        if (char === ')') {
+        if (char === ")") {
             this.advance();
-            return this.makeToken(TokenType.RPAREN, ')');
+            return this.makeToken(TokenType.RPAREN, ")");
         }
-        if (char === ';') {
+        if (char === ";") {
             this.advance();
-            return this.makeToken(TokenType.SEMICOLON, ';');
+            return this.makeToken(TokenType.SEMICOLON, ";");
         }
-        if (char === '@') {
+        if (char === "@") {
             this.advance();
-            return this.makeToken(TokenType.WHILE, '@');
+            return this.makeToken(TokenType.WHILE, "@");
         }
-        if (char === ',') {
+        if (char === ",") {
             this.advance();
-            return this.makeToken(TokenType.COMMA, ',');
+            return this.makeToken(TokenType.COMMA, ",");
         }
-        if (char === '[') {
+        if (char === "[") {
             this.advance();
-            return this.makeToken(TokenType.LBRACKET, '[');
+            return this.makeToken(TokenType.LBRACKET, "[");
         }
-        if (char === ']') {
+        if (char === "]") {
             this.advance();
-            return this.makeToken(TokenType.RBRACKET, ']');
+            return this.makeToken(TokenType.RBRACKET, "]");
         }
-        if (char === '{') {
+        if (char === "{") {
             this.advance();
-            return this.makeToken(TokenType.LBRACE, '{');
+            return this.makeToken(TokenType.LBRACE, "{");
         }
-        if (char === '}') {
+        if (char === "}") {
             this.advance();
-            return this.makeToken(TokenType.RBRACE, '}');
+            return this.makeToken(TokenType.RBRACE, "}");
         }
         // . and .. (dot and range)
-        if (char === '.') {
+        if (char === ".") {
             this.advance();
-            if (this.peek() === '.') {
+            if (this.peek() === ".") {
                 this.advance();
-                return this.makeToken(TokenType.DOT_DOT, '..');
+                return this.makeToken(TokenType.DOT_DOT, "..");
             }
-            return this.makeToken(TokenType.DOT, '.');
+            return this.makeToken(TokenType.DOT, ".");
         }
         // = , ==, and => (fat arrow)
-        if (char === '=') {
+        if (char === "=") {
             this.advance();
-            if (this.peek() === '=') {
+            if (this.peek() === "=") {
                 this.advance();
-                return this.makeToken(TokenType.EQ, '==');
+                return this.makeToken(TokenType.EQ, "==");
             }
-            if (this.peek() === '>') {
+            if (this.peek() === ">") {
                 this.advance();
-                return this.makeToken(TokenType.FAT_ARROW, '=>');
+                return this.makeToken(TokenType.FAT_ARROW, "=>");
             }
-            return this.makeToken(TokenType.EQUALS, '=');
+            return this.makeToken(TokenType.EQUALS, "=");
         }
         // ? (if) and ?? (pattern match)
-        if (char === '?') {
+        if (char === "?") {
             this.advance();
-            if (this.peek() === '?') {
+            if (this.peek() === "?") {
                 this.advance();
-                return this.makeToken(TokenType.MATCH, '??');
+                return this.makeToken(TokenType.MATCH, "??");
             }
-            return this.makeToken(TokenType.IF, '?');
+            return this.makeToken(TokenType.IF, "?");
         }
         // : and :? (else and else-if)
-        if (char === ':') {
+        if (char === ":") {
             this.advance();
-            if (this.peek() === '?') {
+            if (this.peek() === "?") {
                 this.advance();
-                return this.makeToken(TokenType.ELSE_IF, ':?');
+                return this.makeToken(TokenType.ELSE_IF, ":?");
             }
-            return this.makeToken(TokenType.ELSE, ':');
+            return this.makeToken(TokenType.ELSE, ":");
         }
         // >, >=, >! (break), >> (continue), >X (throw)
-        if (char === '>') {
+        if (char === ">") {
             this.advance();
-            if (this.peek() === '!') {
+            if (this.peek() === "!") {
                 this.advance();
-                return this.makeToken(TokenType.BREAK, '>!');
+                return this.makeToken(TokenType.BREAK, ">!");
             }
-            if (this.peek() === '>') {
+            if (this.peek() === ">") {
                 this.advance();
-                return this.makeToken(TokenType.CONTINUE, '>>');
+                return this.makeToken(TokenType.CONTINUE, ">>");
             }
-            if (this.peek() === 'X') {
+            if (this.peek() === "X") {
                 this.advance();
-                return this.makeToken(TokenType.THROW, '>X');
+                return this.makeToken(TokenType.THROW, ">X");
             }
-            if (this.peek() === '=') {
+            if (this.peek() === "=") {
                 this.advance();
-                return this.makeToken(TokenType.GTE, '>=');
+                return this.makeToken(TokenType.GTE, ">=");
             }
-            return this.makeToken(TokenType.GT, '>');
+            return this.makeToken(TokenType.GT, ">");
         }
         // <, <=, <- (import), and <-! (unsafe import)
-        if (char === '<') {
+        if (char === "<") {
             this.advance();
-            if (this.peek() === '-') {
+            if (this.peek() === "-") {
                 this.advance();
-                if (this.peek() === '!') {
+                if (this.peek() === "!") {
                     this.advance();
-                    return this.makeToken(TokenType.IMPORT_UNSAFE, '<-!');
+                    return this.makeToken(TokenType.IMPORT_UNSAFE, "<-!");
                 }
-                return this.makeToken(TokenType.IMPORT, '<-');
+                return this.makeToken(TokenType.IMPORT, "<-");
             }
-            if (this.peek() === '=') {
+            if (this.peek() === "=") {
                 this.advance();
-                return this.makeToken(TokenType.LTE, '<=');
+                return this.makeToken(TokenType.LTE, "<=");
             }
-            return this.makeToken(TokenType.LT, '<');
+            return this.makeToken(TokenType.LT, "<");
         }
         // ! and !=
-        if (char === '!') {
+        if (char === "!") {
             this.advance();
-            if (this.peek() === '=') {
+            if (this.peek() === "=") {
                 this.advance();
-                return this.makeToken(TokenType.NEQ, '!=');
+                return this.makeToken(TokenType.NEQ, "!=");
             }
-            return this.makeToken(TokenType.NOT, '!');
+            return this.makeToken(TokenType.NOT, "!");
         }
         // & (guard), && (logical and)
-        if (char === '&') {
+        if (char === "&") {
             this.advance();
-            if (this.peek() === '&') {
+            if (this.peek() === "&") {
                 this.advance();
-                return this.makeToken(TokenType.AND, '&&');
+                return this.makeToken(TokenType.AND, "&&");
             }
-            return this.makeToken(TokenType.AMPERSAND, '&');
+            return this.makeToken(TokenType.AMPERSAND, "&");
         }
         // | (match arm), || (logical or)
-        if (char === '|') {
+        if (char === "|") {
             this.advance();
-            if (this.peek() === '|') {
+            if (this.peek() === "|") {
                 this.advance();
-                return this.makeToken(TokenType.OR, '||');
+                return this.makeToken(TokenType.OR, "||");
             }
-            return this.makeToken(TokenType.PIPE, '|');
+            return this.makeToken(TokenType.PIPE, "|");
         }
         // Arithmetic operators (check multi-char first)
         // + , ++, +=
-        if (char === '+') {
+        if (char === "+") {
             this.advance();
-            if (this.peek() === '+') {
+            if (this.peek() === "+") {
                 this.advance();
-                return this.makeToken(TokenType.PLUS_PLUS, '++');
+                return this.makeToken(TokenType.PLUS_PLUS, "++");
             }
-            if (this.peek() === '=') {
+            if (this.peek() === "=") {
                 this.advance();
-                return this.makeToken(TokenType.PLUS_EQUALS, '+=');
+                return this.makeToken(TokenType.PLUS_EQUALS, "+=");
             }
-            return this.makeToken(TokenType.PLUS, '+');
+            return this.makeToken(TokenType.PLUS, "+");
         }
         // -, --, -=, -> (export)
-        if (char === '-') {
+        if (char === "-") {
             this.advance();
-            if (this.peek() === '-') {
+            if (this.peek() === "-") {
                 this.advance();
-                return this.makeToken(TokenType.MINUS_MINUS, '--');
+                return this.makeToken(TokenType.MINUS_MINUS, "--");
             }
-            if (this.peek() === '=') {
+            if (this.peek() === "=") {
                 this.advance();
-                return this.makeToken(TokenType.MINUS_EQUALS, '-=');
+                return this.makeToken(TokenType.MINUS_EQUALS, "-=");
             }
-            if (this.peek() === '>') {
+            if (this.peek() === ">") {
                 this.advance();
-                return this.makeToken(TokenType.EXPORT, '->');
+                return this.makeToken(TokenType.EXPORT, "->");
             }
-            return this.makeToken(TokenType.MINUS, '-');
+            return this.makeToken(TokenType.MINUS, "-");
         }
         // *, **, *=, **=
-        if (char === '*') {
+        if (char === "*") {
             this.advance();
-            if (this.peek() === '*') {
+            if (this.peek() === "*") {
                 this.advance();
-                if (this.peek() === '=') {
+                if (this.peek() === "=") {
                     this.advance();
-                    return this.makeToken(TokenType.STAR_STAR_EQUALS, '**=');
+                    return this.makeToken(TokenType.STAR_STAR_EQUALS, "**=");
                 }
-                return this.makeToken(TokenType.STAR_STAR, '**');
+                return this.makeToken(TokenType.STAR_STAR, "**");
             }
-            if (this.peek() === '=') {
+            if (this.peek() === "=") {
                 this.advance();
-                return this.makeToken(TokenType.STAR_EQUALS, '*=');
+                return this.makeToken(TokenType.STAR_EQUALS, "*=");
             }
-            return this.makeToken(TokenType.STAR, '*');
+            return this.makeToken(TokenType.STAR, "*");
         }
         // /, /=
-        if (char === '/') {
+        if (char === "/") {
             this.advance();
-            if (this.peek() === '=') {
+            if (this.peek() === "=") {
                 this.advance();
-                return this.makeToken(TokenType.SLASH_EQUALS, '/=');
+                return this.makeToken(TokenType.SLASH_EQUALS, "/=");
             }
-            return this.makeToken(TokenType.SLASH, '/');
+            return this.makeToken(TokenType.SLASH, "/");
         }
         // %, %=
-        if (char === '%') {
+        if (char === "%") {
             this.advance();
-            if (this.peek() === '=') {
+            if (this.peek() === "=") {
                 this.advance();
-                return this.makeToken(TokenType.PERCENT_EQUALS, '%=');
+                return this.makeToken(TokenType.PERCENT_EQUALS, "%=");
             }
-            return this.makeToken(TokenType.PERCENT, '%');
+            return this.makeToken(TokenType.PERCENT, "%");
         }
         // Newline
-        if (char === '\n') {
+        if (char === "\n") {
             this.advance();
             this.line++;
             this.column = 1;
-            return this.makeToken(TokenType.NEWLINE, '\n');
+            return this.makeToken(TokenType.NEWLINE, "\n");
         }
         // String literal (double or single quotes)
         if (char === '"' || char === "'") {
@@ -359,13 +365,13 @@ export class Lexer {
             return this.readNumber();
         }
         // Null literal: standalone _
-        if (char === '_' && !this.isAlphaNumeric(this.peekNext())) {
+        if (char === "_" && !this.isAlphaNumeric(this.peekNext())) {
             this.advance();
-            return this.makeToken(TokenType.NULL, '_');
+            return this.makeToken(TokenType.NULL, "_");
         }
         // JS injection block: $js { ... }
-        if (char === '$') {
-            if (this.source[this.pos + 1] === 'j' && this.source[this.pos + 2] === 's') {
+        if (char === "$") {
+            if (this.source[this.pos + 1] === "j" && this.source[this.pos + 2] === "s") {
                 return this.readJsBlock();
             }
             throw new Error(`Unexpected character '$' at line ${this.line}, column ${this.column}. Did you mean '$js { ... }'?`);
@@ -379,22 +385,22 @@ export class Lexer {
     readString(quoteChar = '"') {
         const startColumn = this.column;
         this.advance(); // consume opening quote
-        let value = '';
+        let value = "";
         while (!this.isAtEnd() && this.peek() !== quoteChar) {
-            if (this.peek() === '\n') {
+            if (this.peek() === "\n") {
                 throw new Error(`Unterminated string at line ${this.line}`);
             }
-            if (this.peek() === '\\') {
+            if (this.peek() === "\\") {
                 this.advance();
                 const escaped = this.peek();
-                if (escaped === 'n')
-                    value += '\n';
-                else if (escaped === 't')
-                    value += '\t';
+                if (escaped === "n")
+                    value += "\n";
+                else if (escaped === "t")
+                    value += "\t";
                 else if (escaped === quoteChar)
                     value += quoteChar;
-                else if (escaped === '\\')
-                    value += '\\';
+                else if (escaped === "\\")
+                    value += "\\";
                 else
                     value += escaped;
             }
@@ -411,37 +417,37 @@ export class Lexer {
     }
     readInterpolatedString(startColumn) {
         this.advance(); // consume opening quote
-        let value = '';
+        let value = "";
         let braceDepth = 0;
         while (!this.isAtEnd() && (this.peek() !== '"' || braceDepth > 0)) {
-            if (this.peek() === '\n') {
+            if (this.peek() === "\n") {
                 throw new Error(`Unterminated interpolated string at line ${this.line}`);
             }
-            if (this.peek() === '{') {
+            if (this.peek() === "{") {
                 braceDepth++;
                 value += this.peek();
                 this.advance();
             }
-            else if (this.peek() === '}') {
+            else if (this.peek() === "}") {
                 braceDepth--;
                 value += this.peek();
                 this.advance();
             }
-            else if (this.peek() === '\\') {
+            else if (this.peek() === "\\") {
                 this.advance();
                 const escaped = this.peek();
-                if (escaped === 'n')
-                    value += '\n';
-                else if (escaped === 't')
-                    value += '\t';
+                if (escaped === "n")
+                    value += "\n";
+                else if (escaped === "t")
+                    value += "\t";
                 else if (escaped === '"')
                     value += '"';
-                else if (escaped === '\\')
-                    value += '\\';
-                else if (escaped === '{')
-                    value += '{';
-                else if (escaped === '}')
-                    value += '}';
+                else if (escaped === "\\")
+                    value += "\\";
+                else if (escaped === "{")
+                    value += "{";
+                else if (escaped === "}")
+                    value += "}";
                 else
                     value += escaped;
                 this.advance();
@@ -465,30 +471,31 @@ export class Lexer {
         this.advance(); // j
         this.advance(); // s
         // Skip whitespace/newlines to find opening {
-        while (!this.isAtEnd() && (this.peek() === ' ' || this.peek() === '\t' || this.peek() === '\n' || this.peek() === '\r')) {
-            if (this.peek() === '\n') {
+        while (!this.isAtEnd() &&
+            (this.peek() === " " || this.peek() === "\t" || this.peek() === "\n" || this.peek() === "\r")) {
+            if (this.peek() === "\n") {
                 this.line++;
                 this.column = 0;
             }
             this.advance();
         }
-        if (this.isAtEnd() || this.peek() !== '{') {
+        if (this.isAtEnd() || this.peek() !== "{") {
             throw new Error(`Expected '{' after $js at line ${startLine}, column ${startColumn}`);
         }
         this.advance(); // consume opening {
-        let code = '';
+        let code = "";
         let braceDepth = 1;
         while (!this.isAtEnd() && braceDepth > 0) {
             const ch = this.peek();
-            if (ch === '{') {
+            if (ch === "{") {
                 braceDepth++;
             }
-            else if (ch === '}') {
+            else if (ch === "}") {
                 braceDepth--;
                 if (braceDepth === 0)
                     break;
             }
-            if (ch === '\n') {
+            if (ch === "\n") {
                 this.line++;
                 this.column = 0;
             }
@@ -503,13 +510,13 @@ export class Lexer {
     }
     readNumber() {
         const startColumn = this.column;
-        let value = '';
+        let value = "";
         while (!this.isAtEnd() && this.isDigit(this.peek())) {
             value += this.peek();
             this.advance();
         }
         // Check for float
-        if (this.peek() === '.' && this.isDigit(this.peekNext())) {
+        if (this.peek() === "." && this.isDigit(this.peekNext())) {
             value += this.peek();
             this.advance();
             while (!this.isAtEnd() && this.isDigit(this.peek())) {
@@ -521,7 +528,7 @@ export class Lexer {
     }
     readIdentifier() {
         const startColumn = this.column;
-        let value = '';
+        let value = "";
         while (!this.isAtEnd() && this.isAlphaNumeric(this.peek())) {
             value += this.peek();
             this.advance();
@@ -536,12 +543,18 @@ export class Lexer {
             const tupleTypeToken = this.getTupleTypeToken(elementTypeChar);
             const tupleCastToken = this.getTupleCastToken(elementTypeChar);
             // Tuple cast expression: tiN(, ti5(, etc.
-            if (next === '(') {
+            if (next === "(") {
                 this.advance(); // consume (
-                return { type: tupleCastToken, value: value + '(', line: this.line, column: startColumn, tupleLength: lengthSpec };
+                return {
+                    type: tupleCastToken,
+                    value: value + "(",
+                    line: this.line,
+                    column: startColumn,
+                    tupleLength: lengthSpec,
+                };
             }
             // Tuple type declaration: ti5#, tfN~, etc.
-            if (next === '#' || next === '~') {
+            if (next === "#" || next === "~") {
                 return { type: tupleTypeToken, value, line: this.line, column: startColumn, tupleLength: lengthSpec };
             }
             // Tuple return type before function: ti3 Z, tsN Z
@@ -550,70 +563,86 @@ export class Lexer {
             }
         }
         // Check for type prefixes and special forms
-        if (value.length === 1 && ['s', 'i', 'f', 'b'].includes(value)) {
+        if (value.length === 1 && ["s", "i", "f", "b"].includes(value)) {
             const next = this.peek();
             // Type declaration: s#, i~, etc.
-            if (next === '#' || next === '~') {
+            if (next === "#" || next === "~") {
                 switch (value) {
-                    case 's': return { type: TokenType.TYPE_STRING, value, line: this.line, column: startColumn };
-                    case 'i': return { type: TokenType.TYPE_INT, value, line: this.line, column: startColumn };
-                    case 'f': return { type: TokenType.TYPE_FLOAT, value, line: this.line, column: startColumn };
-                    case 'b': return { type: TokenType.TYPE_BOOL, value, line: this.line, column: startColumn };
+                    case "s":
+                        return { type: TokenType.TYPE_STRING, value, line: this.line, column: startColumn };
+                    case "i":
+                        return { type: TokenType.TYPE_INT, value, line: this.line, column: startColumn };
+                    case "f":
+                        return { type: TokenType.TYPE_FLOAT, value, line: this.line, column: startColumn };
+                    case "b":
+                        return { type: TokenType.TYPE_BOOL, value, line: this.line, column: startColumn };
                 }
             }
             // Return type before function: i Z, s Z, etc.
             if (this.isReturnTypeBeforeFunc()) {
                 switch (value) {
-                    case 's': return { type: TokenType.TYPE_STRING, value, line: this.line, column: startColumn };
-                    case 'i': return { type: TokenType.TYPE_INT, value, line: this.line, column: startColumn };
-                    case 'f': return { type: TokenType.TYPE_FLOAT, value, line: this.line, column: startColumn };
-                    case 'b': return { type: TokenType.TYPE_BOOL, value, line: this.line, column: startColumn };
+                    case "s":
+                        return { type: TokenType.TYPE_STRING, value, line: this.line, column: startColumn };
+                    case "i":
+                        return { type: TokenType.TYPE_INT, value, line: this.line, column: startColumn };
+                    case "f":
+                        return { type: TokenType.TYPE_FLOAT, value, line: this.line, column: startColumn };
+                    case "b":
+                        return { type: TokenType.TYPE_BOOL, value, line: this.line, column: startColumn };
                 }
             }
             // Interpolated string: s"..."
-            if (value === 's' && next === '"') {
+            if (value === "s" && next === '"') {
                 return this.readInterpolatedString(startColumn);
             }
             // Cast expressions: s(, i(, f(, b(
-            if (next === '(') {
+            if (next === "(") {
                 this.advance(); // consume the (
                 switch (value) {
-                    case 's': return { type: TokenType.CAST_STRING, value: 's(', line: this.line, column: startColumn };
-                    case 'i': return { type: TokenType.CAST_INT, value: 'i(', line: this.line, column: startColumn };
-                    case 'f': return { type: TokenType.CAST_FLOAT, value: 'f(', line: this.line, column: startColumn };
-                    case 'b': return { type: TokenType.CAST_BOOL, value: 'b(', line: this.line, column: startColumn };
+                    case "s":
+                        return { type: TokenType.CAST_STRING, value: "s(", line: this.line, column: startColumn };
+                    case "i":
+                        return { type: TokenType.CAST_INT, value: "i(", line: this.line, column: startColumn };
+                    case "f":
+                        return { type: TokenType.CAST_FLOAT, value: "f(", line: this.line, column: startColumn };
+                    case "b":
+                        return { type: TokenType.CAST_BOOL, value: "b(", line: this.line, column: startColumn };
                 }
             }
             // Array type: i[], s[], f[], b[]
-            if (next === '[') {
+            if (next === "[") {
                 switch (value) {
-                    case 's': return { type: TokenType.TYPE_STRING, value, line: this.line, column: startColumn };
-                    case 'i': return { type: TokenType.TYPE_INT, value, line: this.line, column: startColumn };
-                    case 'f': return { type: TokenType.TYPE_FLOAT, value, line: this.line, column: startColumn };
-                    case 'b': return { type: TokenType.TYPE_BOOL, value, line: this.line, column: startColumn };
+                    case "s":
+                        return { type: TokenType.TYPE_STRING, value, line: this.line, column: startColumn };
+                    case "i":
+                        return { type: TokenType.TYPE_INT, value, line: this.line, column: startColumn };
+                    case "f":
+                        return { type: TokenType.TYPE_FLOAT, value, line: this.line, column: startColumn };
+                    case "b":
+                        return { type: TokenType.TYPE_BOOL, value, line: this.line, column: startColumn };
                 }
             }
         }
         // Keywords
-        if (value === 'print') {
+        if (value === "print") {
             return { type: TokenType.PRINT, value, line: this.line, column: startColumn };
         }
-        if (value === 'error') {
+        if (value === "error") {
             return { type: TokenType.ERROR, value, line: this.line, column: startColumn };
         }
-        if (value === 'true') {
+        if (value === "true") {
             return { type: TokenType.BOOL_LITERAL, value, line: this.line, column: startColumn };
         }
-        if (value === 'false') {
+        if (value === "false") {
             return { type: TokenType.BOOL_LITERAL, value, line: this.line, column: startColumn };
         }
-        if (value === 'Z') {
+        if (value === "Z") {
             return { type: TokenType.FUNC, value, line: this.line, column: startColumn };
         }
-        if (value === 'E') {
+        if (value === "E") {
             return { type: TokenType.ENUM, value, line: this.line, column: startColumn };
         }
-        if (value === 'S') {
+        if (value === "S") {
             return { type: TokenType.STRUCT, value, line: this.line, column: startColumn };
         }
         return { type: TokenType.IDENTIFIER, value, line: this.line, column: startColumn };
@@ -621,12 +650,12 @@ export class Lexer {
     skipWhitespace() {
         while (!this.isAtEnd()) {
             const char = this.peek();
-            if (char === ' ' || char === '\t' || char === '\r') {
+            if (char === " " || char === "\t" || char === "\r") {
                 this.advance();
             }
-            else if (char === '/' && this.peekNext() === '/') {
+            else if (char === "/" && this.peekNext() === "/") {
                 // Skip line comments
-                while (!this.isAtEnd() && this.peek() !== '\n') {
+                while (!this.isAtEnd() && this.peek() !== "\n") {
                     this.advance();
                 }
             }
@@ -639,7 +668,7 @@ export class Lexer {
         return this.source[this.pos];
     }
     peekNext() {
-        return this.source[this.pos + 1] || '';
+        return this.source[this.pos + 1] || "";
     }
     advance() {
         if (!this.isAtEnd()) {
@@ -653,10 +682,10 @@ export class Lexer {
         return this.pos >= this.source.length;
     }
     isDigit(char) {
-        return char >= '0' && char <= '9';
+        return char >= "0" && char <= "9";
     }
     isAlpha(char) {
-        return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || char === '_';
+        return (char >= "a" && char <= "z") || (char >= "A" && char <= "Z") || char === "_";
     }
     isAlphaNumeric(char) {
         return this.isAlpha(char) || this.isDigit(char);
@@ -665,32 +694,42 @@ export class Lexer {
     isReturnTypeBeforeFunc() {
         let lookAhead = this.pos;
         // Skip whitespace
-        while (lookAhead < this.source.length && (this.source[lookAhead] === ' ' || this.source[lookAhead] === '\t')) {
+        while (lookAhead < this.source.length && (this.source[lookAhead] === " " || this.source[lookAhead] === "\t")) {
             lookAhead++;
         }
         // Check if the next non-whitespace is 'Z'
-        return this.source[lookAhead] === 'Z' &&
-            (lookAhead + 1 >= this.source.length || !this.isAlphaNumeric(this.source[lookAhead + 1]));
+        return (this.source[lookAhead] === "Z" &&
+            (lookAhead + 1 >= this.source.length || !this.isAlphaNumeric(this.source[lookAhead + 1])));
     }
     makeToken(type, value) {
         return { type, value, line: this.line, column: this.column - value.length };
     }
     getTupleTypeToken(elementTypeChar) {
         switch (elementTypeChar) {
-            case 'i': return TokenType.TYPE_TUPLE_INT;
-            case 'f': return TokenType.TYPE_TUPLE_FLOAT;
-            case 's': return TokenType.TYPE_TUPLE_STRING;
-            case 'b': return TokenType.TYPE_TUPLE_BOOL;
-            default: throw new Error(`Invalid tuple element type: ${elementTypeChar}`);
+            case "i":
+                return TokenType.TYPE_TUPLE_INT;
+            case "f":
+                return TokenType.TYPE_TUPLE_FLOAT;
+            case "s":
+                return TokenType.TYPE_TUPLE_STRING;
+            case "b":
+                return TokenType.TYPE_TUPLE_BOOL;
+            default:
+                throw new Error(`Invalid tuple element type: ${elementTypeChar}`);
         }
     }
     getTupleCastToken(elementTypeChar) {
         switch (elementTypeChar) {
-            case 'i': return TokenType.CAST_TUPLE_INT;
-            case 'f': return TokenType.CAST_TUPLE_FLOAT;
-            case 's': return TokenType.CAST_TUPLE_STRING;
-            case 'b': return TokenType.CAST_TUPLE_BOOL;
-            default: throw new Error(`Invalid tuple element type: ${elementTypeChar}`);
+            case "i":
+                return TokenType.CAST_TUPLE_INT;
+            case "f":
+                return TokenType.CAST_TUPLE_FLOAT;
+            case "s":
+                return TokenType.CAST_TUPLE_STRING;
+            case "b":
+                return TokenType.CAST_TUPLE_BOOL;
+            default:
+                throw new Error(`Invalid tuple element type: ${elementTypeChar}`);
         }
     }
 }

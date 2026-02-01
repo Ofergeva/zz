@@ -1317,6 +1317,48 @@ print("This goes to stdout")
 
 ---
 
+## Synchronous Execution & Spawn
+
+ZZ is synchronous by default. Every function call blocks until it completes — there are no callbacks, promises, or async/await at the language level.
+
+### Blocking Calls (Default)
+
+All function calls block:
+
+```zz
+i#data = fetchData(url)      // blocks until fetchData returns
+processData(data)             // runs after fetchData completes
+```
+
+### Spawn (`~>`) — Non-blocking Calls
+
+Use `~>` to spawn a function call that runs without blocking:
+
+```zz
+~> updateData(url, newData)   // does not block — runs in background
+print("continues immediately")
+```
+
+`~>` returns a `Spawn` struct. Use `.onError()` to handle errors:
+
+```zz
+Z handleError(s#e)
+  error(s"Failed: {e}")
+;
+
+~> riskyOperation(args).onError(handleError)
+```
+
+`.onError()` accepts a function name (not an inline function).
+
+You can also capture the Spawn:
+
+```zz
+Spawn#task = ~> longRunning(args)
+```
+
+---
+
 ## Modules
 
 ZZ supports ES modules for code organization and reuse. There are two import modes: **safe** (`<-`) for ZZ modules with full type checking, and **unsafe** (`<-!`) for JavaScript/npm modules without type safety.

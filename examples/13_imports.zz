@@ -10,5 +10,4 @@ $js{
 }
 Instant#nowTime = now()
 print(s"Current time: {nowTime.format('YYYY-MM-DD HH:mm:ss')}")
-print(s"COF value from test2.zz: {cof}"
-)
+print(s"COF value from test2.zz: {cof}")

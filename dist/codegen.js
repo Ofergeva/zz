@@ -1,6 +1,6 @@
 // JavaScript Code Generator for ZZ Language
-import * as path from 'path';
-import { isArrayType, isTupleType, } from './ast.js';
+import * as path from "path";
+import { isArrayType, isTupleType, } from "./ast.js";
 export class CodeGenerator {
     // Store function parameter info for named argument reordering
     functionParams = new Map();
@@ -9,6 +9,8 @@ export class CodeGenerator {
     // Store struct method names to distinguish from UFCS
     structMethods = new Map();
     options;
+    // Track whether any SpawnExpression exists (for auto-import)
+    hasSpawn = false;
     constructor(options) {
         this.options = options;
     }
@@ -16,11 +18,12 @@ export class CodeGenerator {
         this.functionParams.clear();
         this.structFields.clear();
         this.structMethods.clear();
+        this.hasSpawn = false;
         // First pass: collect struct info
         for (const statement of program.statements) {
-            if (statement.type === 'StructDeclaration') {
-                this.structFields.set(statement.name, statement.fields.map(f => f.name));
-                const methods = new Set(statement.methods.map(m => m.name));
+            if (statement.type === "StructDeclaration") {
+                this.structFields.set(statement.name, statement.fields.map((f) => f.name));
+                const methods = new Set(statement.methods.map((m) => m.name));
                 this.structMethods.set(statement.name, methods);
             }
         }
@@ -28,72 +31,86 @@ export class CodeGenerator {
         for (const statement of program.statements) {
             lines.push(this.generateStatement(statement));
         }
-        return lines.join('\n');
+        let output = lines.join("\n");
+        if (this.hasSpawn) {
+            // Calculate relative path from output to std/spawn.js
+            let spawnImport;
+            if (this.options) {
+                const absStdSpawn = path.join(this.options.stdLibDir, "spawn.js");
+                const relPath = path.relative(this.options.outputDir, absStdSpawn);
+                const normalized = relPath.split(path.sep).join("/");
+                const importPath = normalized.startsWith(".") ? normalized : "./" + normalized;
+                spawnImport = `import { Spawn } from "${importPath}";`;
+            }
+            else {
+                spawnImport = `import { Spawn } from "./std/spawn.js";`;
+            }
+            output = spawnImport + "\n" + output;
+        }
+        return output;
     }
     generateStatement(statement) {
         switch (statement.type) {
-            case 'VariableDeclaration':
+            case "VariableDeclaration":
                 return this.generateVariableDeclaration(statement);
-            case 'Assignment':
+            case "Assignment":
                 return this.generateAssignment(statement);
-            case 'PrintStatement':
+            case "PrintStatement":
                 return this.generatePrintStatement(statement);
-            case 'ErrorStatement':
+            case "ErrorStatement":
                 return this.generateErrorStatement(statement);
-            case 'ThrowStatement':
+            case "ThrowStatement":
                 return this.generateThrowStatement(statement);
-            case 'WhileStatement':
+            case "WhileStatement":
                 return this.generateWhileStatement(statement);
-            case 'ForStatement':
+            case "ForStatement":
                 return this.generateForStatement(statement);
-            case 'ForEachStatement':
+            case "ForEachStatement":
                 return this.generateForEachStatement(statement);
-            case 'IfStatement':
+            case "IfStatement":
                 return this.generateIfStatement(statement);
-            case 'FunctionDeclaration':
+            case "FunctionDeclaration":
                 return this.generateFunctionDeclaration(statement);
-            case 'ExpressionStatement':
-                return this.generateExpression(statement.expression) + ';';
-            case 'IndexAssignment':
+            case "ExpressionStatement":
+                return this.generateExpression(statement.expression) + ";";
+            case "IndexAssignment":
                 return this.generateIndexAssignment(statement);
-            case 'FieldAssignment':
+            case "FieldAssignment":
                 return this.generateFieldAssignment(statement);
-            case 'BreakStatement':
-                return 'break;';
-            case 'ContinueStatement':
-                return 'continue;';
-            case 'TryStatement':
+            case "BreakStatement":
+                return "break;";
+            case "ContinueStatement":
+                return "continue;";
+            case "TryStatement":
                 return this.generateTryStatement(statement);
-            case 'ImportStatement':
+            case "ImportStatement":
                 return this.generateImportStatement(statement);
-            case 'IncrementStatement':
+            case "IncrementStatement":
                 return this.generateIncrementStatement(statement);
-            case 'CompoundAssignment':
+            case "CompoundAssignment":
                 return this.generateCompoundAssignment(statement);
-            case 'EnumDeclaration':
+            case "EnumDeclaration":
                 return this.generateEnumDeclaration(statement);
-            case 'StructDeclaration':
+            case "StructDeclaration":
                 return this.generateStructDeclaration(statement);
-            case 'MatchExpression':
+            case "MatchExpression":
                 return this.generateMatchExpression(statement);
-            case 'JSBlockStatement':
+            case "JSBlockStatement":
                 return statement.code;
         }
     }
     generateEnumDeclaration(decl) {
-        const variants = decl.variants.map(v => `${v}: '${v}'`).join(', ');
-        const prefix = decl.exported ? 'export ' : '';
+        const variants = decl.variants.map((v) => `${v}: '${v}'`).join(", ");
+        const prefix = decl.exported ? "export " : "";
         return `${prefix}const ${decl.name} = Object.freeze({ ${variants} });`;
     }
     generateStructDeclaration(decl) {
-        const prefix = decl.exported ? 'export ' : '';
-        const fieldNames = decl.fields.map(f => f.name).join(', ');
+        const prefix = decl.exported ? "export " : "";
+        const fieldNames = decl.fields.map((f) => f.name).join(", ");
         // Constructor
-        const constructorBody = decl.fields
-            .map(f => `    this.${f.name} = ${f.name};`)
-            .join('\n');
+        const constructorBody = decl.fields.map((f) => `    this.${f.name} = ${f.name};`).join("\n");
         // Methods
-        const methods = decl.methods.map(m => this.generateStructMethod(m, decl)).join('\n');
+        const methods = decl.methods.map((m) => this.generateStructMethod(m, decl)).join("\n");
         return `${prefix}class ${decl.name} {
   constructor(${fieldNames}) {
 ${constructorBody}
@@ -102,22 +119,22 @@ ${methods}
 }`;
     }
     generateStructMethod(method, structDecl) {
-        const params = method.parameters.map(p => p.name).join(', ');
-        const isNonVoid = method.returnType !== 'void';
+        const params = method.parameters.map((p) => p.name).join(", ");
+        const isNonVoid = method.returnType !== "void";
         // Generate body statements
-        const bodyLines = method.body.map(s => {
+        const bodyLines = method.body.map((s) => {
             // Replace field access with this.field
             const stmt = this.generateStatement(s);
-            return '    ' + this.replaceFieldsWithThis(stmt, structDecl);
+            return "    " + this.replaceFieldsWithThis(stmt, structDecl);
         });
         // Add return statement if there's a final return expression
         if (method.returnExpression) {
             const returnExpr = this.generateExpression(method.returnExpression);
             const withThis = this.replaceFieldsWithThis(returnExpr, structDecl);
-            bodyLines.push('    return ' + withThis + ';');
+            bodyLines.push("    return " + withThis + ";");
         }
-        const body = bodyLines.join('\n');
-        return `  ${method.name}(${params}) {\n${body}\n  }`;
+        const body = bodyLines.join("\n");
+        return `  async ${method.name}(${params}) {\n${body}\n  }`;
     }
     replaceFieldsWithThis(code, structDecl) {
         // Replace field names with this.field
@@ -126,14 +143,14 @@ ${methods}
         for (const field of structDecl.fields) {
             // Match the field name as a standalone identifier (not part of another word)
             // Use negative lookbehind and lookahead to avoid matching parts of other identifiers
-            const regex = new RegExp(`(?<![a-zA-Z0-9_\\.])${field.name}(?![a-zA-Z0-9_])`, 'g');
+            const regex = new RegExp(`(?<![a-zA-Z0-9_\\.])${field.name}(?![a-zA-Z0-9_])`, "g");
             result = result.replace(regex, `this.${field.name}`);
         }
         return result;
     }
     generateTryStatement(stmt) {
-        const tryBody = stmt.tryBody.map(s => '  ' + this.generateStatement(s)).join('\n');
-        const catchBody = stmt.catchBody.map(s => '  ' + this.generateStatement(s)).join('\n');
+        const tryBody = stmt.tryBody.map((s) => "  " + this.generateStatement(s)).join("\n");
+        const catchBody = stmt.catchBody.map((s) => "  " + this.generateStatement(s)).join("\n");
         return `try {\n${tryBody}\n} catch (${stmt.catchVariable}) {\n${catchBody}\n}`;
     }
     generateImportStatement(stmt) {
@@ -141,7 +158,7 @@ ${methods}
         if (this.options) {
             if (stmt.isStdLib) {
                 // std/string → <stdLibDir>/string → relative to outputDir
-                const moduleName = stmt.source.replace(/^std\//, '');
+                const moduleName = stmt.source.replace(/^std\//, "");
                 const absTarget = path.join(this.options.stdLibDir, moduleName);
                 resolvedPath = path.relative(this.options.outputDir, absTarget);
             }
@@ -151,26 +168,28 @@ ${methods}
                 resolvedPath = path.relative(this.options.outputDir, absTarget);
             }
             // Ensure starts with ./ or ../
-            if (!resolvedPath.startsWith('.')) {
-                resolvedPath = './' + resolvedPath;
+            if (!resolvedPath.startsWith(".")) {
+                resolvedPath = "./" + resolvedPath;
             }
             // Normalize path separators for JS imports
-            resolvedPath = resolvedPath.split(path.sep).join('/');
+            resolvedPath = resolvedPath.split(path.sep).join("/");
         }
         else {
             resolvedPath = stmt.source;
         }
         // Normalize extension: strip .js/.zz if present, always append .js
-        resolvedPath = resolvedPath.replace(/\.(js|zz)$/, '') + '.js';
+        resolvedPath = resolvedPath.replace(/\.(js|zz)$/, "") + ".js";
         if (stmt.namespace) {
             return `import * as ${stmt.namespace} from "${resolvedPath}";`;
         }
-        const specifiers = stmt.specifiers.map(spec => {
+        const specifiers = stmt.specifiers
+            .map((spec) => {
             if (spec.alias) {
                 return `${spec.name} as ${spec.alias}`;
             }
             return spec.name;
-        }).join(', ');
+        })
+            .join(", ");
         return `import { ${specifiers} } from "${resolvedPath}";`;
     }
     generateIndexAssignment(stmt) {
@@ -185,8 +204,8 @@ ${methods}
         return `${object}.${stmt.field} = ${value};`;
     }
     generateVariableDeclaration(decl) {
-        const exportPrefix = decl.exported ? 'export ' : '';
-        const keyword = decl.mutability === 'immutable' ? 'const' : 'let';
+        const exportPrefix = decl.exported ? "export " : "";
+        const keyword = decl.mutability === "immutable" ? "const" : "let";
         const value = this.generateExpression(decl.value);
         return `${exportPrefix}${keyword} ${decl.name} = ${value};`;
     }
@@ -215,102 +234,132 @@ ${methods}
     }
     generateWhileStatement(stmt) {
         const condition = this.generateExpression(stmt.condition);
-        const body = stmt.body.map(s => '  ' + this.generateStatement(s)).join('\n');
+        const body = stmt.body.map((s) => "  " + this.generateStatement(s)).join("\n");
         return `while (${condition}) {\n${body}\n}`;
     }
     generateForStatement(stmt) {
         const start = this.generateExpression(stmt.start);
         const end = this.generateExpression(stmt.end);
         const v = stmt.variable;
-        const body = stmt.body.map(s => '  ' + this.generateStatement(s)).join('\n');
+        const body = stmt.body.map((s) => "  " + this.generateStatement(s)).join("\n");
         // Handle both forward (1..5) and reverse (5..1) loops
         return `for (let __start = ${start}, __end = ${end}, ${v} = __start; __start <= __end ? ${v} <= __end : ${v} >= __end; __start <= __end ? ${v}++ : ${v}--) {\n${body}\n}`;
     }
     generateForEachStatement(stmt) {
         const iterable = this.generateExpression(stmt.iterable);
         const v = stmt.variable;
-        const body = stmt.body.map(s => '  ' + this.generateStatement(s)).join('\n');
+        const body = stmt.body.map((s) => "  " + this.generateStatement(s)).join("\n");
         return `for (const ${v} of ${iterable}) {\n${body}\n}`;
     }
     generateIfStatement(stmt) {
         const lines = [];
         // if branch
         const ifCondition = this.generateExpression(stmt.ifBranch.condition);
-        const ifBody = stmt.ifBranch.body.map(s => '  ' + this.generateStatement(s)).join('\n');
+        const ifBody = stmt.ifBranch.body.map((s) => "  " + this.generateStatement(s)).join("\n");
         lines.push(`if (${ifCondition}) {\n${ifBody}\n}`);
         // else-if branches
         for (const branch of stmt.elseIfBranches) {
             const condition = this.generateExpression(branch.condition);
-            const body = branch.body.map(s => '  ' + this.generateStatement(s)).join('\n');
+            const body = branch.body.map((s) => "  " + this.generateStatement(s)).join("\n");
             lines.push(` else if (${condition}) {\n${body}\n}`);
         }
         // else branch
         if (stmt.elseBranch) {
-            const body = stmt.elseBranch.map(s => '  ' + this.generateStatement(s)).join('\n');
+            const body = stmt.elseBranch.map((s) => "  " + this.generateStatement(s)).join("\n");
             lines.push(` else {\n${body}\n}`);
         }
-        return lines.join('');
+        return lines.join("");
     }
     generateFunctionDeclaration(decl) {
         // Store parameter names for named argument resolution
-        this.functionParams.set(decl.name, decl.parameters.map(p => p.name));
-        const exportPrefix = decl.exported ? 'export ' : '';
-        const params = decl.parameters.map(p => p.name).join(', ');
-        const isNonVoid = decl.returnType !== 'void';
+        this.functionParams.set(decl.name, decl.parameters.map((p) => p.name));
+        const exportPrefix = decl.exported ? "export " : "";
+        const params = decl.parameters.map((p) => p.name).join(", ");
+        const isNonVoid = decl.returnType !== "void";
         // Generate body statements, converting expression statements to returns in non-void functions
-        const bodyLines = decl.body.map(s => {
-            if (isNonVoid && s.type === 'ExpressionStatement') {
-                return '  return ' + this.generateExpression(s.expression) + ';';
+        const bodyLines = decl.body.map((s) => {
+            if (isNonVoid && s.type === "ExpressionStatement") {
+                return "  return " + this.generateExpression(s.expression) + ";";
             }
-            return '  ' + this.generateStatement(s);
+            return "  " + this.generateStatement(s);
         });
         // Add return statement if there's a final return expression
         if (decl.returnExpression) {
-            bodyLines.push('  return ' + this.generateExpression(decl.returnExpression) + ';');
+            bodyLines.push("  return " + this.generateExpression(decl.returnExpression) + ";");
         }
-        const body = bodyLines.join('\n');
-        return `${exportPrefix}function ${decl.name}(${params}) {\n${body}\n}`;
+        const body = bodyLines.join("\n");
+        return `${exportPrefix}async function ${decl.name}(${params}) {\n${body}\n}`;
+    }
+    generateFunctionCallCode(expr) {
+        const paramNames = this.functionParams.get(expr.name);
+        if (paramNames) {
+            // Reorder arguments based on parameter names
+            const argMap = new Map();
+            const positionalArgs = [];
+            for (const arg of expr.arguments) {
+                if (arg.name) {
+                    argMap.set(arg.name, this.generateExpression(arg.value));
+                }
+                else {
+                    positionalArgs.push(this.generateExpression(arg.value));
+                }
+            }
+            // Build final argument list in parameter order
+            const finalArgs = [];
+            for (let i = 0; i < paramNames.length; i++) {
+                const paramName = paramNames[i];
+                if (i < positionalArgs.length) {
+                    finalArgs.push(positionalArgs[i]);
+                }
+                else if (argMap.has(paramName)) {
+                    finalArgs.push(argMap.get(paramName));
+                }
+            }
+            return `${expr.name}(${finalArgs.join(", ")})`;
+        }
+        else {
+            // Unknown function (e.g., built-in), just pass args in order
+            const args = expr.arguments.map((arg) => this.generateExpression(arg.value)).join(", ");
+            return `${expr.name}(${args})`;
+        }
     }
     generateExpression(expr) {
         switch (expr.type) {
-            case 'StringLiteral':
+            case "StringLiteral":
                 return JSON.stringify(expr.value);
-            case 'NumberLiteral':
+            case "NumberLiteral":
                 return expr.value.toString();
-            case 'BoolLiteral':
+            case "BoolLiteral":
                 return expr.value.toString();
-            case 'NullLiteral':
-                return 'null';
-            case 'Identifier':
+            case "NullLiteral":
+                return "null";
+            case "Identifier":
                 return expr.name;
-            case 'BinaryExpression': {
+            case "BinaryExpression": {
                 const left = this.generateExpression(expr.left);
                 const right = this.generateExpression(expr.right);
                 return `(${left} ${expr.operator} ${right})`;
             }
-            case 'UnaryExpression': {
+            case "UnaryExpression": {
                 const operand = this.generateExpression(expr.operand);
                 return `(${expr.operator}${operand})`;
             }
-            case 'InterpolatedString': {
+            case "InterpolatedString": {
                 // Generate JS template literal
-                let result = '`';
+                let result = "`";
                 for (const part of expr.parts) {
-                    if (part.kind === 'text') {
+                    if (part.kind === "text") {
                         // Escape backticks and ${} in text
-                        result += part.value
-                            .replace(/\\/g, '\\\\')
-                            .replace(/`/g, '\\`')
-                            .replace(/\$/g, '\\$');
+                        result += part.value.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$");
                     }
                     else {
-                        result += '${' + this.generateExpression(part.value) + '}';
+                        result += "${" + this.generateExpression(part.value) + "}";
                     }
                 }
-                result += '`';
+                result += "`";
                 return result;
             }
-            case 'CastExpression': {
+            case "CastExpression": {
                 const inner = this.generateExpression(expr.expression);
                 // Tuple cast: tiN(value) or tiN([1,2,3])
                 if (isTupleType(expr.targetType)) {
@@ -324,84 +373,54 @@ ${methods}
                 }
                 // Primitive casts
                 switch (expr.targetType) {
-                    case 'string':
+                    case "string":
                         return `String(${inner})`;
-                    case 'int':
+                    case "int":
                         return `Math.trunc(Number(${inner}))`;
-                    case 'float':
+                    case "float":
                         return `Number(${inner})`;
-                    case 'bool':
+                    case "bool":
                         return `Boolean(${inner})`;
                 }
                 return inner; // fallback
             }
-            case 'FunctionCall': {
-                const paramNames = this.functionParams.get(expr.name);
-                if (paramNames) {
-                    // Reorder arguments based on parameter names
-                    const argMap = new Map();
-                    const positionalArgs = [];
-                    for (const arg of expr.arguments) {
-                        if (arg.name) {
-                            argMap.set(arg.name, this.generateExpression(arg.value));
-                        }
-                        else {
-                            positionalArgs.push(this.generateExpression(arg.value));
-                        }
-                    }
-                    // Build final argument list in parameter order
-                    const finalArgs = [];
-                    for (let i = 0; i < paramNames.length; i++) {
-                        const paramName = paramNames[i];
-                        if (i < positionalArgs.length) {
-                            finalArgs.push(positionalArgs[i]);
-                        }
-                        else if (argMap.has(paramName)) {
-                            finalArgs.push(argMap.get(paramName));
-                        }
-                    }
-                    return `${expr.name}(${finalArgs.join(', ')})`;
-                }
-                else {
-                    // Unknown function (e.g., built-in), just pass args in order
-                    const args = expr.arguments.map(arg => this.generateExpression(arg.value)).join(', ');
-                    return `${expr.name}(${args})`;
-                }
+            case "FunctionCall": {
+                return "await " + this.generateFunctionCallCode(expr);
             }
-            case 'ArrayLiteral': {
-                const elements = expr.elements.map(e => this.generateExpression(e)).join(', ');
+            case "ArrayLiteral": {
+                const elements = expr.elements.map((e) => this.generateExpression(e)).join(", ");
                 return `[${elements}]`;
             }
-            case 'TupleLiteral': {
-                const elements = expr.elements.map(e => this.generateExpression(e)).join(', ');
+            case "TupleLiteral": {
+                const elements = expr.elements.map((e) => this.generateExpression(e)).join(", ");
                 return `Object.freeze([${elements}])`;
             }
-            case 'RangeExpression': {
+            case "RangeExpression": {
                 // Generate a range array: 5..8 => Array.from({length: 8-5+1}, (_, i) => 5 + i)
                 const start = this.generateExpression(expr.start);
                 const end = this.generateExpression(expr.end);
                 return `Array.from({length: (${end}) - (${start}) + 1}, (_, i) => (${start}) + i)`;
             }
-            case 'IndexAccess': {
+            case "IndexAccess": {
                 const array = this.generateExpression(expr.array);
                 const index = this.generateExpression(expr.index);
                 return `${array}[${index}]`;
             }
-            case 'MethodCall': {
+            case "MethodCall": {
                 const object = this.generateExpression(expr.object);
-                const args = expr.arguments.map(a => this.generateExpression(a)).join(', ');
+                const args = expr.arguments.map((a) => this.generateExpression(a)).join(", ");
                 // Built-in methods map to JS equivalents
-                const builtinMethods = ['len', 'push', 'pop', 'at'];
+                const builtinMethods = ["len", "push", "pop", "at"];
                 if (builtinMethods.includes(expr.method)) {
                     switch (expr.method) {
-                        case 'len':
+                        case "len":
                             return `${object}.length`;
-                        case 'push':
-                            return `${object}.push(${args})`;
-                        case 'pop':
-                            return `${object}.pop()`;
-                        case 'at':
-                            return `${object}.charAt(${args})`;
+                        case "push":
+                            return `await ${object}.push(${args})`;
+                        case "pop":
+                            return `await ${object}.pop()`;
+                        case "at":
+                            return `await ${object}.charAt(${args})`;
                     }
                 }
                 // Check if this is a struct method (keep as method call, not UFCS)
@@ -409,10 +428,10 @@ ${methods}
                     if (methods.has(expr.method)) {
                         // Struct method: object.method(args)
                         if (args) {
-                            return `${object}.${expr.method}(${args})`;
+                            return `await ${object}.${expr.method}(${args})`;
                         }
                         else {
-                            return `${object}.${expr.method}()`;
+                            return `await ${object}.${expr.method}()`;
                         }
                     }
                 }
@@ -420,20 +439,20 @@ ${methods}
                 // str.upper() → upper(str)
                 // str.split(",") → split(str, ",")
                 if (args) {
-                    return `${expr.method}(${object}, ${args})`;
+                    return `await ${expr.method}(${object}, ${args})`;
                 }
                 else {
-                    return `${expr.method}(${object})`;
+                    return `await ${expr.method}(${object})`;
                 }
             }
-            case 'MemberExpression': {
+            case "MemberExpression": {
                 const object = this.generateExpression(expr.object);
                 return `${object}.${expr.property}`;
             }
-            case 'EnumAccess': {
+            case "EnumAccess": {
                 return `${expr.enumName}.${expr.variant}`;
             }
-            case 'StructInstantiation': {
+            case "StructInstantiation": {
                 const fieldNames = this.structFields.get(expr.structName);
                 if (fieldNames) {
                     // Reorder arguments based on field names
@@ -458,16 +477,65 @@ ${methods}
                             finalArgs.push(argMap.get(fieldName));
                         }
                     }
-                    return `new ${expr.structName}(${finalArgs.join(', ')})`;
+                    return `new ${expr.structName}(${finalArgs.join(", ")})`;
                 }
                 else {
                     // Unknown struct, just pass args in order
-                    const args = expr.arguments.map(arg => this.generateExpression(arg.value)).join(', ');
+                    const args = expr.arguments.map((arg) => this.generateExpression(arg.value)).join(", ");
                     return `new ${expr.structName}(${args})`;
                 }
             }
-            case 'MatchExpression':
+            case "MatchExpression":
                 return this.generateMatchExpression(expr);
+            case "SpawnExpression": {
+                this.hasSpawn = true;
+                if (expr.call.type === "FunctionCall") {
+                    return `new Spawn(${this.generateFunctionCallCode(expr.call)})`;
+                }
+                else {
+                    // MethodCall — generate without await
+                    return `new Spawn(${this.generateMethodCallCodeWithoutAwait(expr.call)})`;
+                }
+            }
+        }
+    }
+    generateMethodCallCodeWithoutAwait(expr) {
+        const object = this.generateExpression(expr.object);
+        const args = expr.arguments.map((a) => this.generateExpression(a)).join(", ");
+        // Built-in methods map to JS equivalents
+        const builtinMethods = ["len", "push", "pop", "at"];
+        if (builtinMethods.includes(expr.method)) {
+            switch (expr.method) {
+                case "len":
+                    return `${object}.length`;
+                case "push":
+                    return `${object}.push(${args})`;
+                case "pop":
+                    return `${object}.pop()`;
+                case "at":
+                    return `${object}.charAt(${args})`;
+            }
+        }
+        // Check if this is a struct method (keep as method call, not UFCS)
+        for (const [, methods] of this.structMethods) {
+            if (methods.has(expr.method)) {
+                // Struct method: object.method(args)
+                if (args) {
+                    return `${object}.${expr.method}(${args})`;
+                }
+                else {
+                    return `${object}.${expr.method}()`;
+                }
+            }
+        }
+        // UFCS: non-builtin methods become function calls
+        // str.upper() → upper(str)
+        // str.split(",") → split(str, ",")
+        if (args) {
+            return `${expr.method}(${object}, ${args})`;
+        }
+        else {
+            return `${expr.method}(${object})`;
         }
     }
     generateMatchExpression(match) {
@@ -479,7 +547,7 @@ ${methods}
         let first = true;
         for (const arm of match.arms) {
             const cond = this.generatePatternCondition(arm.pattern, tempVar, arm.guard);
-            const keyword = first ? 'if' : ' else if';
+            const keyword = first ? "if" : " else if";
             first = false;
             lines.push(`  ${keyword} (${cond}) {`);
             // Generate bindings
@@ -497,42 +565,42 @@ ${methods}
             lines.push(`  }`);
         }
         lines.push(`})();`);
-        return lines.join('\n');
+        return lines.join("\n");
     }
     generatePatternCondition(pattern, tempVar, guard) {
         let cond;
         switch (pattern.kind) {
-            case 'wildcard':
-            case 'binding':
-                cond = 'true';
+            case "wildcard":
+            case "binding":
+                cond = "true";
                 break;
-            case 'enum':
+            case "enum":
                 cond = `${tempVar} === ${pattern.enumName}.${pattern.variant}`;
                 break;
-            case 'literal':
+            case "literal":
                 cond = `${tempVar} === ${this.generateExpression(pattern.value)}`;
                 break;
-            case 'struct': {
+            case "struct": {
                 const structConds = [];
                 const fieldNames = this.structFields.get(pattern.structName);
                 if (fieldNames) {
                     pattern.fields.forEach((f, i) => {
-                        if (f.pattern?.kind === 'literal') {
+                        if (f.pattern?.kind === "literal") {
                             structConds.push(`${tempVar}.${fieldNames[i]} === ${this.generateExpression(f.pattern.value)}`);
                         }
                     });
                 }
-                cond = structConds.length > 0 ? structConds.join(' && ') : 'true';
+                cond = structConds.length > 0 ? structConds.join(" && ") : "true";
                 break;
             }
-            case 'tuple': {
+            case "tuple": {
                 const tupleConds = [];
                 pattern.elements.forEach((e, i) => {
-                    if (e.pattern?.kind === 'literal') {
+                    if (e.pattern?.kind === "literal") {
                         tupleConds.push(`${tempVar}[${i}] === ${this.generateExpression(e.pattern.value)}`);
                     }
                 });
-                cond = tupleConds.length > 0 ? tupleConds.join(' && ') : 'true';
+                cond = tupleConds.length > 0 ? tupleConds.join(" && ") : "true";
                 break;
             }
         }
@@ -546,28 +614,28 @@ ${methods}
     }
     substituteBindingsInGuard(guardCode, pattern, tempVar) {
         switch (pattern.kind) {
-            case 'binding':
+            case "binding":
                 // Replace the binding name with the temp variable
-                const bindingRegex = new RegExp(`(?<![a-zA-Z0-9_])${pattern.name}(?![a-zA-Z0-9_])`, 'g');
+                const bindingRegex = new RegExp(`(?<![a-zA-Z0-9_])${pattern.name}(?![a-zA-Z0-9_])`, "g");
                 return guardCode.replace(bindingRegex, tempVar);
-            case 'struct': {
+            case "struct": {
                 let result = guardCode;
                 const fieldNames = this.structFields.get(pattern.structName);
                 if (fieldNames) {
                     pattern.fields.forEach((f, i) => {
                         if (f.binding) {
-                            const regex = new RegExp(`(?<![a-zA-Z0-9_])${f.binding}(?![a-zA-Z0-9_])`, 'g');
+                            const regex = new RegExp(`(?<![a-zA-Z0-9_])${f.binding}(?![a-zA-Z0-9_])`, "g");
                             result = result.replace(regex, `${tempVar}.${fieldNames[i]}`);
                         }
                     });
                 }
                 return result;
             }
-            case 'tuple': {
+            case "tuple": {
                 let result = guardCode;
                 pattern.elements.forEach((e, i) => {
                     if (e.binding) {
-                        const regex = new RegExp(`(?<![a-zA-Z0-9_])${e.binding}(?![a-zA-Z0-9_])`, 'g');
+                        const regex = new RegExp(`(?<![a-zA-Z0-9_])${e.binding}(?![a-zA-Z0-9_])`, "g");
                         result = result.replace(regex, `${tempVar}[${i}]`);
                     }
                 });
@@ -580,10 +648,10 @@ ${methods}
     generatePatternBindings(pattern, tempVar) {
         const bindings = [];
         switch (pattern.kind) {
-            case 'binding':
+            case "binding":
                 bindings.push(`const ${pattern.name} = ${tempVar};`);
                 break;
-            case 'struct': {
+            case "struct": {
                 const fieldNames = this.structFields.get(pattern.structName);
                 if (fieldNames) {
                     pattern.fields.forEach((f, i) => {
@@ -594,7 +662,7 @@ ${methods}
                 }
                 break;
             }
-            case 'tuple':
+            case "tuple":
                 pattern.elements.forEach((e, i) => {
                     if (e.binding) {
                         bindings.push(`const ${e.binding} = ${tempVar}[${i}];`);

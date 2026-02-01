@@ -1,0 +1,19 @@
+// Synchronous by default - every call blocks
+// Spawn (~>) for non-blocking calls
+<- { Duration, millis, sleep } = std/time
+
+// A regular function - blocks until complete
+i Z slowAdd(i#a i#b)
+    Duration#d = millis(2000)
+    sleep(d) // Simulate a slow operation
+    a + b
+;
+
+// Regular (blocking) function calls
+i#result = slowAdd(3, 4)
+print(s"Blocking result: {result}")
+
+// Spawn (non-blocking) function call
+~> slowAdd(10, 20)
+
+print("This prints before spawned calls complete")

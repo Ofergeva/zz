@@ -1,4 +1,4 @@
-import { Program, ImportedModuleInfo } from './ast.js';
+import { Program, ImportedModuleInfo } from "./ast.js";
 export declare class TypeChecker {
     private variables;
     private functions;

@@ -1,0 +1,3 @@
+<- { Instant } = std/time
+
+Instant#i = Instant("test")

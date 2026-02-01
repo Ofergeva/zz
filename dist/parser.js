@@ -1,5 +1,5 @@
 // Recursive Descent Parser for ZZ Language
-import { TokenType, Lexer } from './lexer.js';
+import { TokenType, Lexer } from "./lexer.js";
 export class Parser {
     tokens;
     pos = 0;
@@ -8,10 +8,10 @@ export class Parser {
     constructor(tokens, externalTypes) {
         this.tokens = tokens;
         if (externalTypes?.structNames) {
-            externalTypes.structNames.forEach(n => this.structNames.add(n));
+            externalTypes.structNames.forEach((n) => this.structNames.add(n));
         }
         if (externalTypes?.enumNames) {
-            externalTypes.enumNames.forEach(n => this.enumNames.add(n));
+            externalTypes.enumNames.forEach((n) => this.enumNames.add(n));
         }
     }
     parse() {
@@ -25,7 +25,7 @@ export class Parser {
             }
         }
         return {
-            type: 'Program',
+            type: "Program",
             statements,
             line: 1,
             column: 1,
@@ -169,7 +169,8 @@ export class Parser {
             return this.parseCompoundAssignment();
         }
         // Index assignment: arr[0] = value OR Field assignment: obj.field = value
-        if (token.type === TokenType.IDENTIFIER && (this.peekNext()?.type === TokenType.LBRACKET || this.peekNext()?.type === TokenType.DOT)) {
+        if (token.type === TokenType.IDENTIFIER &&
+            (this.peekNext()?.type === TokenType.LBRACKET || this.peekNext()?.type === TokenType.DOT)) {
             return this.parseAccessAssignmentOrExpression();
         }
         // Expression statement (e.g., function call)
@@ -185,7 +186,7 @@ export class Parser {
             this.advance();
             this.expectEndOfStatement();
             return {
-                type: 'BreakStatement',
+                type: "BreakStatement",
                 line: token.line,
                 column: token.column,
             };
@@ -195,7 +196,7 @@ export class Parser {
             this.advance();
             this.expectEndOfStatement();
             return {
-                type: 'ContinueStatement',
+                type: "ContinueStatement",
                 line: token.line,
                 column: token.column,
             };
@@ -205,11 +206,15 @@ export class Parser {
             this.advance();
             this.skipNewlines();
             return {
-                type: 'JSBlockStatement',
+                type: "JSBlockStatement",
                 code: token.value,
                 line: token.line,
                 column: token.column,
             };
+        }
+        // Spawn expression: ~> functionCall()
+        if (token.type === TokenType.SPAWN) {
+            return this.parseSpawnStatement();
         }
         throw new Error(`Unexpected token '${token.value}' at line ${token.line}, column ${token.column}`);
     }
@@ -266,7 +271,7 @@ export class Parser {
                 this.advance(); // consume /
                 parts.push(this.expect([TokenType.IDENTIFIER]).value);
             }
-            source = parts.join('/');
+            source = parts.join("/");
             isStdLib = true;
         }
         else {
@@ -274,7 +279,7 @@ export class Parser {
         }
         this.expectEndOfStatement();
         return {
-            type: 'ImportStatement',
+            type: "ImportStatement",
             specifiers,
             namespace,
             source,
@@ -351,9 +356,9 @@ export class Parser {
         // Check for tuple type: ti5, tsN, etc.
         if (this.isTupleTypeToken(typeToken.type)) {
             const elementType = this.tupleTokenToElementType(typeToken);
-            const length = typeToken.tupleLength === 'N' ? undefined : parseInt(typeToken.tupleLength, 10);
+            const length = typeToken.tupleLength === "N" ? undefined : parseInt(typeToken.tupleLength, 10);
             dataType = {
-                kind: 'tuple',
+                kind: "tuple",
                 elementType,
                 length,
             };
@@ -371,21 +376,21 @@ export class Parser {
                 }
                 this.expect([TokenType.RBRACKET]);
                 dataType = {
-                    kind: 'array',
+                    kind: "array",
                     elementType: this.tokenToDataType(typeToken.type),
                     size,
                 };
             }
         }
         const mutabilityToken = this.expect([TokenType.IMMUTABLE, TokenType.MUTABLE]);
-        const mutability = mutabilityToken.type === TokenType.IMMUTABLE ? 'immutable' : 'mutable';
+        const mutability = mutabilityToken.type === TokenType.IMMUTABLE ? "immutable" : "mutable";
         const nameToken = this.expect([TokenType.IDENTIFIER]);
         const name = nameToken.value;
         this.expect([TokenType.EQUALS]);
         const value = this.parseExpression();
         this.expectEndOfStatement();
         return {
-            type: 'VariableDeclaration',
+            type: "VariableDeclaration",
             dataType,
             mutability,
             name,
@@ -402,7 +407,7 @@ export class Parser {
         const value = this.parseExpression();
         this.expectEndOfStatement();
         return {
-            type: 'Assignment',
+            type: "Assignment",
             name,
             value,
             line: nameToken.line,
@@ -416,7 +421,7 @@ export class Parser {
         const operator = operatorToken.value;
         this.expectEndOfStatement();
         return {
-            type: 'IncrementStatement',
+            type: "IncrementStatement",
             name,
             operator,
             line: nameToken.line,
@@ -431,7 +436,7 @@ export class Parser {
         const value = this.parseExpression();
         this.expectEndOfStatement();
         return {
-            type: 'CompoundAssignment',
+            type: "CompoundAssignment",
             name,
             operator,
             value,
@@ -458,12 +463,12 @@ export class Parser {
         // Check if this is an assignment
         if (this.peek().type === TokenType.EQUALS) {
             // This is an index assignment: arr[0] = value
-            if (expr.type === 'IndexAccess') {
+            if (expr.type === "IndexAccess") {
                 this.advance(); // consume =
                 const value = this.parseExpression();
                 this.expectEndOfStatement();
                 return {
-                    type: 'IndexAssignment',
+                    type: "IndexAssignment",
                     array: expr.array,
                     index: expr.index,
                     value,
@@ -472,12 +477,12 @@ export class Parser {
                 };
             }
             // This is a field assignment: obj.field = value
-            if (expr.type === 'MemberExpression') {
+            if (expr.type === "MemberExpression") {
                 this.advance(); // consume =
                 const value = this.parseExpression();
                 this.expectEndOfStatement();
                 return {
-                    type: 'FieldAssignment',
+                    type: "FieldAssignment",
                     object: expr.object,
                     field: expr.property,
                     value,
@@ -490,7 +495,7 @@ export class Parser {
         // Otherwise it's an expression statement
         this.expectEndOfStatement();
         return {
-            type: 'ExpressionStatement',
+            type: "ExpressionStatement",
             expression: expr,
             line: startToken.line,
             column: startToken.column,
@@ -503,7 +508,7 @@ export class Parser {
         this.expect([TokenType.RPAREN]);
         this.expectEndOfStatement();
         return {
-            type: 'PrintStatement',
+            type: "PrintStatement",
             expression,
             line: printToken.line,
             column: printToken.column,
@@ -516,7 +521,7 @@ export class Parser {
         this.expect([TokenType.RPAREN]);
         this.expectEndOfStatement();
         return {
-            type: 'ErrorStatement',
+            type: "ErrorStatement",
             expression,
             line: errorToken.line,
             column: errorToken.column,
@@ -529,7 +534,7 @@ export class Parser {
         this.expect([TokenType.RPAREN]);
         this.expectEndOfStatement();
         return {
-            type: 'ThrowStatement',
+            type: "ThrowStatement",
             expression,
             line: throwToken.line,
             column: throwToken.column,
@@ -541,8 +546,8 @@ export class Parser {
         // Check if this is a for loop: @(identifier#range) or @(i#range) where i could be TYPE_INT
         // Look ahead: (IDENTIFIER or TYPE token) followed by # (IMMUTABLE)
         const currentToken = this.peek();
-        const isForLoopVar = (currentToken.type === TokenType.IDENTIFIER || this.isTypeToken(currentToken.type))
-            && this.peekNext()?.type === TokenType.IMMUTABLE;
+        const isForLoopVar = (currentToken.type === TokenType.IDENTIFIER || this.isTypeToken(currentToken.type)) &&
+            this.peekNext()?.type === TokenType.IMMUTABLE;
         if (isForLoopVar) {
             return this.parseForLoop(loopToken);
         }
@@ -552,7 +557,7 @@ export class Parser {
         this.skipNewlines();
         const body = this.parseBlock();
         return {
-            type: 'WhileStatement',
+            type: "WhileStatement",
             condition,
             body,
             line: loopToken.line,
@@ -574,7 +579,7 @@ export class Parser {
             this.skipNewlines();
             const body = this.parseBlock();
             return {
-                type: 'ForStatement',
+                type: "ForStatement",
                 variable,
                 start: firstExpr,
                 end,
@@ -589,7 +594,7 @@ export class Parser {
             this.skipNewlines();
             const body = this.parseBlock();
             return {
-                type: 'ForEachStatement',
+                type: "ForEachStatement",
                 variable,
                 iterable: firstExpr,
                 body,
@@ -630,7 +635,7 @@ export class Parser {
             this.skipNewlines();
         }
         return {
-            type: 'IfStatement',
+            type: "IfStatement",
             ifBranch,
             elseIfBranches,
             elseBranch,
@@ -663,7 +668,7 @@ export class Parser {
         // Parse catch body until ;
         const catchBody = this.parseBlock();
         return {
-            type: 'TryStatement',
+            type: "TryStatement",
             tryBody,
             catchVariable,
             catchBody,
@@ -685,7 +690,7 @@ export class Parser {
         this.expect([TokenType.SEMICOLON]);
         this.skipNewlines();
         return {
-            type: 'MatchExpression',
+            type: "MatchExpression",
             value,
             arms,
             line: matchToken.line,
@@ -707,12 +712,9 @@ export class Parser {
         // Parse body until next | or ;
         const body = [];
         let resultExpression;
-        while (this.peek().type !== TokenType.PIPE &&
-            this.peek().type !== TokenType.SEMICOLON &&
-            !this.isAtEnd()) {
+        while (this.peek().type !== TokenType.PIPE && this.peek().type !== TokenType.SEMICOLON && !this.isAtEnd()) {
             this.skipNewlines();
-            if (this.peek().type === TokenType.PIPE ||
-                this.peek().type === TokenType.SEMICOLON)
+            if (this.peek().type === TokenType.PIPE || this.peek().type === TokenType.SEMICOLON)
                 break;
             const token = this.peek();
             const nextType = this.peekNext()?.type;
@@ -729,7 +731,8 @@ export class Parser {
                 token.type === TokenType.THROW ||
                 token.type === TokenType.JS_BLOCK ||
                 (token.type === TokenType.IDENTIFIER && nextType === TokenType.EQUALS) ||
-                (token.type === TokenType.IDENTIFIER && (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
+                (token.type === TokenType.IDENTIFIER &&
+                    (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
                 (token.type === TokenType.IDENTIFIER && this.isCompoundAssignmentToken(nextType)) ||
                 (token.type === TokenType.IDENTIFIER && this.enumNames.has(token.value) && nextType === TokenType.IMMUTABLE) ||
                 (token.type === TokenType.IDENTIFIER && this.structNames.has(token.value) && nextType === TokenType.IMMUTABLE);
@@ -741,14 +744,13 @@ export class Parser {
                 const expr = this.parseExpression();
                 this.skipNewlines();
                 // Check if this is followed by | or ; (end of arm)
-                if (this.peek().type === TokenType.PIPE ||
-                    this.peek().type === TokenType.SEMICOLON) {
+                if (this.peek().type === TokenType.PIPE || this.peek().type === TokenType.SEMICOLON) {
                     resultExpression = expr;
                 }
                 else {
                     // More statements follow
                     body.push({
-                        type: 'ExpressionStatement',
+                        type: "ExpressionStatement",
                         expression: expr,
                         line: token.line,
                         column: token.column,
@@ -765,22 +767,85 @@ export class Parser {
             column: pipeToken.column,
         };
     }
+    parseSpawnExpression() {
+        const spawnToken = this.advance(); // consume ~>
+        // Parse the function call
+        const nameToken = this.expect([TokenType.IDENTIFIER]);
+        this.expect([TokenType.LPAREN]);
+        const args = [];
+        while (this.peek().type !== TokenType.RPAREN) {
+            // Check for named argument: name=value
+            if (this.peek().type === TokenType.IDENTIFIER && this.peekNext()?.type === TokenType.EQUALS) {
+                const argNameToken = this.advance();
+                this.advance(); // consume =
+                const value = this.parseExpression();
+                args.push({ name: argNameToken.value, value });
+            }
+            else {
+                // Positional argument
+                const value = this.parseExpression();
+                args.push({ value });
+            }
+            // Optional comma between arguments
+            if (this.peek().type === TokenType.COMMA) {
+                this.advance();
+            }
+        }
+        this.expect([TokenType.RPAREN]);
+        // Create the function call
+        const call = {
+            type: "FunctionCall",
+            name: nameToken.value,
+            arguments: args,
+            line: nameToken.line,
+            column: nameToken.column,
+        };
+        // Check for optional .onError(handler) method call
+        let spawnExpr = {
+            type: "SpawnExpression",
+            call,
+            line: spawnToken.line,
+            column: spawnToken.column,
+        };
+        if (this.peek().type === TokenType.DOT) {
+            this.advance(); // consume .
+            const methodToken = this.expect([TokenType.IDENTIFIER]);
+            if (methodToken.value === "onError") {
+                this.expect([TokenType.LPAREN]);
+                const errorHandler = this.parseExpression();
+                this.expect([TokenType.RPAREN]);
+                // Create a method call on the spawn result
+                spawnExpr = {
+                    type: "MethodCall",
+                    object: spawnExpr,
+                    method: "onError",
+                    arguments: [{ value: errorHandler }],
+                    line: spawnToken.line,
+                    column: spawnToken.column,
+                };
+            }
+            else {
+                throw new Error(`Unknown method on Spawn: ${methodToken.value}`);
+            }
+        }
+        return spawnExpr;
+    }
     parsePattern() {
         const token = this.peek();
         // Wildcard: _
         if (token.type === TokenType.NULL) {
             this.advance();
-            return { kind: 'wildcard' };
+            return { kind: "wildcard" };
         }
         // Literal: 42, "hello", true
         if (token.type === TokenType.NUMBER_LITERAL) {
-            return { kind: 'literal', value: this.parseNumberLiteral() };
+            return { kind: "literal", value: this.parseNumberLiteral() };
         }
         if (token.type === TokenType.STRING_LITERAL) {
-            return { kind: 'literal', value: this.parseStringLiteral() };
+            return { kind: "literal", value: this.parseStringLiteral() };
         }
         if (token.type === TokenType.BOOL_LITERAL) {
-            return { kind: 'literal', value: this.parseBoolLiteral() };
+            return { kind: "literal", value: this.parseBoolLiteral() };
         }
         // Tuple pattern: (x, y, z)
         if (token.type === TokenType.LPAREN) {
@@ -794,7 +859,7 @@ export class Parser {
                 this.expect([TokenType.DOT]);
                 const variantToken = this.expect([TokenType.IDENTIFIER]);
                 return {
-                    kind: 'enum',
+                    kind: "enum",
                     enumName: token.value,
                     variant: variantToken.value,
                 };
@@ -805,7 +870,7 @@ export class Parser {
             }
             // Binding pattern: variable name
             this.advance();
-            return { kind: 'binding', name: token.value };
+            return { kind: "binding", name: token.value };
         }
         throw new Error(`Unexpected pattern at line ${token.line}, column ${token.column}`);
     }
@@ -822,7 +887,7 @@ export class Parser {
         }
         this.expect([TokenType.RPAREN]);
         return {
-            kind: 'struct',
+            kind: "struct",
             structName,
             fields,
         };
@@ -838,7 +903,7 @@ export class Parser {
         }
         this.expect([TokenType.RPAREN]);
         return {
-            kind: 'tuple',
+            kind: "tuple",
             elements,
         };
     }
@@ -847,17 +912,17 @@ export class Parser {
         // Wildcard in field position: _
         if (token.type === TokenType.NULL) {
             this.advance();
-            return { pattern: { kind: 'wildcard' } };
+            return { pattern: { kind: "wildcard" } };
         }
         // Literal in field position: 42, "hello", true
         if (token.type === TokenType.NUMBER_LITERAL) {
-            return { pattern: { kind: 'literal', value: this.parseNumberLiteral() } };
+            return { pattern: { kind: "literal", value: this.parseNumberLiteral() } };
         }
         if (token.type === TokenType.STRING_LITERAL) {
-            return { pattern: { kind: 'literal', value: this.parseStringLiteral() } };
+            return { pattern: { kind: "literal", value: this.parseStringLiteral() } };
         }
         if (token.type === TokenType.BOOL_LITERAL) {
-            return { pattern: { kind: 'literal', value: this.parseBoolLiteral() } };
+            return { pattern: { kind: "literal", value: this.parseBoolLiteral() } };
         }
         // Binding: variable name
         if (token.type === TokenType.IDENTIFIER) {
@@ -878,7 +943,7 @@ export class Parser {
         }
         this.expect([TokenType.SEMICOLON]);
         return {
-            type: 'EnumDeclaration',
+            type: "EnumDeclaration",
             name: nameToken.value,
             variants,
             exported,
@@ -889,16 +954,16 @@ export class Parser {
     parseEnumVariableDeclaration(exported = false) {
         const typeToken = this.advance(); // consume enum name (e.g., Color)
         const enumName = typeToken.value;
-        const dataType = { kind: 'enum', name: enumName };
+        const dataType = { kind: "enum", name: enumName };
         const mutabilityToken = this.expect([TokenType.IMMUTABLE, TokenType.MUTABLE]);
-        const mutability = mutabilityToken.type === TokenType.IMMUTABLE ? 'immutable' : 'mutable';
+        const mutability = mutabilityToken.type === TokenType.IMMUTABLE ? "immutable" : "mutable";
         const nameToken = this.expect([TokenType.IDENTIFIER]);
         const name = nameToken.value;
         this.expect([TokenType.EQUALS]);
         const value = this.parseExpression();
         this.expectEndOfStatement();
         return {
-            type: 'VariableDeclaration',
+            type: "VariableDeclaration",
             dataType,
             mutability,
             name,
@@ -930,7 +995,7 @@ export class Parser {
         }
         this.expect([TokenType.SEMICOLON]);
         return {
-            type: 'StructDeclaration',
+            type: "StructDeclaration",
             name: nameToken.value,
             fields,
             methods,
@@ -964,8 +1029,7 @@ export class Parser {
         return false;
     }
     isStructOrEnumType(token) {
-        return token.type === TokenType.IDENTIFIER &&
-            (this.structNames.has(token.value) || this.enumNames.has(token.value));
+        return (token.type === TokenType.IDENTIFIER && (this.structNames.has(token.value) || this.enumNames.has(token.value)));
     }
     parseStructField() {
         const typeToken = this.peek();
@@ -974,10 +1038,10 @@ export class Parser {
         if (typeToken.type === TokenType.IDENTIFIER) {
             this.advance();
             if (this.structNames.has(typeToken.value)) {
-                dataType = { kind: 'struct', name: typeToken.value };
+                dataType = { kind: "struct", name: typeToken.value };
             }
             else if (this.enumNames.has(typeToken.value)) {
-                dataType = { kind: 'enum', name: typeToken.value };
+                dataType = { kind: "enum", name: typeToken.value };
             }
             else {
                 throw new Error(`Unknown type '${typeToken.value}' at line ${typeToken.line}`);
@@ -986,8 +1050,8 @@ export class Parser {
         else if (this.isTupleTypeToken(typeToken.type)) {
             this.advance();
             const elementType = this.tupleTokenToElementType(typeToken);
-            const length = typeToken.tupleLength === 'N' ? undefined : parseInt(typeToken.tupleLength, 10);
-            dataType = { kind: 'tuple', elementType, length };
+            const length = typeToken.tupleLength === "N" ? undefined : parseInt(typeToken.tupleLength, 10);
+            dataType = { kind: "tuple", elementType, length };
         }
         else {
             this.advance();
@@ -1001,7 +1065,7 @@ export class Parser {
                     size = parseInt(sizeToken.value, 10);
                 }
                 this.expect([TokenType.RBRACKET]);
-                dataType = { kind: 'array', elementType: dataType, size };
+                dataType = { kind: "array", elementType: dataType, size };
             }
         }
         this.expect([TokenType.IMMUTABLE]); // Fields use # (immutable declaration syntax)
@@ -1014,23 +1078,23 @@ export class Parser {
     }
     parseStructMethod() {
         const startToken = this.peek();
-        let returnType = 'void';
+        let returnType = "void";
         // Check for return type before Z
         if (this.peek().type !== TokenType.FUNC) {
             const typeToken = this.advance();
             // Check for struct or enum return type
             if (typeToken.type === TokenType.IDENTIFIER) {
                 if (this.structNames.has(typeToken.value)) {
-                    returnType = { kind: 'struct', name: typeToken.value };
+                    returnType = { kind: "struct", name: typeToken.value };
                 }
                 else if (this.enumNames.has(typeToken.value)) {
-                    returnType = { kind: 'enum', name: typeToken.value };
+                    returnType = { kind: "enum", name: typeToken.value };
                 }
             }
             else if (this.isTupleTypeToken(typeToken.type)) {
                 const elementType = this.tupleTokenToElementType(typeToken);
-                const length = typeToken.tupleLength === 'N' ? undefined : parseInt(typeToken.tupleLength, 10);
-                returnType = { kind: 'tuple', elementType, length };
+                const length = typeToken.tupleLength === "N" ? undefined : parseInt(typeToken.tupleLength, 10);
+                returnType = { kind: "tuple", elementType, length };
             }
             else {
                 const baseType = this.tokenToDataType(typeToken.type);
@@ -1043,7 +1107,7 @@ export class Parser {
                         size = parseInt(sizeToken.value, 10);
                     }
                     this.expect([TokenType.RBRACKET]);
-                    returnType = { kind: 'array', elementType: baseType, size };
+                    returnType = { kind: "array", elementType: baseType, size };
                 }
                 else {
                     returnType = baseType;
@@ -1063,19 +1127,19 @@ export class Parser {
             // Check for struct parameter type
             if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
                 this.advance();
-                paramType = { kind: 'struct', name: paramTypeToken.value };
+                paramType = { kind: "struct", name: paramTypeToken.value };
             }
             // Check for enum parameter type
             else if (paramTypeToken.type === TokenType.IDENTIFIER && this.enumNames.has(paramTypeToken.value)) {
                 this.advance();
-                paramType = { kind: 'enum', name: paramTypeToken.value };
+                paramType = { kind: "enum", name: paramTypeToken.value };
             }
             // Check for tuple type
             else if (this.isTupleTypeToken(paramTypeToken.type)) {
                 this.advance();
                 const elementType = this.tupleTokenToElementType(paramTypeToken);
-                const length = paramTypeToken.tupleLength === 'N' ? undefined : parseInt(paramTypeToken.tupleLength, 10);
-                paramType = { kind: 'tuple', elementType, length };
+                const length = paramTypeToken.tupleLength === "N" ? undefined : parseInt(paramTypeToken.tupleLength, 10);
+                paramType = { kind: "tuple", elementType, length };
             }
             // Check for primitive type
             else if (this.isTypeToken(paramTypeToken.type)) {
@@ -1091,7 +1155,7 @@ export class Parser {
                         size = parseInt(sizeToken.value, 10);
                     }
                     this.expect([TokenType.RBRACKET]);
-                    paramType = { kind: 'array', elementType: baseType, size };
+                    paramType = { kind: "array", elementType: baseType, size };
                 }
             }
             else {
@@ -1119,7 +1183,8 @@ export class Parser {
                 token.type === TokenType.FUNC ||
                 token.type === TokenType.JS_BLOCK ||
                 (token.type === TokenType.IDENTIFIER && nextType === TokenType.EQUALS) ||
-                (token.type === TokenType.IDENTIFIER && (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
+                (token.type === TokenType.IDENTIFIER &&
+                    (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
                 (token.type === TokenType.IDENTIFIER && this.isCompoundAssignmentToken(nextType));
             if (isStatement) {
                 body.push(this.parseStatement());
@@ -1128,12 +1193,12 @@ export class Parser {
                 const expr = this.parseExpression();
                 this.skipNewlines();
                 if (this.peek().type === TokenType.SEMICOLON) {
-                    if (returnType !== 'void') {
+                    if (returnType !== "void") {
                         returnExpression = expr;
                     }
                     else {
                         body.push({
-                            type: 'ExpressionStatement',
+                            type: "ExpressionStatement",
                             expression: expr,
                             line: token.line,
                             column: token.column,
@@ -1142,7 +1207,7 @@ export class Parser {
                 }
                 else {
                     body.push({
-                        type: 'ExpressionStatement',
+                        type: "ExpressionStatement",
                         expression: expr,
                         line: token.line,
                         column: token.column,
@@ -1165,16 +1230,16 @@ export class Parser {
     parseStructVariableDeclaration(exported = false) {
         const typeToken = this.advance(); // consume struct name (e.g., Person)
         const structName = typeToken.value;
-        const dataType = { kind: 'struct', name: structName };
+        const dataType = { kind: "struct", name: structName };
         const mutabilityToken = this.expect([TokenType.IMMUTABLE, TokenType.MUTABLE]);
-        const mutability = mutabilityToken.type === TokenType.IMMUTABLE ? 'immutable' : 'mutable';
+        const mutability = mutabilityToken.type === TokenType.IMMUTABLE ? "immutable" : "mutable";
         const nameToken = this.expect([TokenType.IDENTIFIER]);
         const name = nameToken.value;
         this.expect([TokenType.EQUALS]);
         const value = this.parseExpression();
         this.expectEndOfStatement();
         return {
-            type: 'VariableDeclaration',
+            type: "VariableDeclaration",
             dataType,
             mutability,
             name,
@@ -1185,7 +1250,7 @@ export class Parser {
         };
     }
     parseFunctionDeclaration(exported = false) {
-        let returnType = 'void';
+        let returnType = "void";
         let startToken = this.peek();
         // Check for return type before Z
         if (this.isTypeToken(this.peek().type)) {
@@ -1194,8 +1259,8 @@ export class Parser {
             // Check if it's a tuple type
             if (this.isTupleTypeToken(typeToken.type)) {
                 const elementType = this.tupleTokenToElementType(typeToken);
-                const length = typeToken.tupleLength === 'N' ? undefined : parseInt(typeToken.tupleLength, 10);
-                returnType = { kind: 'tuple', elementType, length };
+                const length = typeToken.tupleLength === "N" ? undefined : parseInt(typeToken.tupleLength, 10);
+                returnType = { kind: "tuple", elementType, length };
             }
             else {
                 const baseType = this.tokenToDataType(typeToken.type);
@@ -1209,7 +1274,7 @@ export class Parser {
                         size = parseInt(sizeToken.value, 10);
                     }
                     this.expect([TokenType.RBRACKET]);
-                    returnType = { kind: 'array', elementType: baseType, size };
+                    returnType = { kind: "array", elementType: baseType, size };
                 }
                 else {
                     returnType = baseType;
@@ -1220,13 +1285,13 @@ export class Parser {
         else if (this.peek().type === TokenType.IDENTIFIER && this.enumNames.has(this.peek().value)) {
             const typeToken = this.advance();
             startToken = typeToken;
-            returnType = { kind: 'enum', name: typeToken.value };
+            returnType = { kind: "enum", name: typeToken.value };
         }
         // Check for struct return type: Person Z createPerson()
         else if (this.peek().type === TokenType.IDENTIFIER && this.structNames.has(this.peek().value)) {
             const typeToken = this.advance();
             startToken = typeToken;
-            returnType = { kind: 'struct', name: typeToken.value };
+            returnType = { kind: "struct", name: typeToken.value };
         }
         // Consume Z
         this.expect([TokenType.FUNC]);
@@ -1243,19 +1308,19 @@ export class Parser {
             // Check for struct parameter type: Person#p
             if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
                 this.advance();
-                paramType = { kind: 'struct', name: paramTypeToken.value };
+                paramType = { kind: "struct", name: paramTypeToken.value };
             }
             // Check for enum parameter type: Color#c
             else if (paramTypeToken.type === TokenType.IDENTIFIER && this.enumNames.has(paramTypeToken.value)) {
                 this.advance();
-                paramType = { kind: 'enum', name: paramTypeToken.value };
+                paramType = { kind: "enum", name: paramTypeToken.value };
             }
             // Check for tuple type
             else if (this.isTupleTypeToken(paramTypeToken.type)) {
                 this.advance();
                 const elementType = this.tupleTokenToElementType(paramTypeToken);
-                const length = paramTypeToken.tupleLength === 'N' ? undefined : parseInt(paramTypeToken.tupleLength, 10);
-                paramType = { kind: 'tuple', elementType, length };
+                const length = paramTypeToken.tupleLength === "N" ? undefined : parseInt(paramTypeToken.tupleLength, 10);
+                paramType = { kind: "tuple", elementType, length };
             }
             // Check for primitive type
             else if (this.isTypeToken(paramTypeToken.type)) {
@@ -1272,7 +1337,7 @@ export class Parser {
                         size = parseInt(sizeToken.value, 10);
                     }
                     this.expect([TokenType.RBRACKET]);
-                    paramType = { kind: 'array', elementType: baseType, size };
+                    paramType = { kind: "array", elementType: baseType, size };
                 }
             }
             else {
@@ -1306,8 +1371,15 @@ export class Parser {
                 token.type === TokenType.FUNC ||
                 token.type === TokenType.JS_BLOCK ||
                 (token.type === TokenType.IDENTIFIER && nextType === TokenType.EQUALS) ||
-                (token.type === TokenType.IDENTIFIER && (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
-                (token.type === TokenType.IDENTIFIER && this.isCompoundAssignmentToken(nextType));
+                (token.type === TokenType.IDENTIFIER &&
+                    (nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
+                (token.type === TokenType.IDENTIFIER && this.isCompoundAssignmentToken(nextType)) ||
+                (token.type === TokenType.IDENTIFIER &&
+                    this.structNames.has(token.value) &&
+                    (nextType === TokenType.IMMUTABLE || nextType === TokenType.MUTABLE)) ||
+                (token.type === TokenType.IDENTIFIER &&
+                    this.enumNames.has(token.value) &&
+                    (nextType === TokenType.IMMUTABLE || nextType === TokenType.MUTABLE));
             if (isStatement) {
                 body.push(this.parseStatement());
             }
@@ -1318,13 +1390,13 @@ export class Parser {
                 this.skipNewlines();
                 if (this.peek().type === TokenType.SEMICOLON) {
                     // This is the return expression
-                    if (returnType !== 'void') {
+                    if (returnType !== "void") {
                         returnExpression = expr;
                     }
                     else {
                         // For void functions, wrap expression in ExpressionStatement
                         body.push({
-                            type: 'ExpressionStatement',
+                            type: "ExpressionStatement",
                             expression: expr,
                             line: token.line,
                             column: token.column,
@@ -1334,7 +1406,7 @@ export class Parser {
                 else {
                     // More statements follow, this was just an expression statement
                     body.push({
-                        type: 'ExpressionStatement',
+                        type: "ExpressionStatement",
                         expression: expr,
                         line: token.line,
                         column: token.column,
@@ -1345,7 +1417,7 @@ export class Parser {
         this.expect([TokenType.SEMICOLON]);
         this.skipNewlines();
         return {
-            type: 'FunctionDeclaration',
+            type: "FunctionDeclaration",
             name,
             parameters,
             returnType,
@@ -1361,10 +1433,76 @@ export class Parser {
         const expression = this.parseExpression();
         this.expectEndOfStatement();
         return {
-            type: 'ExpressionStatement',
+            type: "ExpressionStatement",
             expression,
             line: token.line,
             column: token.column,
+        };
+    }
+    parseSpawnStatement() {
+        const spawnToken = this.advance(); // consume ~>
+        const nameToken = this.expect([TokenType.IDENTIFIER]);
+        // Parse the function call
+        this.expect([TokenType.LPAREN]); // expect (
+        const args = [];
+        while (this.peek().type !== TokenType.RPAREN) {
+            if (this.peek().type === TokenType.IDENTIFIER && this.peekNext()?.type === TokenType.EQUALS) {
+                const argNameToken = this.advance();
+                this.advance(); // consume =
+                const value = this.parseExpression();
+                args.push({ name: argNameToken.value, value });
+            }
+            else {
+                const value = this.parseExpression();
+                args.push({ value });
+            }
+            if (this.peek().type === TokenType.COMMA) {
+                this.advance();
+            }
+        }
+        this.expect([TokenType.RPAREN]); // consume )
+        const call = {
+            type: "FunctionCall",
+            name: nameToken.value,
+            arguments: args,
+            line: nameToken.line,
+            column: nameToken.column,
+        };
+        let expr = {
+            type: "SpawnExpression",
+            call,
+            line: spawnToken.line,
+            column: spawnToken.column,
+        };
+        // Handle method chaining: ~> func().onError(handler)
+        while (this.peek().type === TokenType.DOT) {
+            this.advance(); // consume .
+            const methodToken = this.expect([TokenType.IDENTIFIER]);
+            this.expect([TokenType.LPAREN]);
+            const methodArgs = [];
+            while (this.peek().type !== TokenType.RPAREN) {
+                const methodArg = this.parseExpression();
+                methodArgs.push({ value: methodArg });
+                if (this.peek().type === TokenType.COMMA) {
+                    this.advance();
+                }
+            }
+            this.expect([TokenType.RPAREN]);
+            expr = {
+                type: "MethodCall",
+                object: expr,
+                method: methodToken.value,
+                arguments: methodArgs,
+                line: methodToken.line,
+                column: methodToken.column,
+            };
+        }
+        this.expectEndOfStatement();
+        return {
+            type: "ExpressionStatement",
+            expression: expr,
+            line: spawnToken.line,
+            column: spawnToken.column,
         };
     }
     // Parse statements until we hit ; (end of block)
@@ -1416,8 +1554,8 @@ export class Parser {
             const operatorToken = this.advance();
             const right = this.parseAnd();
             left = {
-                type: 'BinaryExpression',
-                operator: '||',
+                type: "BinaryExpression",
+                operator: "||",
                 left,
                 right,
                 line: operatorToken.line,
@@ -1432,8 +1570,8 @@ export class Parser {
             const operatorToken = this.advance();
             const right = this.parseEquality();
             left = {
-                type: 'BinaryExpression',
-                operator: '&&',
+                type: "BinaryExpression",
+                operator: "&&",
                 left,
                 right,
                 line: operatorToken.line,
@@ -1449,7 +1587,7 @@ export class Parser {
             const operator = operatorToken.value;
             const right = this.parseComparison();
             left = {
-                type: 'BinaryExpression',
+                type: "BinaryExpression",
                 operator,
                 left,
                 right,
@@ -1469,7 +1607,7 @@ export class Parser {
             const operator = operatorToken.value;
             const right = this.parseRange();
             left = {
-                type: 'BinaryExpression',
+                type: "BinaryExpression",
                 operator,
                 left,
                 right,
@@ -1486,7 +1624,7 @@ export class Parser {
             const operatorToken = this.advance();
             const right = this.parseAdditive();
             return {
-                type: 'RangeExpression',
+                type: "RangeExpression",
                 start: left,
                 end: right,
                 line: operatorToken.line,
@@ -1502,7 +1640,7 @@ export class Parser {
             const operator = operatorToken.value;
             const right = this.parseMultiplicative();
             left = {
-                type: 'BinaryExpression',
+                type: "BinaryExpression",
                 operator,
                 left,
                 right,
@@ -1521,7 +1659,7 @@ export class Parser {
             const operator = operatorToken.value;
             const right = this.parseExponent();
             left = {
-                type: 'BinaryExpression',
+                type: "BinaryExpression",
                 operator,
                 left,
                 right,
@@ -1538,8 +1676,8 @@ export class Parser {
             const operatorToken = this.advance();
             const right = this.parseExponent(); // recursive for right-associativity
             return {
-                type: 'BinaryExpression',
-                operator: '**',
+                type: "BinaryExpression",
+                operator: "**",
                 left,
                 right,
                 line: operatorToken.line,
@@ -1553,8 +1691,8 @@ export class Parser {
             const operatorToken = this.advance();
             const operand = this.parseUnary();
             return {
-                type: 'UnaryExpression',
-                operator: '-',
+                type: "UnaryExpression",
+                operator: "-",
                 operand,
                 line: operatorToken.line,
                 column: operatorToken.column,
@@ -1564,8 +1702,8 @@ export class Parser {
             const operatorToken = this.advance();
             const operand = this.parseUnary();
             return {
-                type: 'UnaryExpression',
-                operator: '!',
+                type: "UnaryExpression",
+                operator: "!",
                 operand,
                 line: operatorToken.line,
                 column: operatorToken.column,
@@ -1591,7 +1729,7 @@ export class Parser {
         if (token.type === TokenType.NULL) {
             this.advance();
             return {
-                type: 'NullLiteral',
+                type: "NullLiteral",
                 line: token.line,
                 column: token.column,
             };
@@ -1617,7 +1755,7 @@ export class Parser {
                 }
                 this.expect([TokenType.RPAREN]);
                 return {
-                    type: 'TupleLiteral',
+                    type: "TupleLiteral",
                     elements,
                     line: token.line,
                     column: token.column,
@@ -1635,26 +1773,44 @@ export class Parser {
         if (token.type === TokenType.MATCH) {
             return this.parseMatchExpression();
         }
+        // Spawn expression: ~> functionCall()
+        if (token.type === TokenType.SPAWN) {
+            return this.parseSpawnExpression();
+        }
         throw new Error(`Expected expression at line ${token.line}, column ${token.column}, got '${token.value}'`);
     }
     isCastToken(type) {
         return [
-            TokenType.CAST_STRING, TokenType.CAST_INT, TokenType.CAST_FLOAT, TokenType.CAST_BOOL,
-            TokenType.CAST_TUPLE_INT, TokenType.CAST_TUPLE_FLOAT, TokenType.CAST_TUPLE_STRING, TokenType.CAST_TUPLE_BOOL,
+            TokenType.CAST_STRING,
+            TokenType.CAST_INT,
+            TokenType.CAST_FLOAT,
+            TokenType.CAST_BOOL,
+            TokenType.CAST_TUPLE_INT,
+            TokenType.CAST_TUPLE_FLOAT,
+            TokenType.CAST_TUPLE_STRING,
+            TokenType.CAST_TUPLE_BOOL,
         ].includes(type);
     }
     isTupleCastToken(type) {
         return [
-            TokenType.CAST_TUPLE_INT, TokenType.CAST_TUPLE_FLOAT, TokenType.CAST_TUPLE_STRING, TokenType.CAST_TUPLE_BOOL,
+            TokenType.CAST_TUPLE_INT,
+            TokenType.CAST_TUPLE_FLOAT,
+            TokenType.CAST_TUPLE_STRING,
+            TokenType.CAST_TUPLE_BOOL,
         ].includes(type);
     }
     tupleCastTokenToElementType(token) {
         switch (token.type) {
-            case TokenType.CAST_TUPLE_INT: return 'int';
-            case TokenType.CAST_TUPLE_FLOAT: return 'float';
-            case TokenType.CAST_TUPLE_STRING: return 'string';
-            case TokenType.CAST_TUPLE_BOOL: return 'bool';
-            default: throw new Error(`Invalid tuple cast token: ${token.type}`);
+            case TokenType.CAST_TUPLE_INT:
+                return "int";
+            case TokenType.CAST_TUPLE_FLOAT:
+                return "float";
+            case TokenType.CAST_TUPLE_STRING:
+                return "string";
+            case TokenType.CAST_TUPLE_BOOL:
+                return "bool";
+            default:
+                throw new Error(`Invalid tuple cast token: ${token.type}`);
         }
     }
     parseCastExpression() {
@@ -1662,31 +1818,32 @@ export class Parser {
         let targetType;
         if (this.isTupleCastToken(token.type)) {
             const elementType = this.tupleCastTokenToElementType(token);
-            const length = token.tupleLength === 'N' ? undefined : parseInt(token.tupleLength, 10);
-            targetType = { kind: 'tuple', elementType, length };
+            const length = token.tupleLength === "N" ? undefined : parseInt(token.tupleLength, 10);
+            targetType = { kind: "tuple", elementType, length };
         }
         else {
             switch (token.type) {
                 case TokenType.CAST_STRING:
-                    targetType = 'string';
+                    targetType = "string";
                     break;
                 case TokenType.CAST_INT:
-                    targetType = 'int';
+                    targetType = "int";
                     break;
                 case TokenType.CAST_FLOAT:
-                    targetType = 'float';
+                    targetType = "float";
                     break;
                 case TokenType.CAST_BOOL:
-                    targetType = 'bool';
+                    targetType = "bool";
                     break;
-                default: throw new Error(`Invalid cast token: ${token.type}`);
+                default:
+                    throw new Error(`Invalid cast token: ${token.type}`);
             }
         }
         // The ( was already consumed by the lexer
         const expression = this.parseExpression();
         this.expect([TokenType.RPAREN]);
         return {
-            type: 'CastExpression',
+            type: "CastExpression",
             targetType,
             expression,
             line: token.line,
@@ -1700,18 +1857,18 @@ export class Parser {
         let i = 0;
         let textStart = 0;
         while (i < raw.length) {
-            if (raw[i] === '{') {
+            if (raw[i] === "{") {
                 // Add text before this {
                 if (i > textStart) {
-                    parts.push({ kind: 'text', value: raw.slice(textStart, i) });
+                    parts.push({ kind: "text", value: raw.slice(textStart, i) });
                 }
                 // Find matching }
                 let braceDepth = 1;
                 let j = i + 1;
                 while (j < raw.length && braceDepth > 0) {
-                    if (raw[j] === '{')
+                    if (raw[j] === "{")
                         braceDepth++;
-                    else if (raw[j] === '}')
+                    else if (raw[j] === "}")
                         braceDepth--;
                     j++;
                 }
@@ -1722,7 +1879,7 @@ export class Parser {
                 const exprTokens = lexer.tokenize();
                 const exprParser = new Parser(exprTokens);
                 const expr = exprParser.parseExpression();
-                parts.push({ kind: 'expr', value: expr });
+                parts.push({ kind: "expr", value: expr });
                 i = j;
                 textStart = j;
             }
@@ -1732,10 +1889,10 @@ export class Parser {
         }
         // Add remaining text
         if (textStart < raw.length) {
-            parts.push({ kind: 'text', value: raw.slice(textStart) });
+            parts.push({ kind: "text", value: raw.slice(textStart) });
         }
         return {
-            type: 'InterpolatedString',
+            type: "InterpolatedString",
             parts,
             line: token.line,
             column: token.column,
@@ -1744,7 +1901,7 @@ export class Parser {
     parseStringLiteral() {
         const token = this.advance();
         return {
-            type: 'StringLiteral',
+            type: "StringLiteral",
             value: token.value,
             line: token.line,
             column: token.column,
@@ -1753,9 +1910,9 @@ export class Parser {
     parseNumberLiteral() {
         const token = this.advance();
         const value = parseFloat(token.value);
-        const isFloat = token.value.includes('.');
+        const isFloat = token.value.includes(".");
         return {
-            type: 'NumberLiteral',
+            type: "NumberLiteral",
             value,
             isFloat,
             line: token.line,
@@ -1765,8 +1922,8 @@ export class Parser {
     parseBoolLiteral() {
         const token = this.advance();
         return {
-            type: 'BoolLiteral',
-            value: token.value === 'true',
+            type: "BoolLiteral",
+            value: token.value === "true",
             line: token.line,
             column: token.column,
         };
@@ -1774,7 +1931,7 @@ export class Parser {
     parseIdentifier() {
         const token = this.advance();
         let expr = {
-            type: 'Identifier',
+            type: "Identifier",
             name: token.value,
             line: token.line,
             column: token.column,
@@ -1782,7 +1939,7 @@ export class Parser {
         // Handle postfix operations: function calls, struct instantiation, index access, method calls
         while (true) {
             if (this.peek().type === TokenType.LPAREN) {
-                if (expr.type === 'Identifier') {
+                if (expr.type === "Identifier") {
                     // Check if this is a struct instantiation: StructName(...)
                     if (this.structNames.has(expr.name)) {
                         expr = this.parseStructInstantiation(token);
@@ -1802,7 +1959,7 @@ export class Parser {
                 const index = this.parseExpression();
                 this.expect([TokenType.RBRACKET]);
                 expr = {
-                    type: 'IndexAccess',
+                    type: "IndexAccess",
                     array: expr,
                     index,
                     line: token.line,
@@ -1825,7 +1982,7 @@ export class Parser {
                     }
                     this.expect([TokenType.RPAREN]);
                     expr = {
-                        type: 'MethodCall',
+                        type: "MethodCall",
                         object: expr,
                         method: memberToken.value,
                         arguments: args,
@@ -1835,9 +1992,9 @@ export class Parser {
                 }
                 else {
                     // Check if this is an enum access: Color.Red
-                    if (expr.type === 'Identifier' && this.enumNames.has(expr.name)) {
+                    if (expr.type === "Identifier" && this.enumNames.has(expr.name)) {
                         expr = {
-                            type: 'EnumAccess',
+                            type: "EnumAccess",
                             enumName: expr.name,
                             variant: memberToken.value,
                             line: token.line,
@@ -1847,7 +2004,7 @@ export class Parser {
                     else {
                         // Property access (no parentheses) - could be struct field access
                         expr = {
-                            type: 'MemberExpression',
+                            type: "MemberExpression",
                             object: expr,
                             property: memberToken.value,
                             line: token.line,
@@ -1885,7 +2042,7 @@ export class Parser {
         }
         this.expect([TokenType.RPAREN]);
         return {
-            type: 'StructInstantiation',
+            type: "StructInstantiation",
             structName: nameToken.value,
             arguments: args,
             line: nameToken.line,
@@ -1903,7 +2060,7 @@ export class Parser {
         }
         this.expect([TokenType.RBRACKET]);
         return {
-            type: 'ArrayLiteral',
+            type: "ArrayLiteral",
             elements,
             line: token.line,
             column: token.column,
@@ -1932,7 +2089,7 @@ export class Parser {
         }
         this.expect([TokenType.RPAREN]);
         return {
-            type: 'FunctionCall',
+            type: "FunctionCall",
             name: nameToken.value,
             arguments: args,
             line: nameToken.line,
@@ -1942,31 +2099,50 @@ export class Parser {
     // Helper methods
     isTypeToken(type) {
         return [
-            TokenType.TYPE_STRING, TokenType.TYPE_INT, TokenType.TYPE_FLOAT, TokenType.TYPE_BOOL,
-            TokenType.TYPE_TUPLE_INT, TokenType.TYPE_TUPLE_FLOAT, TokenType.TYPE_TUPLE_STRING, TokenType.TYPE_TUPLE_BOOL,
+            TokenType.TYPE_STRING,
+            TokenType.TYPE_INT,
+            TokenType.TYPE_FLOAT,
+            TokenType.TYPE_BOOL,
+            TokenType.TYPE_TUPLE_INT,
+            TokenType.TYPE_TUPLE_FLOAT,
+            TokenType.TYPE_TUPLE_STRING,
+            TokenType.TYPE_TUPLE_BOOL,
         ].includes(type);
     }
     isTupleTypeToken(type) {
         return [
-            TokenType.TYPE_TUPLE_INT, TokenType.TYPE_TUPLE_FLOAT, TokenType.TYPE_TUPLE_STRING, TokenType.TYPE_TUPLE_BOOL,
+            TokenType.TYPE_TUPLE_INT,
+            TokenType.TYPE_TUPLE_FLOAT,
+            TokenType.TYPE_TUPLE_STRING,
+            TokenType.TYPE_TUPLE_BOOL,
         ].includes(type);
     }
     tupleTokenToElementType(token) {
         switch (token.type) {
-            case TokenType.TYPE_TUPLE_INT: return 'int';
-            case TokenType.TYPE_TUPLE_FLOAT: return 'float';
-            case TokenType.TYPE_TUPLE_STRING: return 'string';
-            case TokenType.TYPE_TUPLE_BOOL: return 'bool';
-            default: throw new Error(`Invalid tuple type token: ${token.type}`);
+            case TokenType.TYPE_TUPLE_INT:
+                return "int";
+            case TokenType.TYPE_TUPLE_FLOAT:
+                return "float";
+            case TokenType.TYPE_TUPLE_STRING:
+                return "string";
+            case TokenType.TYPE_TUPLE_BOOL:
+                return "bool";
+            default:
+                throw new Error(`Invalid tuple type token: ${token.type}`);
         }
     }
     tokenToDataType(type) {
         switch (type) {
-            case TokenType.TYPE_STRING: return 'string';
-            case TokenType.TYPE_INT: return 'int';
-            case TokenType.TYPE_FLOAT: return 'float';
-            case TokenType.TYPE_BOOL: return 'bool';
-            default: throw new Error(`Invalid type token: ${type}`);
+            case TokenType.TYPE_STRING:
+                return "string";
+            case TokenType.TYPE_INT:
+                return "int";
+            case TokenType.TYPE_FLOAT:
+                return "float";
+            case TokenType.TYPE_BOOL:
+                return "bool";
+            default:
+                throw new Error(`Invalid type token: ${type}`);
         }
     }
     peek() {
@@ -1981,7 +2157,7 @@ export class Parser {
     expect(types) {
         const token = this.peek();
         if (!types.includes(token.type)) {
-            const expected = types.map(t => t.toString()).join(' or ');
+            const expected = types.map((t) => t.toString()).join(" or ");
             throw new Error(`Expected ${expected} at line ${token.line}, column ${token.column}, got '${token.value}'`);
         }
         return this.advance();

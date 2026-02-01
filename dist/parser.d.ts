@@ -1,5 +1,5 @@
-import { Token } from './lexer.js';
-import { Program, Expression } from './ast.js';
+import { Token } from "./lexer.js";
+import { Program, Expression } from "./ast.js";
 export declare class Parser {
     private tokens;
     private pos;
@@ -29,6 +29,7 @@ export declare class Parser {
     private parseTryStatement;
     private parseMatchExpression;
     private parseMatchArm;
+    private parseSpawnExpression;
     private parsePattern;
     private parseStructPattern;
     private parseTuplePattern;
@@ -43,6 +44,7 @@ export declare class Parser {
     private parseStructVariableDeclaration;
     private parseFunctionDeclaration;
     private parseExpressionStatement;
+    private parseSpawnStatement;
     private parseBlock;
     private parseBlockUntilElseOrEnd;
     parseExpression(): Expression;

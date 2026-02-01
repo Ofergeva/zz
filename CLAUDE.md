@@ -121,6 +121,7 @@ Generated as JavaScript classes.
 - Compiles to IIFE with if/else-if chain
 
 ### JS Injection
+
 - `$js { code }` → injects raw JavaScript verbatim into output
 - Lexer captures entire block as single token (JS is not tokenized as ZZ)
 - Nested `{}` in JS code handled via brace-depth tracking
@@ -145,6 +146,14 @@ Generated as JavaScript classes.
 
 - `? ... :(e) ... ;` → try-catch
 - `>X(expr)` → throw
+
+### Synchronous Execution & Spawn
+
+- All function calls block by default (compiled as `async/await` in JS)
+- `~> func(args)` → spawns non-blocking call, returns `Spawn` struct
+- `~> func(args).onError(handlerFn)` → spawn with error handler
+- `Spawn#s = ~> func()` → capture spawn in variable
+- Spawn auto-imported from `std/spawn` when `~>` is used
 
 ### Operators
 
