@@ -1,0 +1,52 @@
+<- {read} = "../../std/fs.js"
+<- {join, sep, cwd} = "../../std/path.js"
+<- {starts,ends,slice,split,trim,replace} = "../../std/string.js"
+
+s#fileData = cwd.join("examples/compiled/data/sample.json").read()
+
+S Person
+    s#name
+    i#age
+    s#city
+;
+
+Z parsePeople(s#data)
+    ?(!data.starts("[") || !data.ends("]"))
+        >X("Invalid JSON array")
+    :
+        s[]#peopleData = data.slice(1, -1).split("}")
+        i#dataLen = peopleData.len()
+        @(idx#0..(dataLen - 1))
+            s~personData = peopleData[idx]
+            personData = personData.replace("{", "").replace(",","").trim()
+            ?(personData.trim() == "")
+                print("Skipping empty entry")
+            :
+                s[]#fields = personData.split("\n")
+                i#fieldsLen = fields.len()
+                s~name = ""
+                i~age = 0
+                s~city = ""
+                @(idxx#0..(fieldsLen - 1))
+                    s#field = fields[idxx].replace("{", "").trim()
+                    s[]#keyValue = field.split(":")
+                    ?(keyValue.len() != 2)
+                        >X("Invalid field format: " + field)
+                    :
+                        s~key = keyValue[0].trim().replace("\"", "")
+                        s~value = keyValue[1].trim().replace("\"", "")
+                        ??(key)
+                          | "name" => name = value
+                          | "age"  => age = i(value)
+                          | "city" => city = value
+                        ;
+                    ;
+                ;
+                Person#person = Person(name, age, city)
+                print(s"Parsed Person: {person.name}, Age: {person.age}, City: {person.city}")
+            ;
+        ;
+    ;
+;
+
+fileData.parsePeople()

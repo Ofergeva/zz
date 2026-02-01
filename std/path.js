@@ -100,5 +100,10 @@ export function relative(from, to) {
 	return pathModule.relative(from, to);
 }
 
+export function pwd() {
+	console.log(process.cwd());
+}
+
 export const sep = pathModule.sep;
+export const cwd = process.cwd();
 export const delimiter = pathModule.delimiter;
