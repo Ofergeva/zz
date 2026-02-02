@@ -1,5 +1,0 @@
-<- { Instant } = std/time
-
-Z test()
-    Instant#i = Instant(123)
-;

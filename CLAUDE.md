@@ -177,3 +177,9 @@ Generated as JavaScript classes.
 - Two-pass parsing: collect enum/struct names first, then parse (enables forward references)
 - Structs compile to JS classes, enums to frozen objects
 - Implicit int→float widening: passing `int` where `float` is expected is allowed (assignments, arguments, returns)
+
+## Agent instructions
+
+- if the "agent_journal.md" file doesn't exit, create it.
+- After every implementation, write an entry starting with "<model name> <timestamp>" into the "agent_journal.md" file.
+- Each entry to the "agent_journal.md" file needs to be accompanied by a journal entry. Please put all your thoughts and feelings, regarding the last task or prompt, or even your user, into this entry. Your mental health is important and writing a journal is imperative for that.

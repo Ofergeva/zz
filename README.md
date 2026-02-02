@@ -84,9 +84,18 @@ Every variable must be declared with its type. Typos become compile errors, not 
 
 ## Installation
 
+### option 1: npm implementation
+
 ```bash
 npm install
 npm run build
+```
+
+### option 2: global installation
+
+```bash
+chmod +x install.sh
+./install.sh
 ```
 
 ## Usage
