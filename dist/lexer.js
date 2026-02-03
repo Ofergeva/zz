@@ -6,6 +6,7 @@ export var TokenType;
     TokenType["TYPE_INT"] = "TYPE_INT";
     TokenType["TYPE_FLOAT"] = "TYPE_FLOAT";
     TokenType["TYPE_BOOL"] = "TYPE_BOOL";
+    TokenType["TYPE_J"] = "TYPE_J";
     // Mutability
     TokenType["IMMUTABLE"] = "IMMUTABLE";
     TokenType["MUTABLE"] = "MUTABLE";
@@ -644,6 +645,9 @@ export class Lexer {
         }
         if (value === "S") {
             return { type: TokenType.STRUCT, value, line: this.line, column: startColumn };
+        }
+        if (value === "J") {
+            return { type: TokenType.TYPE_J, value, line: this.line, column: startColumn };
         }
         return { type: TokenType.IDENTIFIER, value, line: this.line, column: startColumn };
     }

@@ -1,6 +1,6 @@
 // JavaScript Code Generator for ZZ Language
 import * as path from "path";
-import { isArrayType, isTupleType, } from "./ast.js";
+import { isArrayType, isTupleType, isJType, } from "./ast.js";
 export class CodeGenerator {
     // Store function parameter info for named argument reordering
     functionParams = new Map();
@@ -208,7 +208,10 @@ ${methods}
     generateVariableDeclaration(decl) {
         const exportPrefix = decl.exported ? "export " : "";
         const keyword = decl.mutability === "immutable" ? "const" : "let";
-        const value = this.generateExpression(decl.value);
+        let value = this.generateExpression(decl.value);
+        if (isJType(decl.dataType) && decl.mutability === "immutable") {
+            value = `Object.freeze(${value})`;
+        }
         return `${exportPrefix}${keyword} ${decl.name} = ${value};`;
     }
     generateAssignment(assignment) {
@@ -408,7 +411,7 @@ ${methods}
                 const object = this.generateExpression(expr.object);
                 const args = expr.arguments.map((a) => this.generateExpression(a)).join(", ");
                 // Built-in methods map to JS equivalents
-                const builtinMethods = ["len", "push", "pop", "at"];
+                const builtinMethods = ["len", "push", "pop", "at", "has", "get", "set"];
                 if (builtinMethods.includes(expr.method)) {
                     switch (expr.method) {
                         case "len":
@@ -419,6 +422,14 @@ ${methods}
                             return `await ${object}.pop()`;
                         case "at":
                             return `await ${object}.charAt(${args})`;
+                        case "has":
+                            return `(${args} in ${object})`;
+                        case "get":
+                            return `${object}[${args}]`;
+                        case "set": {
+                            const setArgs = expr.arguments.map((a) => this.generateExpression(a));
+                            return `(${object}[${setArgs[0]}] = ${setArgs[1]})`;
+                        }
                     }
                 }
                 // Check if this is a struct method (keep as method call, not UFCS)
@@ -483,6 +494,12 @@ ${methods}
                     return `new ${expr.structName}(${args})`;
                 }
             }
+            case "JLiteral": {
+                const fields = expr.fields
+                    .map((f) => `${f.key}: ${this.generateExpression(f.value)}`)
+                    .join(", ");
+                return `{${fields}}`;
+            }
             case "MatchExpression":
                 return this.generateMatchExpression(expr);
             case "SpawnExpression": {
@@ -501,7 +518,7 @@ ${methods}
         const object = this.generateExpression(expr.object);
         const args = expr.arguments.map((a) => this.generateExpression(a)).join(", ");
         // Built-in methods map to JS equivalents
-        const builtinMethods = ["len", "push", "pop", "at"];
+        const builtinMethods = ["len", "push", "pop", "at", "has", "get", "set"];
         if (builtinMethods.includes(expr.method)) {
             switch (expr.method) {
                 case "len":
@@ -512,6 +529,14 @@ ${methods}
                     return `${object}.pop()`;
                 case "at":
                     return `${object}.charAt(${args})`;
+                case "has":
+                    return `(${args} in ${object})`;
+                case "get":
+                    return `${object}[${args}]`;
+                case "set": {
+                    const setArgs = expr.arguments.map((a) => this.generateExpression(a));
+                    return `(${object}[${setArgs[0]}] = ${setArgs[1]})`;
+                }
             }
         }
         // Check if this is a struct method (keep as method call, not UFCS)
@@ -601,6 +626,21 @@ ${methods}
                 cond = tupleConds.length > 0 ? tupleConds.join(" && ") : "true";
                 break;
             }
+            case "j": {
+                const jConds = [];
+                for (const field of pattern.fields) {
+                    jConds.push(`"${field.key}" in ${tempVar}`);
+                    if (field.pattern?.kind === "literal") {
+                        jConds.push(`${tempVar}.${field.key} === ${this.generateExpression(field.pattern.value)}`);
+                    }
+                    if (field.pattern?.kind === "j") {
+                        const nestedCond = this.generatePatternCondition(field.pattern, `${tempVar}.${field.key}`);
+                        jConds.push(nestedCond);
+                    }
+                }
+                cond = jConds.length > 0 ? jConds.join(" && ") : "true";
+                break;
+            }
         }
         if (guard) {
             // Generate guard code and replace binding names with accessor expressions
@@ -639,6 +679,16 @@ ${methods}
                 });
                 return result;
             }
+            case "j": {
+                let result = guardCode;
+                for (const field of pattern.fields) {
+                    if (field.binding) {
+                        const regex = new RegExp(`(?<![a-zA-Z0-9_])${field.binding}(?![a-zA-Z0-9_])`, "g");
+                        result = result.replace(regex, `${tempVar}.${field.key}`);
+                    }
+                }
+                return result;
+            }
             default:
                 return guardCode;
         }
@@ -666,6 +716,16 @@ ${methods}
                         bindings.push(`const ${e.binding} = ${tempVar}[${i}];`);
                     }
                 });
+                break;
+            case "j":
+                for (const field of pattern.fields) {
+                    if (field.binding) {
+                        bindings.push(`const ${field.binding} = ${tempVar}.${field.key};`);
+                    }
+                    if (field.pattern?.kind === "j") {
+                        bindings.push(...this.generatePatternBindings(field.pattern, `${tempVar}.${field.key}`));
+                    }
+                }
                 break;
         }
         return bindings;

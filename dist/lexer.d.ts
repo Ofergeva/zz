@@ -3,6 +3,7 @@ export declare enum TokenType {
     TYPE_INT = "TYPE_INT",// i
     TYPE_FLOAT = "TYPE_FLOAT",// f
     TYPE_BOOL = "TYPE_BOOL",// b
+    TYPE_J = "TYPE_J",// J
     IMMUTABLE = "IMMUTABLE",// #
     MUTABLE = "MUTABLE",// ~
     SPAWN = "SPAWN",// ~>

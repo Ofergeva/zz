@@ -1,5 +1,5 @@
 // Type Checker for ZZ Language
-import { isArrayType, isTupleType, isPrimitiveType, isEnumType, isStructType, } from "./ast.js";
+import { isArrayType, isTupleType, isPrimitiveType, isEnumType, isStructType, isJType, } from "./ast.js";
 export class TypeChecker {
     variables = new Map();
     functions = new Map();
@@ -99,6 +99,9 @@ export class TypeChecker {
         }
         if (isTupleType(dataType)) {
             return; // Tuples are valid
+        }
+        if (isJType(dataType)) {
+            return; // J type is always valid
         }
         if (isEnumType(dataType)) {
             if (!this.enums.has(dataType.name)) {
@@ -316,6 +319,11 @@ export class TypeChecker {
                     this.errors.push(`Literal pattern type mismatch at line ${line}: expected ${this.typeToString(expected)}, got ${this.typeToString(litType)}.`);
                 }
                 break;
+            case "j":
+                if (!isJType(expected)) {
+                    this.errors.push(`Cannot use J pattern on ${this.typeToString(expected)} at line ${line}.`);
+                }
+                break;
         }
     }
     addPatternBindings(pattern, valueType, line) {
@@ -354,6 +362,21 @@ export class TypeChecker {
                                 line,
                             });
                         }
+                    }
+                }
+                break;
+            case "j":
+                for (const field of pattern.fields) {
+                    if (field.binding) {
+                        // J field values have dynamic type at compile time
+                        this.variables.set(field.binding, {
+                            dataType: "string", // Fallback type for bindings
+                            mutability: "immutable",
+                            line,
+                        });
+                    }
+                    if (field.pattern?.kind === "j") {
+                        this.addPatternBindings(field.pattern, { kind: "j" }, line);
                     }
                 }
                 break;
@@ -405,9 +428,20 @@ export class TypeChecker {
         this.checkExpression(stmt.object, stmt.line);
         this.checkExpression(stmt.value, stmt.line);
         const objectType = this.inferExpressionType(stmt.object);
-        // Check that the object is a struct
-        if (!objectType || !isStructType(objectType)) {
-            this.errors.push(`Cannot assign to field '${stmt.field}' on non-struct type at line ${stmt.line}.`);
+        // Check that the object is a struct or J type
+        if (!objectType || (!isStructType(objectType) && !isJType(objectType))) {
+            this.errors.push(`Cannot assign to field '${stmt.field}' on non-struct/J type at line ${stmt.line}.`);
+            return;
+        }
+        // For J types, check mutability and allow any field name
+        if (isJType(objectType)) {
+            if (stmt.object.type === "Identifier") {
+                const varInfo = this.variables.get(stmt.object.name);
+                if (varInfo && varInfo.mutability === "immutable") {
+                    this.errors.push(`Cannot assign to field '${stmt.field}' on immutable J object '${stmt.object.name}' at line ${stmt.line}. Use J~ for mutable J objects.`);
+                }
+            }
+            this.checkExpression(stmt.value, stmt.line);
             return;
         }
         // Check that the struct variable is mutable
@@ -1030,6 +1064,62 @@ export class TypeChecker {
                     }
                 }
             }
+            // J type methods: has, get, set, len
+            else if (objectType && isJType(objectType)) {
+                const jBuiltins = ["has", "get", "set", "len"];
+                if (jBuiltins.includes(expr.method)) {
+                    if (expr.method === "has") {
+                        if (expr.arguments.length !== 1) {
+                            this.errors.push(`J method 'has' requires exactly 1 argument (key) at line ${line}.`);
+                        }
+                        else {
+                            const argType = this.inferExpressionType(expr.arguments[0]);
+                            if (argType && argType !== "string") {
+                                this.errors.push(`J method 'has' requires string key at line ${line}, got ${this.typeToString(argType)}.`);
+                            }
+                        }
+                    }
+                    else if (expr.method === "get") {
+                        if (expr.arguments.length !== 1) {
+                            this.errors.push(`J method 'get' requires exactly 1 argument (key) at line ${line}.`);
+                        }
+                        else {
+                            const argType = this.inferExpressionType(expr.arguments[0]);
+                            if (argType && argType !== "string") {
+                                this.errors.push(`J method 'get' requires string key at line ${line}, got ${this.typeToString(argType)}.`);
+                            }
+                        }
+                    }
+                    else if (expr.method === "set") {
+                        if (expr.object.type === "Identifier") {
+                            const varInfo = this.variables.get(expr.object.name);
+                            if (varInfo && varInfo.mutability === "immutable") {
+                                this.errors.push(`Cannot call 'set' on immutable J object '${expr.object.name}' at line ${line}. Use J~ for mutable J objects.`);
+                            }
+                        }
+                        if (expr.arguments.length !== 2) {
+                            this.errors.push(`J method 'set' requires exactly 2 arguments (key, value) at line ${line}.`);
+                        }
+                        else {
+                            const keyType = this.inferExpressionType(expr.arguments[0]);
+                            if (keyType && keyType !== "string") {
+                                this.errors.push(`J method 'set' requires string key as first argument at line ${line}, got ${this.typeToString(keyType)}.`);
+                            }
+                        }
+                    }
+                    else if (expr.method === "len") {
+                        if (expr.arguments.length > 0) {
+                            this.errors.push(`J method 'len' takes no arguments at line ${line}.`);
+                        }
+                    }
+                }
+                else {
+                    const funcInfo = this.functions.get(expr.method);
+                    if (!funcInfo) {
+                        this.errors.push(`Unknown method '${expr.method}' on J type at line ${line}. Built-in methods: has, get, set, len.`);
+                    }
+                }
+            }
             // Struct methods
             else if (objectType && isStructType(objectType)) {
                 const structInfo = this.structs.get(objectType.name);
@@ -1068,9 +1158,8 @@ export class TypeChecker {
             }
         }
         else if (expr.type === "MemberExpression") {
-            // Property access on objects (e.g., namespace imports, struct fields)
+            // Property access on objects (e.g., namespace imports, struct fields, J objects)
             this.checkExpression(expr.object, line);
-            // Check if this is a struct field access
             const objectType = this.inferExpressionType(expr.object);
             if (objectType && isStructType(objectType)) {
                 const structInfo = this.structs.get(objectType.name);
@@ -1081,7 +1170,8 @@ export class TypeChecker {
                     }
                 }
             }
-            // For non-structs, we trust that the property exists (e.g., imported modules)
+            // J objects allow any property access (dynamic keys)
+            // For non-structs/non-J, we trust that the property exists (e.g., imported modules)
         }
         else if (expr.type === "EnumAccess") {
             // Validate that the enum exists and the variant is valid
@@ -1091,6 +1181,15 @@ export class TypeChecker {
             }
             else if (!variants.includes(expr.variant)) {
                 this.errors.push(`Unknown variant '${expr.variant}' in enum '${expr.enumName}' at line ${line}. Valid variants: ${variants.join(", ")}.`);
+            }
+        }
+        else if (expr.type === "JLiteral") {
+            for (const field of expr.fields) {
+                this.checkExpression(field.value, line);
+                const valueType = this.inferExpressionType(field.value);
+                if (valueType !== null && !this.isValidJValueType(valueType)) {
+                    this.errors.push(`Invalid J field value type at line ${line}: field '${field.key}' has type ${this.typeToString(valueType)}. J values must be string, int, float, bool, null, or J.`);
+                }
             }
         }
         else if (expr.type === "StructInstantiation") {
@@ -1164,6 +1263,13 @@ export class TypeChecker {
     isNumeric(type) {
         return type === "int" || type === "float";
     }
+    isValidJValueType(type) {
+        if (isPrimitiveType(type))
+            return true; // s, i, f, b
+        if (isJType(type))
+            return true; // nested J
+        return false;
+    }
     requireBooleanCondition(expr, line, context) {
         const exprType = this.inferExpressionType(expr);
         if (exprType !== null && exprType !== "bool") {
@@ -1206,6 +1312,10 @@ export class TypeChecker {
         if (isStructType(a) && isStructType(b)) {
             return a.name === b.name;
         }
+        // Both J types
+        if (isJType(a) && isJType(b)) {
+            return true;
+        }
         // Mismatched types
         return false;
     }
@@ -1237,6 +1347,9 @@ export class TypeChecker {
         }
         if (isArrayType(type)) {
             return `${type.elementType}[]`;
+        }
+        if (isJType(type)) {
+            return "J";
         }
         return "unknown";
     }
@@ -1290,6 +1403,8 @@ export class TypeChecker {
                 }
                 return null;
             }
+            case "JLiteral":
+                return { kind: "j" };
             case "ArrayLiteral": {
                 // Infer element type from first element, or default to int
                 if (expr.elements.length === 0) {
@@ -1426,6 +1541,17 @@ export class TypeChecker {
                         return funcInfo.returnType;
                     }
                 }
+                // J type methods
+                if (objectType && isJType(objectType)) {
+                    if (expr.method === "has")
+                        return "bool";
+                    if (expr.method === "len")
+                        return "int";
+                    if (expr.method === "get")
+                        return null; // Dynamic type
+                    if (expr.method === "set")
+                        return null;
+                }
                 // Struct methods
                 if (objectType && isStructType(objectType)) {
                     const structInfo = this.structs.get(objectType.name);
@@ -1481,7 +1607,6 @@ export class TypeChecker {
                 return null;
             }
             case "MemberExpression": {
-                // Check if this is a struct field access
                 const objectType = this.inferExpressionType(expr.object);
                 if (objectType && isStructType(objectType)) {
                     const structInfo = this.structs.get(objectType.name);
@@ -1491,6 +1616,10 @@ export class TypeChecker {
                             return field.dataType;
                         }
                     }
+                }
+                // J type member access: dynamic type
+                if (objectType && isJType(objectType)) {
+                    return null;
                 }
                 // Property access on non-struct - can't infer type without module info
                 return null;

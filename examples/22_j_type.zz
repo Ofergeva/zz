@@ -1,0 +1,76 @@
+// J Type (JSON-like objects) in ZZ
+
+// === Basic J declaration (immutable) ===
+J#config = {
+  host: "localhost",
+  port: 8080,
+  ssl: false
+}
+print(config.host)
+print(config.port)
+print(config.ssl)
+
+// === Nested J objects ===
+J#server = {
+  host: "api.example.com",
+  port: 443,
+  ssl: true,
+  limits: {
+    maxConn: 100,
+    timeout: 30
+  }
+}
+print(server.host)
+print(server.limits.maxConn)
+print(server.limits.timeout)
+
+// === Mutable J ===
+J~settings = { theme: "dark", fontSize: 14 }
+print(settings.theme)
+settings.theme = "light"
+print(settings.theme)
+settings.set("fontSize", 16)
+print(settings.fontSize)
+
+// === Built-in UFCS methods ===
+print(config.has("host"))
+print(config.has("missing"))
+print(config.get("port"))
+
+// === J as function return type ===
+J Z makeConfig(s#host i#port)
+  { host: host, port: port, ssl: true }
+;
+
+J#myConfig = makeConfig("example.com", 443)
+print(myConfig.host)
+print(myConfig.port)
+
+// === J as function parameter ===
+Z printHost(J#cfg)
+  print(cfg.host)
+;
+printHost(myConfig)
+
+// === Pattern matching ===
+J#resp = { status: 200, body: "OK" }
+
+??(resp)
+  | { status: 200, body: b } => print(s"Success: {b}")
+  | { status: s } => print(s"Status: {s}")
+  | _ => print("Unknown")
+;
+
+// === Pattern matching with literal values ===
+J#err = { status: 404, body: "Not Found" }
+
+??(err)
+  | { status: 200, body: b } => print(s"OK: {b}")
+  | { status: 404, body: b } => print(s"Not Found: {b}")
+  | _ => print("Other")
+;
+
+// === Null values in J ===
+J#nullable = { name: "test", value: _ }
+print(nullable.name)
+print(nullable.value)

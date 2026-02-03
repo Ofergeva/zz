@@ -15,6 +15,10 @@ export function isEnumType(type) {
 export function isStructType(type) {
     return typeof type === "object" && type.kind === "struct";
 }
+// Helper to check if a type is a J type
+export function isJType(type) {
+    return typeof type === "object" && type.kind === "j";
+}
 // Helper to check if a type is primitive
 export function isPrimitiveType(type) {
     return typeof type === "string";

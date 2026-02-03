@@ -1,7 +1,7 @@
 // AST Node Types for ZZ Language
 
 export type PrimitiveType = "string" | "int" | "float" | "bool";
-export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType;
+export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType;
 export type Mutability = "immutable" | "mutable";
 
 // Array type: element type + optional fixed size
@@ -30,6 +30,11 @@ export interface StructType {
 	name: string;
 }
 
+// J type: JSON-like object with string keys and dynamic values
+export interface JType {
+	kind: "j";
+}
+
 // Helper to check if a type is an array
 export function isArrayType(type: DataType): type is ArrayType {
 	return typeof type === "object" && type.kind === "array";
@@ -48,6 +53,11 @@ export function isEnumType(type: DataType): type is EnumType {
 // Helper to check if a type is a struct
 export function isStructType(type: DataType): type is StructType {
 	return typeof type === "object" && type.kind === "struct";
+}
+
+// Helper to check if a type is a J type
+export function isJType(type: DataType): type is JType {
+	return typeof type === "object" && type.kind === "j";
 }
 
 // Helper to check if a type is primitive
@@ -191,7 +201,8 @@ export type Expression =
 	| EnumAccess
 	| StructInstantiation
 	| MatchExpression
-	| SpawnExpression;
+	| SpawnExpression
+	| JLiteral;
 
 export interface StringLiteral extends ASTNode {
 	type: "StringLiteral";
@@ -442,8 +453,20 @@ export interface StructInstantiation extends ASTNode {
 	arguments: FunctionArgument[];
 }
 
+// J object field: key-value pair in a J literal
+export interface JField {
+	key: string;
+	value: Expression;
+}
+
+// J literal: { key1: value1, key2: value2 }
+export interface JLiteral extends ASTNode {
+	type: "JLiteral";
+	fields: JField[];
+}
+
 // Pattern matching types
-export type Pattern = EnumPattern | LiteralPattern | StructPattern | TuplePattern | WildcardPattern | BindingPattern;
+export type Pattern = EnumPattern | LiteralPattern | StructPattern | TuplePattern | WildcardPattern | BindingPattern | JPattern;
 
 // Enum pattern: Color.Red
 export interface EnumPattern {
@@ -486,6 +509,19 @@ export interface WildcardPattern {
 export interface BindingPattern {
 	kind: "binding";
 	name: string;
+}
+
+// J pattern field: key with binding or nested pattern
+export interface JPatternField {
+	key: string;
+	binding?: string;
+	pattern?: Pattern;
+}
+
+// J pattern: { key1: binding1, key2: value2 }
+export interface JPattern {
+	kind: "j";
+	fields: JPatternField[];
 }
 
 // Match arm: | pattern => body

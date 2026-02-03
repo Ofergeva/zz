@@ -39,6 +39,7 @@ export declare class TypeChecker {
     private checkExpression;
     private checkStructInstantiation;
     private isNumeric;
+    private isValidJValueType;
     private requireBooleanCondition;
     private isComparisonOperator;
     private typesEqual;

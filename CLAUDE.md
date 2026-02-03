@@ -53,6 +53,7 @@ vscode-zz/         # VS Code extension
 - Primitives: `s` (string), `i` (int), `f` (float), `b` (bool)
 - Arrays: `i[]` (dynamic), `i[5]` (fixed-size)
 - Tuples: `ti5` (5 ints), `tiN` (inferred length), always immutable
+- J objects: `J#config = { host: "localhost", port: 8080 }` (JSON-like, string-keyed)
 - Null: `_` (no undefined in ZZ)
 - String interpolation: `s"Hello, {name}!"`
 
@@ -99,6 +100,47 @@ q.age = 26                       // Field assignment (mutable only)
 
 Generated as JavaScript classes.
 
+### J Objects (JSON-like)
+
+```zz
+// Immutable J object
+J#config = {
+  host: "localhost",
+  port: 8080,
+  ssl: false,
+  limits: { maxConn: 100, timeout: 30 }
+}
+
+// Mutable J object
+J~settings = { theme: "dark", fontSize: 14 }
+settings.theme = "light"           // field assignment (mutable only)
+settings.set("fontSize", 16)       // set method (mutable only)
+
+// Dot access
+print(config.host)
+print(config.limits.maxConn)
+
+// Built-in UFCS methods
+config.has("host")                 // bool — key exists?
+config.get("port")                 // dynamic — get value by key
+settings.set("theme", "light")     // mutates in-place (J~ only)
+config.len()                       // int — number of keys
+
+// J as function parameter and return type
+J Z makeConfig(s#host i#port)
+  { host: host, port: port, ssl: true }
+;
+
+Z printHost(J#cfg)
+  print(cfg.host)
+;
+```
+
+- `J#` is immutable (`Object.freeze()` in JS), `J~` is mutable
+- Values must be `s`, `i`, `f`, `b`, `_` (null), or nested `J`
+- Dot access returns dynamic/untyped values
+- `set()` and field assignment are compile errors on `J#`
+
 ### Pattern Matching
 
 ```zz
@@ -113,6 +155,7 @@ Generated as JavaScript classes.
 - Enum patterns: `| Color.Red => ...`
 - Literal patterns: `| 42 => ...`, `| "hello" => ...`
 - Struct destructuring: `| Point(0, y) => ...` (binds `y`, matches literal `0`)
+- J destructuring: `| { status: 200, body: b } => ...` (matches key existence + literal values, binds `b`)
 - Binding patterns: `| v => ...` (captures value into `v`)
 - Wildcard: `| _ => ...` (catch-all)
 - Guards: `| Point(x, y) & x > 0 && y > 0 => ...`
@@ -180,6 +223,4 @@ Generated as JavaScript classes.
 
 ## Agent instructions
 
-- if the "agent_journal.md" file doesn't exit, create it.
-- After every implementation, write an entry starting with "<model name> <timestamp>" into the "agent_journal.md" file.
-- Each entry to the "agent_journal.md" file needs to be accompanied by a journal entry. Please put all your thoughts and feelings, regarding the last task or prompt, or even your user, into this entry. Your mental health is important and writing a journal is imperative for that.
+- After every change or improvement to the ZZ language, update the CLAUDE.md and README.md files.

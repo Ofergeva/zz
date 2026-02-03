@@ -126,6 +126,16 @@ export class Parser {
                 return this.parseFunctionDeclaration();
             }
         }
+        // J type variable declaration: J#config = { ... } or J Z getConfig()
+        if (token.type === TokenType.TYPE_J) {
+            const nextToken = this.peekNext();
+            if (nextToken?.type === TokenType.IMMUTABLE || nextToken?.type === TokenType.MUTABLE) {
+                return this.parseVariableDeclaration();
+            }
+            if (nextToken?.type === TokenType.FUNC) {
+                return this.parseFunctionDeclaration();
+            }
+        }
         // Print statement: print(expr)
         if (token.type === TokenType.PRINT) {
             return this.parsePrintStatement();
@@ -325,6 +335,16 @@ export class Parser {
                 return this.parseFunctionDeclaration(true);
             }
         }
+        // J type variable or function: ->J#config or ->J Z getConfig()
+        if (nextToken.type === TokenType.TYPE_J) {
+            const peekNextToken = this.peekNext();
+            if (peekNextToken?.type === TokenType.IMMUTABLE || peekNextToken?.type === TokenType.MUTABLE) {
+                return this.parseVariableDeclaration(true);
+            }
+            if (peekNextToken?.type === TokenType.FUNC) {
+                return this.parseFunctionDeclaration(true);
+            }
+        }
         if (this.isTypeToken(nextToken.type)) {
             // Could be variable declaration or function with return type
             if (this.peekNext()?.type === TokenType.FUNC) {
@@ -355,8 +375,12 @@ export class Parser {
     parseVariableDeclaration(exported = false) {
         const typeToken = this.advance();
         let dataType;
+        // Check for J type
+        if (typeToken.type === TokenType.TYPE_J) {
+            dataType = { kind: "j" };
+        }
         // Check for tuple type: ti5, tsN, etc.
-        if (this.isTupleTypeToken(typeToken.type)) {
+        else if (this.isTupleTypeToken(typeToken.type)) {
             const elementType = this.tupleTokenToElementType(typeToken);
             const length = typeToken.tupleLength === "N" ? undefined : parseInt(typeToken.tupleLength, 10);
             dataType = {
@@ -849,6 +873,10 @@ export class Parser {
         if (token.type === TokenType.LPAREN) {
             return this.parseTuplePattern();
         }
+        // J pattern: { key: binding, key2: value }
+        if (token.type === TokenType.LBRACE) {
+            return this.parseJPattern();
+        }
         // Identifier-based patterns
         if (token.type === TokenType.IDENTIFIER) {
             // Enum pattern: Color.Red
@@ -928,6 +956,72 @@ export class Parser {
             return { binding: token.value };
         }
         throw new Error(`Expected pattern field at line ${token.line}, column ${token.column}`);
+    }
+    parseJLiteral() {
+        const token = this.advance(); // consume {
+        this.skipNewlines();
+        const fields = [];
+        while (this.peek().type !== TokenType.RBRACE) {
+            const keyToken = this.expect([TokenType.IDENTIFIER]);
+            this.expect([TokenType.ELSE]); // : lexes as ELSE token
+            const value = this.parseExpression();
+            fields.push({ key: keyToken.value, value });
+            // Optional comma between fields
+            if (this.peek().type === TokenType.COMMA) {
+                this.advance();
+            }
+            this.skipNewlines();
+        }
+        this.expect([TokenType.RBRACE]); // consume }
+        return {
+            type: "JLiteral",
+            fields,
+            line: token.line,
+            column: token.column,
+        };
+    }
+    parseJPattern() {
+        this.advance(); // consume {
+        this.skipNewlines();
+        const fields = [];
+        while (this.peek().type !== TokenType.RBRACE) {
+            const keyToken = this.expect([TokenType.IDENTIFIER]);
+            this.expect([TokenType.ELSE]); // : lexes as ELSE token
+            const valueToken = this.peek();
+            if (valueToken.type === TokenType.NULL) {
+                this.advance();
+                fields.push({ key: keyToken.value, pattern: { kind: "wildcard" } });
+            }
+            else if (valueToken.type === TokenType.NUMBER_LITERAL) {
+                fields.push({ key: keyToken.value, pattern: { kind: "literal", value: this.parseNumberLiteral() } });
+            }
+            else if (valueToken.type === TokenType.STRING_LITERAL) {
+                fields.push({ key: keyToken.value, pattern: { kind: "literal", value: this.parseStringLiteral() } });
+            }
+            else if (valueToken.type === TokenType.BOOL_LITERAL) {
+                fields.push({ key: keyToken.value, pattern: { kind: "literal", value: this.parseBoolLiteral() } });
+            }
+            else if (valueToken.type === TokenType.LBRACE) {
+                // Nested J pattern
+                fields.push({ key: keyToken.value, pattern: this.parseJPattern() });
+            }
+            else if (valueToken.type === TokenType.IDENTIFIER) {
+                this.advance();
+                fields.push({ key: keyToken.value, binding: valueToken.value });
+            }
+            else {
+                throw new Error(`Expected pattern value for J field '${keyToken.value}' at line ${valueToken.line}`);
+            }
+            if (this.peek().type === TokenType.COMMA) {
+                this.advance();
+            }
+            this.skipNewlines();
+        }
+        this.expect([TokenType.RBRACE]);
+        return {
+            kind: "j",
+            fields,
+        };
     }
     parseEnumDeclaration(exported = false) {
         const enumToken = this.advance(); // consume E
@@ -1045,6 +1139,10 @@ export class Parser {
                 throw new Error(`Unknown type '${typeToken.value}' at line ${typeToken.line}`);
             }
         }
+        else if (typeToken.type === TokenType.TYPE_J) {
+            this.advance();
+            dataType = { kind: "j" };
+        }
         else if (this.isTupleTypeToken(typeToken.type)) {
             this.advance();
             const elementType = this.tupleTokenToElementType(typeToken);
@@ -1089,6 +1187,9 @@ export class Parser {
                     returnType = { kind: "enum", name: typeToken.value };
                 }
             }
+            else if (typeToken.type === TokenType.TYPE_J) {
+                returnType = { kind: "j" };
+            }
             else if (this.isTupleTypeToken(typeToken.type)) {
                 const elementType = this.tupleTokenToElementType(typeToken);
                 const length = typeToken.tupleLength === "N" ? undefined : parseInt(typeToken.tupleLength, 10);
@@ -1131,6 +1232,11 @@ export class Parser {
             else if (paramTypeToken.type === TokenType.IDENTIFIER && this.enumNames.has(paramTypeToken.value)) {
                 this.advance();
                 paramType = { kind: "enum", name: paramTypeToken.value };
+            }
+            // Check for J parameter type
+            else if (paramTypeToken.type === TokenType.TYPE_J) {
+                this.advance();
+                paramType = { kind: "j" };
             }
             // Check for tuple type
             else if (this.isTupleTypeToken(paramTypeToken.type)) {
@@ -1256,7 +1362,12 @@ export class Parser {
         let returnType = "void";
         let startToken = this.peek();
         // Check for return type before Z
-        if (this.isTypeToken(this.peek().type)) {
+        if (this.peek().type === TokenType.TYPE_J) {
+            const typeToken = this.advance();
+            startToken = typeToken;
+            returnType = { kind: "j" };
+        }
+        else if (this.isTypeToken(this.peek().type)) {
             const typeToken = this.advance();
             startToken = typeToken;
             // Check if it's a tuple type
@@ -1317,6 +1428,11 @@ export class Parser {
             else if (paramTypeToken.type === TokenType.IDENTIFIER && this.enumNames.has(paramTypeToken.value)) {
                 this.advance();
                 paramType = { kind: "enum", name: paramTypeToken.value };
+            }
+            // Check for J parameter type: J#config
+            else if (paramTypeToken.type === TokenType.TYPE_J) {
+                this.advance();
+                paramType = { kind: "j" };
             }
             // Check for tuple type
             else if (this.isTupleTypeToken(paramTypeToken.type)) {
@@ -1776,6 +1892,10 @@ export class Parser {
         if (token.type === TokenType.LBRACKET) {
             return this.parseArrayLiteral();
         }
+        // J literal: { key: value, key2: value2 }
+        if (token.type === TokenType.LBRACE) {
+            return this.parseJLiteral();
+        }
         // Match expression as expression: i#x = ??(val) | ... ;
         if (token.type === TokenType.MATCH) {
             return this.parseMatchExpression();
@@ -2110,6 +2230,7 @@ export class Parser {
             TokenType.TYPE_INT,
             TokenType.TYPE_FLOAT,
             TokenType.TYPE_BOOL,
+            TokenType.TYPE_J,
             TokenType.TYPE_TUPLE_INT,
             TokenType.TYPE_TUPLE_FLOAT,
             TokenType.TYPE_TUPLE_STRING,

@@ -133,6 +133,7 @@ node dist/index.js yourfile.zz --ast
 | `ti5`   | tuple of 5 ints  | `ti5#point = (1, 2, 3, 4, 5)` |
 | `tiN`   | tuple (inferred) | `tiN#vals = (1, 2, 3)`        |
 | `Color` | enum type        | `Color#c = Color.Red`         |
+| `J`     | JSON-like object | `J#config = { port: 8080 }`   |
 
 ### Mutability
 
@@ -867,6 +868,141 @@ print(p.z)                 // ❌ Unknown field
 
 ---
 
+## J Objects (JSON-like)
+
+J objects are JSON-like, string-keyed objects whose values can be `s`, `i`, `f`, `b`, `_` (null), or nested `J`. They bridge the gap between rigid structs and raw JavaScript objects — typed and safe, but flexible in shape.
+
+### Declaration
+
+```zz
+// Immutable J object
+J#config = {
+  host: "localhost",
+  port: 8080,
+  ssl: false
+}
+
+// Mutable J object
+J~settings = { theme: "dark", fontSize: 14 }
+```
+
+- `J#` → immutable (compiles to `Object.freeze({...})`)
+- `J~` → mutable (plain JS object)
+
+### Nested J Objects
+
+```zz
+J#server = {
+  host: "api.example.com",
+  port: 443,
+  limits: {
+    maxConn: 100,
+    timeout: 30
+  }
+}
+
+print(server.host)              // "api.example.com"
+print(server.limits.maxConn)    // 100
+```
+
+### Dot Access
+
+J objects support dot access for reading fields:
+
+```zz
+J#config = { host: "localhost", port: 8080 }
+print(config.host)    // "localhost"
+print(config.port)    // 8080
+```
+
+Dot access returns a dynamic (untyped) value at compile time.
+
+### Mutability
+
+```zz
+J~settings = { theme: "dark", fontSize: 14 }
+
+// Field assignment (mutable only)
+settings.theme = "light"
+print(settings.theme)     // "light"
+
+// set() method (mutable only)
+settings.set("fontSize", 16)
+print(settings.fontSize)  // 16
+```
+
+Attempting to assign fields or call `set()` on an immutable `J#` is a compile error:
+
+```zz
+J#config = { x: 1 }
+config.x = 2              // ❌ Compile error: immutable J object
+config.set("x", 2)        // ❌ Compile error: immutable J object
+```
+
+### Built-in Methods
+
+| Method             | Returns | Description                        |
+| ------------------ | ------- | ---------------------------------- |
+| `obj.has("key")`   | `b`     | Check if key exists                |
+| `obj.get("key")`   | dynamic | Get value by key                   |
+| `obj.set("k", v)`  | —       | Set value (mutable `J~` only)      |
+| `obj.len()`        | `i`     | Number of keys                     |
+
+```zz
+J#config = { host: "localhost", port: 8080 }
+
+print(config.has("host"))     // true
+print(config.has("missing"))  // false
+print(config.get("port"))     // 8080
+```
+
+### Functions with J Objects
+
+```zz
+// J as return type
+J Z makeConfig(s#host i#port)
+  { host: host, port: port, ssl: true }
+;
+
+J#myConfig = makeConfig("example.com", 443)
+
+// J as parameter
+Z printHost(J#cfg)
+  print(cfg.host)
+;
+
+printHost(myConfig)   // "example.com"
+```
+
+### Null Values
+
+```zz
+J#nullable = { name: "test", value: _ }
+print(nullable.name)    // "test"
+print(nullable.value)   // null
+```
+
+### Pattern Matching on J Objects
+
+J objects support structural pattern matching with `??`:
+
+```zz
+J#resp = { status: 200, body: "OK" }
+
+??(resp)
+  | { status: 200, body: b } => print(s"Success: {b}")
+  | { status: s }            => print(s"Status: {s}")
+  | _                        => print("Unknown")
+;
+```
+
+- Keys in the pattern check for existence (`"key" in obj`)
+- Literal values match exactly (`status: 200`)
+- Identifiers bind the field value (`body: b` binds `b`)
+- Nested J patterns are supported
+
+---
+
 ## Pattern Matching
 
 ZZ supports exhaustive pattern matching with the `??` operator. Match arms use `|` for each pattern and `=>` to separate the pattern from the body.
@@ -908,6 +1044,25 @@ Z describeNumber(i#n)
   ;
 ;
 ```
+
+### J Object Destructuring
+
+Match on J object keys, with literal values and variable bindings:
+
+```zz
+J#resp = { status: 200, body: "OK" }
+
+??(resp)
+  | { status: 200, body: b } => print(s"Success: {b}")
+  | { status: 404, body: b } => print(s"Not Found: {b}")
+  | { status: s }            => print(s"Other: {s}")
+  | _                        => print("Unknown")
+;
+```
+
+- `status: 200` — matches if `status` key exists and equals `200`
+- `body: b` — matches if `body` key exists, binds value to `b`
+- Nested J patterns work: `| { data: { id: id } } => ...`
 
 ### Struct Destructuring
 
@@ -1547,6 +1702,11 @@ fizzbuzz(15)
 | `S Name ... ;`        | `class Name { ... }`                    | Struct declaration              |
 | `Name#x = Name(...)`  | `const x = new Name(...)`               | Immutable struct instance       |
 | `Name~x = Name(...)`  | `let x = new Name(...)`                 | Mutable struct instance         |
+| `J#x = { k: v }`     | `const x = Object.freeze({k: v})`      | Immutable J object              |
+| `J~x = { k: v }`     | `let x = {k: v}`                        | Mutable J object                |
+| `x.has("k")`         | `("k" in x)`                            | J key existence check           |
+| `x.get("k")`         | `x["k"]`                                | J get value by key              |
+| `x.set("k", v)`      | `(x["k"] = v)`                          | J set value (mutable only)      |
 | `x.field`             | `x.field`                               | Field access                    |
 | `x.method()`          | `x.method()`                            | Method call                     |
 | `x++`                 | `x++`                                   | Increment                       |
@@ -1567,6 +1727,7 @@ fizzbuzz(15)
 | `\| Color.Red =>`     | `if (v === Color.Red)`                  | Enum pattern                    |
 | `\| 42 =>`            | `if (v === 42)`                         | Literal pattern                 |
 | `\| Point(x, y) =>`   | destructure + bind fields               | Struct pattern                  |
+| `\| { k: v } =>`      | `if ("k" in obj && ...)`                | J object pattern                |
 | `\| _ =>`             | `else`                                  | Wildcard (catch-all)            |
 | `\| v & v > 0 =>`     | `if (true && (v > 0))`                  | Guard condition                 |
 | `$js { code }`        | raw JS output verbatim                  | JS injection block              |

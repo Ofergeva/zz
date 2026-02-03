@@ -6,6 +6,7 @@ export enum TokenType {
 	TYPE_INT = "TYPE_INT", // i
 	TYPE_FLOAT = "TYPE_FLOAT", // f
 	TYPE_BOOL = "TYPE_BOOL", // b
+	TYPE_J = "TYPE_J", // J
 
 	// Mutability
 	IMMUTABLE = "IMMUTABLE", // #
@@ -721,6 +722,9 @@ export class Lexer {
 		}
 		if (value === "S") {
 			return { type: TokenType.STRUCT, value, line: this.line, column: startColumn };
+		}
+		if (value === "J") {
+			return { type: TokenType.TYPE_J, value, line: this.line, column: startColumn };
 		}
 
 		return { type: TokenType.IDENTIFIER, value, line: this.line, column: startColumn };

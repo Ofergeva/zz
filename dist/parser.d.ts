@@ -34,6 +34,8 @@ export declare class Parser {
     private parseStructPattern;
     private parseTuplePattern;
     private parsePatternField;
+    private parseJLiteral;
+    private parseJPattern;
     private parseEnumDeclaration;
     private parseEnumVariableDeclaration;
     private parseStructDeclaration;

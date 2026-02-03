@@ -1,5 +1,5 @@
 export type PrimitiveType = "string" | "int" | "float" | "bool";
-export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType;
+export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType;
 export type Mutability = "immutable" | "mutable";
 export interface ArrayType {
     kind: "array";
@@ -19,10 +19,14 @@ export interface StructType {
     kind: "struct";
     name: string;
 }
+export interface JType {
+    kind: "j";
+}
 export declare function isArrayType(type: DataType): type is ArrayType;
 export declare function isTupleType(type: DataType): type is TupleType;
 export declare function isEnumType(type: DataType): type is EnumType;
 export declare function isStructType(type: DataType): type is StructType;
+export declare function isJType(type: DataType): type is JType;
 export declare function isPrimitiveType(type: DataType): type is PrimitiveType;
 export interface ASTNode {
     type: string;
@@ -89,7 +93,7 @@ export interface TryStatement extends ASTNode {
     catchVariable: string;
     catchBody: Statement[];
 }
-export type Expression = StringLiteral | NumberLiteral | BoolLiteral | NullLiteral | Identifier | BinaryExpression | UnaryExpression | InterpolatedString | CastExpression | FunctionCall | ArrayLiteral | TupleLiteral | RangeExpression | IndexAccess | MethodCall | MemberExpression | EnumAccess | StructInstantiation | MatchExpression | SpawnExpression;
+export type Expression = StringLiteral | NumberLiteral | BoolLiteral | NullLiteral | Identifier | BinaryExpression | UnaryExpression | InterpolatedString | CastExpression | FunctionCall | ArrayLiteral | TupleLiteral | RangeExpression | IndexAccess | MethodCall | MemberExpression | EnumAccess | StructInstantiation | MatchExpression | SpawnExpression | JLiteral;
 export interface StringLiteral extends ASTNode {
     type: "StringLiteral";
     value: string;
@@ -280,7 +284,15 @@ export interface StructInstantiation extends ASTNode {
     structName: string;
     arguments: FunctionArgument[];
 }
-export type Pattern = EnumPattern | LiteralPattern | StructPattern | TuplePattern | WildcardPattern | BindingPattern;
+export interface JField {
+    key: string;
+    value: Expression;
+}
+export interface JLiteral extends ASTNode {
+    type: "JLiteral";
+    fields: JField[];
+}
+export type Pattern = EnumPattern | LiteralPattern | StructPattern | TuplePattern | WildcardPattern | BindingPattern | JPattern;
 export interface EnumPattern {
     kind: "enum";
     enumName: string;
@@ -309,6 +321,15 @@ export interface WildcardPattern {
 export interface BindingPattern {
     kind: "binding";
     name: string;
+}
+export interface JPatternField {
+    key: string;
+    binding?: string;
+    pattern?: Pattern;
+}
+export interface JPattern {
+    kind: "j";
+    fields: JPatternField[];
 }
 export interface MatchArm {
     pattern: Pattern;
