@@ -1,5 +1,6 @@
 // Type Checker for ZZ Language
 import { isArrayType, isTupleType, isPrimitiveType, isEnumType, isStructType, isJType, isArrayElementType, } from "./ast.js";
+import { formatError } from "./errors.js";
 export class TypeChecker {
     variables = new Map();
     functions = new Map();
@@ -13,15 +14,26 @@ export class TypeChecker {
     comptimeContext = false; // True when inside ${} or $Z body
     comptimeFunctions = new Map(); // $Z function declarations
     comptimeVariables = new Map(); // Variables declared in CT context
+    source = ""; // Source code for error formatting
     constructor(moduleTypes) {
         this.moduleTypes = moduleTypes ?? new Map();
     }
-    check(program) {
+    // Push error with source context
+    pushError(message, line, column) {
+        if (this.source) {
+            this.errors.push(formatError(message, this.source, { line, column }));
+        }
+        else {
+            this.errors.push(`${message} at line ${line}${column ? `, column ${column}` : ''}.`);
+        }
+    }
+    check(program, source) {
         this.variables.clear();
         this.functions.clear();
         this.enums.clear();
         this.structs.clear();
         this.errors = [];
+        this.source = source || "";
         // Register Spawn as a built-in struct type (for ~> operator)
         this.structs.set("Spawn", {
             fields: [],
@@ -48,7 +60,7 @@ export class TypeChecker {
     }
     registerEnum(decl) {
         if (this.enums.has(decl.name)) {
-            this.errors.push(`Duplicate enum declaration '${decl.name}' at line ${decl.line}.`);
+            this.pushError(`Duplicate enum declaration '${decl.name}'`, decl.line);
             return;
         }
         // Check for duplicate variants
@@ -63,7 +75,7 @@ export class TypeChecker {
     }
     registerStruct(decl) {
         if (this.structs.has(decl.name)) {
-            this.errors.push(`Duplicate struct declaration '${decl.name}' at line ${decl.line}.`);
+            this.pushError(`Duplicate struct declaration '${decl.name}'`, decl.line);
             return;
         }
         // Check for duplicate field names
@@ -282,14 +294,14 @@ export class TypeChecker {
             this.checkExpression(method.returnExpression, method.line);
             const returnExprType = this.inferExpressionType(method.returnExpression);
             if (returnExprType && method.returnType !== "void" && !this.typesCompatible(returnExprType, method.returnType)) {
-                this.errors.push(`Type mismatch at line ${method.line}: method '${method.name}' should return ${this.typeToString(method.returnType)}, but returns ${this.typeToString(returnExprType)}.`);
+                this.pushError(`Type mismatch: method '${method.name}' should return ${this.typeToString(method.returnType)}, but returns ${this.typeToString(returnExprType)}`, method.line);
             }
         }
         else if (method.returnType !== "void") {
             // Skip this check if the body contains a $js{} block (return handled by JS code)
             const hasJsBlock = method.body.some((s) => s.type === "JSBlockStatement");
             if (!hasJsBlock) {
-                this.errors.push(`Method '${method.name}' at line ${method.line} has return type ${this.typeToString(method.returnType)} but no return expression.`);
+                this.pushError(`Method '${method.name}' has return type ${this.typeToString(method.returnType)} but no return expression`, method.line);
             }
         }
         // Restore variables (exit scope)
@@ -541,12 +553,12 @@ export class TypeChecker {
         // Check type of value matches declared type
         const valueType = this.inferExpressionType(decl.value);
         if (valueType && !this.typesCompatible(valueType, decl.dataType)) {
-            this.errors.push(`Type mismatch at line ${decl.line}: cannot assign ${this.typeToString(valueType)} to ${this.typeToString(decl.dataType)} variable '${decl.name}'.`);
+            this.pushError(`Type mismatch: cannot assign ${this.typeToString(valueType)} to ${this.typeToString(decl.dataType)} variable '${decl.name}'`, decl.line);
         }
         // For tuples with explicit length, verify it matches the value
         if (isTupleType(decl.dataType) && decl.dataType.length !== undefined && valueType && isTupleType(valueType)) {
             if (valueType.length !== undefined && valueType.length !== decl.dataType.length) {
-                this.errors.push(`Tuple length mismatch at line ${decl.line}: declared ${decl.dataType.length} but got ${valueType.length} elements.`);
+                this.pushError(`Tuple length mismatch: declared ${decl.dataType.length} but got ${valueType.length} elements`, decl.line);
             }
         }
         // Register variable
@@ -559,13 +571,12 @@ export class TypeChecker {
     checkAssignment(assignment) {
         const varInfo = this.variables.get(assignment.name);
         if (!varInfo) {
-            this.errors.push(`Undeclared variable '${assignment.name}' at line ${assignment.line}.`);
+            this.pushError(`Undeclared variable '${assignment.name}'`, assignment.line);
             return;
         }
         // Check immutability
         if (varInfo.mutability === "immutable") {
-            this.errors.push(`Cannot reassign immutable variable '${assignment.name}' at line ${assignment.line}. ` +
-                `Variable was declared as immutable (#) at line ${varInfo.line}.`);
+            this.pushError(`Cannot reassign immutable variable '${assignment.name}'. Variable was declared as immutable (#) at line ${varInfo.line}`, assignment.line);
             return;
         }
         // Validate the expression
@@ -573,7 +584,7 @@ export class TypeChecker {
         // Check type matches
         const valueType = this.inferExpressionType(assignment.value);
         if (valueType && !this.typesCompatible(valueType, varInfo.dataType)) {
-            this.errors.push(`Type mismatch at line ${assignment.line}: cannot assign ${this.typeToString(valueType)} to ${this.typeToString(varInfo.dataType)} variable '${assignment.name}'.`);
+            this.pushError(`Type mismatch: cannot assign ${this.typeToString(valueType)} to ${this.typeToString(varInfo.dataType)} variable '${assignment.name}'`, assignment.line);
         }
     }
     checkIncrementStatement(stmt) {

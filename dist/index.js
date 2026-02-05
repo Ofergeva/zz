@@ -9,6 +9,7 @@ import { Parser } from "./parser.js";
 import { TypeChecker } from "./typechecker.js";
 import { CodeGenerator } from "./codegen.js";
 import { CompTimeEvaluator } from "./evaluator.js";
+import { ZZError } from "./errors.js";
 // Scan tokens for struct/enum names (same logic as Parser.collectTypeNames)
 function collectTypeNamesFromTokens(tokens) {
     const structNames = new Set();
@@ -182,7 +183,7 @@ function compile(source, filename, codeGenOptions) {
     const ast = parser.parse();
     // Step 3: Type checking
     const typeChecker = new TypeChecker(moduleTypes);
-    const typeErrors = typeChecker.check(ast);
+    const typeErrors = typeChecker.check(ast, source);
     if (typeErrors.length > 0) {
         return { js: "", errors: typeErrors };
     }
@@ -310,7 +311,12 @@ function main() {
         }
     }
     catch (error) {
-        console.error(`Compilation error: ${error.message}`);
+        if (error instanceof ZZError) {
+            console.error(error.format(source));
+        }
+        else {
+            console.error(`Compilation error: ${error.message}`);
+        }
         process.exit(1);
     }
 }

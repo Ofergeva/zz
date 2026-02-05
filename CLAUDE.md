@@ -31,11 +31,24 @@ src/
 ├── ast.ts         # AST node type definitions
 ├── typechecker.ts # Static type validation
 ├── evaluator.ts   # Compile-time expression evaluator
-└── codegen.ts     # JavaScript code generator
+├── codegen.ts     # JavaScript code generator
+└── errors.ts      # Error formatting with source context
+
+std/               # Standard library modules
+├── string.zz      # String utilities (upper, lower, trim, split, etc.)
+├── json.zz        # JSON utilities (parse, stringify, format, etc.)
+├── http.zz        # HTTP client (get, post, put, del, etc.)
+├── test.zz        # Testing framework (assert, assertEqual, etc.)
+├── spawn.zz       # Async spawn utilities
+├── fs.zz          # File system operations
+├── math.zz        # Math utilities
+└── time.zz        # Time and sleep utilities
 
 examples/          # Example .zz files with compiled/ output
-editors/           # Vim, Sublime syntax highlighting
-vscode-zz/         # VS Code extension
+editors/           # Editor support
+├── vim/           # Vim syntax highlighting
+├── sublime-text/  # Sublime Text syntax highlighting
+└── vscode/        # VS Code extension with LSP
 ```
 
 ## Compiler Pipeline
@@ -317,6 +330,66 @@ i#fact5 = ${factorial(5)}        // → const fact5 = 120;
 - `.len()` → .length
 - `s()`, `i()`, `f()`, `b()` → type casting
 - UFCS: `str.upper()` calls `upper(str)` (any function can be method-called)
+
+### Standard Library
+
+Import with `<- { funcName } = std/module`:
+
+**std/string** - String manipulation
+- `upper(s)`, `lower(s)`, `trim(s)` - case and whitespace
+- `split(s, sep)`, `join(arr, sep)` - splitting and joining
+- `has(s, sub)`, `find(s, sub)` - searching
+- `starts(s, prefix)`, `ends(s, suffix)` - prefix/suffix checks
+- `slice(s, start, end)`, `replace(s, old, new)` - modification
+- `repeat(s, n)`, `padStart(s, len, pad)`, `padEnd(s, len, pad)`
+
+**std/json** - JSON utilities
+- `parse(s)` - parse JSON string to J object
+- `stringify(j)`, `format(j)` - convert J to string
+- `isValid(s)` - check if string is valid JSON
+- `get(j, path)` - get nested value by dot path
+- `clone(j)`, `merge(a, b)` - object operations
+- `keys(j)`, `values(j)` - get keys/values arrays
+
+**std/http** - HTTP client (using fetch)
+- `get(url)`, `getWithHeaders(url, headers)` - GET requests
+- `post(url, body)`, `postWithHeaders(url, body, headers)` - POST requests
+- `put(url, body)`, `del(url)`, `patch(url, body)` - other methods
+- `parseJson(response)`, `isOk(response)` - response helpers
+- `encodeUrl(s)`, `decodeUrl(s)`, `buildQuery(j)` - URL utilities
+- Returns `Response` struct with `status`, `statusText`, `body`, `headers`
+
+**std/test** - Testing framework
+- `assert(cond, msg)` - assert condition is true
+- `assertEqual(actual, expected, msg)` - compare integers
+- `assertEqualStr(actual, expected, msg)` - compare strings
+- `assertApprox(actual, expected, epsilon, msg)` - compare floats
+- `assertFalse(cond, msg)`, `assertContains(str, sub, msg)`
+- `assertNull(val, msg)`, `assertNotNull(val, msg)`
+- `fail(msg)`, `skip(reason)` - test control
+
+## Error Messages
+
+Compiler errors include source context for easy debugging:
+
+```
+Error at line 4: Type mismatch: cannot assign int to string variable 'name'
+   3 | // Type mismatch error
+   4 | s#name = 123
+```
+
+The `ZZError` class in `src/errors.ts` provides structured error information with line/column tracking.
+
+## VS Code Extension
+
+Full IDE support available in `editors/vscode/`:
+
+- **Real-time diagnostics** - see errors as you type
+- **Autocomplete** - keywords, functions, variables, struct members
+- **Go-to-definition** - jump to declarations
+- **Hover information** - type hints
+
+Install: See `editors/vscode/README.md` for setup instructions.
 
 ## Conventions
 

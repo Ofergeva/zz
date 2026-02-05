@@ -11,8 +11,10 @@ export declare class TypeChecker {
     private comptimeContext;
     private comptimeFunctions;
     private comptimeVariables;
+    private source;
     constructor(moduleTypes?: Map<string, ImportedModuleInfo>);
-    check(program: Program): string[];
+    private pushError;
+    check(program: Program, source?: string): string[];
     private registerEnum;
     private registerStruct;
     private registerCompTimeFunction;

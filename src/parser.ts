@@ -1,6 +1,7 @@
 // Recursive Descent Parser for ZZ Language
 
 import { Token, TokenType, Lexer } from "./lexer.js";
+import { ZZError } from "./errors.js";
 import {
 	Program,
 	Statement,
@@ -430,7 +431,7 @@ export class Parser {
 			return this.parseCompTimeFunctionDeclaration();
 		}
 
-		throw new Error(`Unexpected token '${token.value}' at line ${token.line}, column ${token.column}`);
+		throw new ZZError(`Unexpected token '${token.value}'`, token.line, token.column);
 	}
 
 	// Parse import statement: <- { name, alias=original } = "./path" or <- namespace = "./path"
@@ -472,7 +473,7 @@ export class Parser {
 			const namespaceToken = this.advance();
 			namespace = namespaceToken.value;
 		} else {
-			throw new Error(`Expected { or identifier after <- at line ${importToken.line}`);
+			throw new ZZError(`Expected { or identifier after <-`, importToken.line, importToken.column);
 		}
 
 		// Expect = "path" or = std/module
@@ -494,7 +495,7 @@ export class Parser {
 			source = parts.join("/");
 			isStdLib = true;
 		} else {
-			throw new Error(`Expected string path or module name after = in import at line ${importToken.line}`);
+			throw new ZZError(`Expected string path or module name after = in import`, importToken.line, importToken.column);
 		}
 
 		this.expectEndOfStatement();
@@ -2652,7 +2653,7 @@ export class Parser {
 			return this.parseCompTimeExpression();
 		}
 
-		throw new Error(`Expected expression at line ${token.line}, column ${token.column}, got '${token.value}'`);
+		throw new ZZError(`Expected expression, got '${token.value}'`, token.line, token.column);
 	}
 
 	private isCastToken(type: TokenType): boolean {
@@ -3303,7 +3304,7 @@ export class Parser {
 		const token = this.peek();
 		if (!types.includes(token.type)) {
 			const expected = types.map((t) => t.toString()).join(" or ");
-			throw new Error(`Expected ${expected} at line ${token.line}, column ${token.column}, got '${token.value}'`);
+			throw new ZZError(`Expected ${expected}, got '${token.value}'`, token.line, token.column);
 		}
 		return this.advance();
 	}
@@ -3311,7 +3312,7 @@ export class Parser {
 	private expectEndOfStatement(): void {
 		const token = this.peek();
 		if (token.type !== TokenType.NEWLINE && token.type !== TokenType.EOF) {
-			throw new Error(`Expected end of statement at line ${token.line}, column ${token.column}`);
+			throw new ZZError(`Expected end of statement`, token.line, token.column);
 		}
 		this.skipNewlines();
 	}

@@ -1,15 +1,20 @@
 {
   "name": "zz-language",
   "displayName": "ZZ Language",
-  "description": "Syntax highlighting for the ZZ programming language",
-  "version": "0.1.0",
+  "description": "Language support for ZZ - syntax highlighting, real-time errors, autocomplete, and go-to-definition",
+  "version": "0.2.0",
   "publisher": "zz-lang",
   "engines": {
-    "vscode": "^1.60.0"
+    "vscode": "^1.75.0"
   },
+  "icon": "icon.png",
   "categories": [
     "Programming Languages"
   ],
+  "activationEvents": [
+    "onLanguage:zz"
+  ],
+  "main": "./client/out/extension.js",
   "contributes": {
     "languages": [
       {
@@ -25,6 +30,29 @@
         "scopeName": "source.zz",
         "path": "./syntaxes/zz.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "ZZ Language",
+      "properties": {
+        "zz.maxNumberOfProblems": {
+          "scope": "resource",
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of problems to report per file"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "postinstall": "cd client && npm install && cd ../server && npm install"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.0.0"
   }
 }

@@ -1,5 +1,6 @@
 // Recursive Descent Parser for ZZ Language
 import { TokenType, Lexer } from "./lexer.js";
+import { ZZError } from "./errors.js";
 // Parser security limits
 const MAX_PARSER_DEPTH = 500; // Maximum nesting depth for expressions and statements
 export class Parser {
@@ -308,7 +309,7 @@ export class Parser {
         if (token.type === TokenType.COMPTIME_FUNC) {
             return this.parseCompTimeFunctionDeclaration();
         }
-        throw new Error(`Unexpected token '${token.value}' at line ${token.line}, column ${token.column}`);
+        throw new ZZError(`Unexpected token '${token.value}'`, token.line, token.column);
     }
     // Parse import statement: <- { name, alias=original } = "./path" or <- namespace = "./path"
     // Also handles unsafe imports: <-! { name } = "npm-package"
@@ -346,7 +347,7 @@ export class Parser {
             namespace = namespaceToken.value;
         }
         else {
-            throw new Error(`Expected { or identifier after <- at line ${importToken.line}`);
+            throw new ZZError(`Expected { or identifier after <-`, importToken.line, importToken.column);
         }
         // Expect = "path" or = std/module
         this.expect([TokenType.EQUALS]);
@@ -367,7 +368,7 @@ export class Parser {
             isStdLib = true;
         }
         else {
-            throw new Error(`Expected string path or module name after = in import at line ${importToken.line}`);
+            throw new ZZError(`Expected string path or module name after = in import`, importToken.line, importToken.column);
         }
         this.expectEndOfStatement();
         return {
@@ -2265,7 +2266,7 @@ export class Parser {
         if (token.type === TokenType.COMPTIME_START) {
             return this.parseCompTimeExpression();
         }
-        throw new Error(`Expected expression at line ${token.line}, column ${token.column}, got '${token.value}'`);
+        throw new ZZError(`Expected expression, got '${token.value}'`, token.line, token.column);
     }
     isCastToken(type) {
         return [
@@ -2878,14 +2879,14 @@ export class Parser {
         const token = this.peek();
         if (!types.includes(token.type)) {
             const expected = types.map((t) => t.toString()).join(" or ");
-            throw new Error(`Expected ${expected} at line ${token.line}, column ${token.column}, got '${token.value}'`);
+            throw new ZZError(`Expected ${expected}, got '${token.value}'`, token.line, token.column);
         }
         return this.advance();
     }
     expectEndOfStatement() {
         const token = this.peek();
         if (token.type !== TokenType.NEWLINE && token.type !== TokenType.EOF) {
-            throw new Error(`Expected end of statement at line ${token.line}, column ${token.column}`);
+            throw new ZZError(`Expected end of statement`, token.line, token.column);
         }
         this.skipNewlines();
     }

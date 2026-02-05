@@ -12,6 +12,7 @@ import { TypeChecker } from "./typechecker.js";
 import { CodeGenerator, CodeGenOptions } from "./codegen.js";
 import { CompTimeEvaluator } from "./evaluator.js";
 import { Program, ImportedModuleInfo } from "./ast.js";
+import { ZZError, formatError } from "./errors.js";
 
 // Scan tokens for struct/enum names (same logic as Parser.collectTypeNames)
 function collectTypeNamesFromTokens(tokens: Token[]): { structNames: Set<string>, enumNames: Set<string> } {
@@ -206,7 +207,7 @@ function compile(source: string, filename: string, codeGenOptions?: CodeGenOptio
 
 	// Step 3: Type checking
 	const typeChecker = new TypeChecker(moduleTypes);
-	const typeErrors = typeChecker.check(ast);
+	const typeErrors = typeChecker.check(ast, source);
 
 	if (typeErrors.length > 0) {
 		return { js: "", errors: typeErrors };
@@ -346,7 +347,11 @@ function main(): void {
 			console.log(`Compiled to ${outputFile}`);
 		}
 	} catch (error: any) {
-		console.error(`Compilation error: ${error.message}`);
+		if (error instanceof ZZError) {
+			console.error(error.format(source));
+		} else {
+			console.error(`Compilation error: ${error.message}`);
+		}
 		process.exit(1);
 	}
 }
