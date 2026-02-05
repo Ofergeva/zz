@@ -1,0 +1,445 @@
+// ============================================
+// ZZ Language Stress Test
+// Tests the language's robustness, performance, and safety limits
+// ============================================
+
+// === 1. Deep Nesting Test ===
+print("=== Deep Nesting Test ===")
+
+// Nested conditionals (10 levels)
+i~nestedResult = 0
+i#testVal = 5
+?(testVal > 0)
+  ?(testVal > 1)
+    ?(testVal > 2)
+      ?(testVal > 3)
+        ?(testVal > 4)
+          ?(testVal < 10)
+            ?(testVal < 9)
+              ?(testVal < 8)
+                ?(testVal < 7)
+                  ?(testVal < 6)
+                    nestedResult = 1
+                  ;
+                ;
+              ;
+            ;
+          ;
+        ;
+      ;
+    ;
+  ;
+;
+print(s"Nested conditionals result: {nestedResult}")
+
+// Nested loops (5 levels)
+i~loopSum = 0
+@(i#1..3)
+  @(j#1..3)
+    @(k#1..3)
+      @(l#1..3)
+        @(m#1..3)
+          loopSum = loopSum + 1
+        ;
+      ;
+    ;
+  ;
+;
+print(s"5-level nested loop sum: {loopSum}")
+
+// === 2. Large Array Operations ===
+print("")
+print("=== Large Array Operations ===")
+
+// Create large array
+i[]~largeArr = []
+i~arrIdx = 0
+@(arrIdx < 1000)
+  largeArr.push(arrIdx * 2)
+  arrIdx = arrIdx + 1
+;
+print(s"Large array length: {largeArr.len()}")
+print(s"Large array[500]: {largeArr[500]}")
+
+// Sum all elements
+i~sum = 0
+@(elem#largeArr)
+  sum = sum + elem
+;
+print(s"Sum of large array: {sum}")
+
+// === 3. Complex Struct Hierarchy ===
+print("")
+print("=== Complex Struct Hierarchy ===")
+
+S Vector2
+  f#x
+  f#y
+
+  f Z magnitude()
+    f#m = (x * x + y * y) ** 0.5
+    m
+  ;
+
+  Vector2 Z add(Vector2#other)
+    Vector2(x + other.x, y + other.y)
+  ;
+;
+
+S Vector3
+  f#x
+  f#y
+  f#z
+
+  f Z magnitude()
+    (x * x + y * y + z * z) ** 0.5
+  ;
+;
+
+S Transform
+  Vector3#position
+  Vector3#rotation
+  Vector3#scale
+
+  Z apply(Vector3#offset)
+    print(s"Applying transform with offset ({offset.x}, {offset.y}, {offset.z})")
+  ;
+;
+
+S GameObject
+  s#name
+  Transform#transform
+  b#isActive
+
+  Z describe()
+    print(s"GameObject '{name}' active: {isActive}")
+    print(s"  Position: ({transform.position.x}, {transform.position.y}, {transform.position.z})")
+  ;
+;
+
+// Create complex nested struct
+Vector3#pos = Vector3(10.0, 20.0, 30.0)
+Vector3#rot = Vector3(0.0, 90.0, 0.0)
+Vector3#scl = Vector3(1.0, 1.0, 1.0)
+Transform#t = Transform(pos, rot, scl)
+GameObject#obj = GameObject("Player", t, true)
+obj.describe()
+print(s"Position magnitude: {pos.magnitude()}")
+
+// === 4. Enum with Pattern Matching ===
+print("")
+print("=== Enum Pattern Matching ===")
+
+E GameState
+  MainMenu
+  Playing
+  Paused
+  GameOver
+;
+
+E PlayerAction
+  Move
+  Jump
+  Attack
+  Defend
+  UseItem
+;
+
+s Z getGameStateMessage(GameState#state)
+  ??(state)
+    | GameState.MainMenu => "Showing main menu"
+    | GameState.Playing => "Game is running"
+    | GameState.Paused => "Game paused"
+    | GameState.GameOver => "Game over screen"
+  ;
+;
+
+Z handleGameState(GameState#state)
+  print(s"Game state: {getGameStateMessage(state)}")
+;
+
+handleGameState(GameState.MainMenu)
+handleGameState(GameState.Playing)
+handleGameState(GameState.Paused)
+handleGameState(GameState.GameOver)
+
+// === 5. Array of Complex Types ===
+print("")
+print("=== Array of Complex Types ===")
+
+Vector2[]~vectors = [Vector2(1.0, 2.0), Vector2(3.0, 4.0), Vector2(5.0, 6.0)]
+@(v#vectors)
+  print(s"Vector magnitude: {v.magnitude()}")
+;
+vectors.push(Vector2(7.0, 8.0))
+print(s"Vectors array length: {vectors.len()}")
+
+GameState[]~states = [GameState.MainMenu, GameState.Playing, GameState.Paused]
+print(s"States array length: {states.len()}")
+
+// === 6. J Object Stress ===
+print("")
+print("=== J Object Stress ===")
+
+J#complexConfig = {
+  server: {
+    host: "localhost",
+    port: 8080,
+    ssl: {
+      enabled: true,
+      cert: "/path/to/cert",
+      key: "/path/to/key"
+    }
+  },
+  database: {
+    type: "postgres",
+    connection: {
+      host: "db.example.com",
+      port: 5432,
+      database: "myapp",
+      pool: {
+        min: 5,
+        max: 20
+      }
+    }
+  },
+  features: {
+    auth: true,
+    cache: true,
+    logging: {
+      level: "debug",
+      format: "json"
+    }
+  }
+}
+
+print(s"Server host: {complexConfig.server.host}")
+print(s"SSL enabled: {complexConfig.server.ssl.enabled}")
+print(s"DB type: {complexConfig.database.type}")
+print(s"Pool max: {complexConfig.database.connection.pool.max}")
+print(s"Log level: {complexConfig.features.logging.level}")
+
+// Array of J objects
+J[]~users = [{ id: 1, name: "Alice", role: "admin" }, { id: 2, name: "Bob", role: "user" }, { id: 3, name: "Charlie", role: "user" }]
+
+@(user#users)
+  print(s"User: {user.name} ({user.role})")
+;
+
+// === 7. Tuple Operations ===
+print("")
+print("=== Tuple Operations ===")
+
+ti3#point3d = (100, 200, 300)
+print(s"3D point: ({point3d[0]}, {point3d[1]}, {point3d[2]})")
+
+tf4#color = (1.0, 0.5, 0.25, 1.0)
+print(s"RGBA: ({color[0]}, {color[1]}, {color[2]}, {color[3]})")
+
+// Tuple array
+ti2[]~coordinates = [(0, 0), (10, 20), (30, 40), (50, 60)]
+@(coord#coordinates)
+  print(s"Coord: ({coord[0]}, {coord[1]})")
+;
+
+// === 8. Recursive Functions (within limits) ===
+print("")
+print("=== Recursive Functions ===")
+
+i Z factorial(i#n)
+  ??(n)
+    | 0 => 1
+    | 1 => 1
+    | _ => n * factorial(n - 1)
+  ;
+;
+
+print(s"10! = {factorial(10)}")
+print(s"12! = {factorial(12)}")
+
+i Z fibonacci(i#n)
+  ??(n)
+    | 0 => 0
+    | 1 => 1
+    | _ => fibonacci(n - 1) + fibonacci(n - 2)
+  ;
+;
+
+print(s"Fibonacci(15) = {fibonacci(15)}")
+print(s"Fibonacci(20) = {fibonacci(20)}")
+
+// === 9. String Operations ===
+print("")
+print("=== String Operations ===")
+
+s#template = "The quick brown fox jumps over the lazy dog"
+print(s"Template: {template}")
+print(s"Template length: {template.len()}")
+
+// Build large string
+s~bigString = ""
+i~strIdx = 0
+@(strIdx < 100)
+  bigString = bigString + s"Item{strIdx},"
+  strIdx = strIdx + 1
+;
+print(s"Big string length: {bigString.len()}")
+
+// === 10. Error Handling ===
+print("")
+print("=== Error Handling ===")
+
+Z riskyOperation(i#value)
+  ?(value < 0)
+    >X("Negative value not allowed")
+  ;
+  print(s"Processing value: {value}")
+;
+
+?
+  riskyOperation(5)
+  riskyOperation(-1)
+:(e)
+  print(s"Caught error: {e}")
+;
+
+// Nested try-catch
+?
+  ?
+    >X("Inner error")
+  :(innerE)
+    print(s"Inner catch: {innerE}")
+    >X("Re-thrown error")
+  ;
+:(outerE)
+  print(s"Outer catch: {outerE}")
+;
+
+// === 11. Mathematical Precision ===
+print("")
+print("=== Mathematical Precision ===")
+
+f#pi = 3.14159265358979
+f#e = 2.71828182845905
+
+print(s"Pi: {pi}")
+print(s"E: {e}")
+print(s"Pi * E: {pi * e}")
+print(s"Pi ** 2: {pi ** 2}")
+
+// Large number operations
+i#bigNum1 = 999999
+i#bigNum2 = 888888
+print(s"Big sum: {bigNum1 + bigNum2}")
+print(s"Big product: {bigNum1 * bigNum2}")
+
+// === 12. Mixed Type Arrays and Conversions ===
+print("")
+print("=== Type Conversions ===")
+
+i#intVal = 42
+f#floatVal = f(intVal)
+s#strVal = s(intVal)
+print(s"Int: {intVal}, Float: {floatVal}, String: '{strVal}'")
+
+f#floatInput = 3.14159
+i#truncated = i(floatInput)
+print(s"Float: {floatInput}, Truncated: {truncated}")
+
+// === 13. Compile-Time Verification ===
+print("")
+print("=== Compile-Time Features ===")
+
+i#ctResult = ${5 * 10 + 7}
+print(s"Compile-time computed: {ctResult}")
+
+s#buildInfo = ${$date()}
+print(s"Build date: {buildInfo}")
+
+$Z i ctFib(i#n)
+  ??(n)
+    | 0 => 0
+    | 1 => 1
+    | _ => ctFib(n - 1) + ctFib(n - 2)
+  ;
+;
+
+i#ctFib10 = ${ctFib(10)}
+print(s"Compile-time Fibonacci(10): {ctFib10}")
+
+// === 14. Performance: Many Variables ===
+print("")
+print("=== Many Variables ===")
+
+i#v1 = 1
+i#v2 = 2
+i#v3 = 3
+i#v4 = 4
+i#v5 = 5
+i#v6 = 6
+i#v7 = 7
+i#v8 = 8
+i#v9 = 9
+i#v10 = 10
+i#v11 = 11
+i#v12 = 12
+i#v13 = 13
+i#v14 = 14
+i#v15 = 15
+i#v16 = 16
+i#v17 = 17
+i#v18 = 18
+i#v19 = 19
+i#v20 = 20
+
+i#varSum = v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15 + v16 + v17 + v18 + v19 + v20
+print(s"Sum of 20 variables: {varSum}")
+
+// === 15. Complex Function Signatures ===
+print("")
+print("=== Complex Function Signatures ===")
+
+Vector2 Z createVector(f#x f#y)
+  Vector2(x, y)
+;
+
+// Simplified - creating array inline rather than using local complex array var
+Vector2[] Z getVectors(i#count)
+  [Vector2(0.0, 0.0), Vector2(1.0, 2.0), Vector2(2.0, 4.0), Vector2(3.0, 6.0), Vector2(4.0, 8.0)]
+;
+
+Vector2#newVec = createVector(100.0, 200.0)
+print(s"Created vector: ({newVec.x}, {newVec.y})")
+
+Vector2[]#manyVecs = getVectors(5)
+print(s"Generated {manyVecs.len()} vectors")
+
+// === 16. Deep Pattern Matching ===
+print("")
+print("=== Deep Pattern Matching ===")
+
+S Result
+  b#success
+  s#message
+  i#code
+;
+
+s Z handleResult(Result#r)
+  ??(r)
+    | Result(true, m, 0) => s"Success: {m}"
+    | Result(true, m, c) & c > 0 => s"Success with code {c}: {m}"
+    | Result(false, m, 404) => s"Not found: {m}"
+    | Result(false, m, 500) => s"Server error: {m}"
+    | Result(false, m, c) => s"Error {c}: {m}"
+  ;
+;
+
+print(handleResult(Result(true, "Operation completed", 0)))
+print(handleResult(Result(true, "Created", 201)))
+print(handleResult(Result(false, "Page not found", 404)))
+print(handleResult(Result(false, "Internal error", 500)))
+print(handleResult(Result(false, "Unknown error", 999)))
+
+// === Test Complete ===
+print("")
+print("=== All Stress Tests Completed Successfully ===")

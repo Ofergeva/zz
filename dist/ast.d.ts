@@ -6,6 +6,7 @@ export interface ArrayType {
     kind: "array";
     elementType: ArrayElementType;
     size?: number;
+    isEmpty?: boolean;
 }
 export interface TupleType {
     kind: "tuple";

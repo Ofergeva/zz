@@ -1443,13 +1443,17 @@ export class TypeChecker {
         // Mismatched types
         return false;
     }
-    // Like typesEqual but allows implicit int→float widening
+    // Like typesEqual but allows implicit int→float widening and empty array compatibility
     typesCompatible(source, target) {
         if (this.typesEqual(source, target))
             return true;
         // Allow int → float widening
         if (source === "int" && target === "float")
             return true;
+        // Allow empty arrays to match any array type
+        if (source && isArrayType(source) && source.isEmpty && target && target !== "void" && isArrayType(target)) {
+            return true;
+        }
         return false;
     }
     typeToString(type) {
@@ -1532,7 +1536,8 @@ export class TypeChecker {
             case "ArrayLiteral": {
                 // Infer element type from first element, or default to int
                 if (expr.elements.length === 0) {
-                    return { kind: "array", elementType: "int" };
+                    // Mark as empty array - compatible with any array type
+                    return { kind: "array", elementType: "int", isEmpty: true };
                 }
                 const firstElemType = this.inferExpressionType(expr.elements[0]);
                 // Handle all valid array element types (primitives, structs, enums, J, tuples)

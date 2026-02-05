@@ -5,13 +5,17 @@ export declare class Parser {
     private pos;
     private enumNames;
     private structNames;
+    private parseDepth;
     constructor(tokens: Token[], externalTypes?: {
         structNames?: Set<string>;
         enumNames?: Set<string>;
     });
+    private enterParse;
+    private exitParse;
     parse(): Program;
     private collectTypeNames;
     private parseStatement;
+    private parseStatementInner;
     private parseImportStatement;
     private parseExportedDeclaration;
     private parseVariableDeclaration;
@@ -85,5 +89,6 @@ export declare class Parser {
     private expect;
     private expectEndOfStatement;
     private skipNewlines;
+    private isArrayVariableDeclaration;
     private isAtEnd;
 }

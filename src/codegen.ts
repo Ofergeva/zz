@@ -708,7 +708,8 @@ ${methods}
 		const tempVar = `__match_${match.line}`;
 
 		const lines: string[] = [];
-		lines.push(`(function() {`);
+		// Use async IIFE to support await inside match arms
+		lines.push(`(await (async function() {`);
 		lines.push(`  const ${tempVar} = ${value};`);
 
 		let first = true;
@@ -737,7 +738,7 @@ ${methods}
 			lines.push(`  }`);
 		}
 
-		lines.push(`})();`);
+		lines.push(`})())`);
 		return lines.join("\n");
 	}
 

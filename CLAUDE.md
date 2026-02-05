@@ -232,6 +232,7 @@ i#lineNum = ${$line()}
 ```
 
 **Compile-time functions** (`$Z`):
+
 ```zz
 $Z i factorial(i#n)
   ??(n)
@@ -245,18 +246,21 @@ i#fact5 = ${factorial(5)}        // → const fact5 = 120;
 ```
 
 **Rules:**
+
 - `$Z` functions can only call other `$Z` functions (no runtime function calls)
 - Inside `$Z` body, calls to `$Z` functions are implicitly compile-time
 - Runtime code must use `${}` to call `$Z` functions
 - `$Z` functions are NOT emitted to JS output
 
 **Allowed at compile time:**
+
 - Literals, arithmetic, string operations, comparisons, logical ops
 - Match expressions (pattern matching)
 - Array/tuple/J literals with compile-time elements
 - Calls to `$Z` functions and built-in `$` functions
 
 **Forbidden at compile time:**
+
 - Runtime variable references
 - Runtime function calls (regular `Z` functions)
 - Side effects: `print()`, `error()`, file writes
@@ -264,16 +268,16 @@ i#fact5 = ${factorial(5)}        // → const fact5 = 120;
 
 **Built-in compile-time functions:**
 
-| Function | Description |
-|----------|-------------|
-| `$read(path)` | Read file contents at compile time |
-| `$env(name)` | Get environment variable |
-| `$env(name, default)` | Get env var with default |
-| `$defined(name)` | Check if env var exists |
-| `$line()` | Current source line number |
-| `$file()` | Current source file name |
-| `$date()` | Compile date (ISO format) |
-| `$time()` | Compile time (ISO format) |
+| Function              | Description                        |
+| --------------------- | ---------------------------------- |
+| `$read(path)`         | Read file contents at compile time |
+| `$env(name)`          | Get environment variable           |
+| `$env(name, default)` | Get env var with default           |
+| `$defined(name)`      | Check if env var exists            |
+| `$line()`             | Current source line number         |
+| `$file()`             | Current source file name           |
+| `$date()`             | Compile date (ISO format)          |
+| `$time()`             | Compile time (ISO format)          |
 
 ### Modules
 
@@ -327,3 +331,4 @@ i#fact5 = ${factorial(5)}        // → const fact5 = 120;
 ## Agent instructions
 
 - After every change or improvement to the ZZ language, update the CLAUDE.md and README.md files.
+- After every change or improvement to the ZZ language, update the examples/25_stress_test.zz and make sure it still passes.

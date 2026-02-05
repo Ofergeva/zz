@@ -81,11 +81,15 @@ import {
 	CompTimeFunctionDeclaration,
 } from "./ast.js";
 
+// Parser security limits
+const MAX_PARSER_DEPTH = 500; // Maximum nesting depth for expressions and statements
+
 export class Parser {
 	private tokens: Token[];
 	private pos: number = 0;
 	private enumNames: Set<string> = new Set(); // Track known enum names for type resolution
 	private structNames: Set<string> = new Set(); // Track known struct names for type resolution
+	private parseDepth: number = 0; // Track recursion depth to prevent stack overflow
 
 	constructor(tokens: Token[], externalTypes?: { structNames?: Set<string>; enumNames?: Set<string> }) {
 		this.tokens = tokens;
@@ -97,6 +101,23 @@ export class Parser {
 		}
 		// Pre-register Spawn as a known struct so Spawn#s = ~> func() works
 		this.structNames.add("Spawn");
+	}
+
+	// Check and increment parse depth
+	private enterParse(context: string): void {
+		this.parseDepth++;
+		if (this.parseDepth > MAX_PARSER_DEPTH) {
+			const token = this.peek();
+			throw new Error(
+				`Maximum parse depth (${MAX_PARSER_DEPTH}) exceeded at line ${token?.line ?? 1}, column ${token?.column ?? 1}. ` +
+				`The code may have too many levels of nesting in ${context}.`
+			);
+		}
+	}
+
+	// Decrement parse depth
+	private exitParse(): void {
+		this.parseDepth--;
 	}
 
 	parse(): Program {
@@ -144,6 +165,15 @@ export class Parser {
 	}
 
 	private parseStatement(): Statement {
+		this.enterParse("statement");
+		try {
+			return this.parseStatementInner();
+		} finally {
+			this.exitParse();
+		}
+	}
+
+	private parseStatementInner(): Statement {
 		const token = this.peek();
 
 		// Import statement: <- { name } = "./path" or <- name = "./path"
@@ -1358,15 +1388,21 @@ export class Parser {
 
 			this.expect([TokenType.ELSE]); // : lexes as ELSE token
 
+			// Skip newlines before value (for multi-line formatting)
+			this.skipNewlines();
+
 			const value = this.parseExpression();
 
 			fields.push({ key: keyToken.value, value });
 
+			// Skip newlines after value
+			this.skipNewlines();
+
 			// Optional comma between fields
 			if (this.peek().type === TokenType.COMMA) {
 				this.advance();
+				this.skipNewlines();
 			}
-			this.skipNewlines();
 		}
 
 		this.expect([TokenType.RBRACE]); // consume }
@@ -2103,6 +2139,17 @@ export class Parser {
 
 			// These are clearly statements (not potential return expressions)
 			const nextType = this.peekNext()?.type;
+			// Check for struct/enum array variable: StructName[]~var or StructName[]#var
+			const isStructArrayDecl =
+				token.type === TokenType.IDENTIFIER &&
+				this.structNames.has(token.value) &&
+				nextType === TokenType.LBRACKET &&
+				this.isArrayVariableDeclaration();
+			const isEnumArrayDecl =
+				token.type === TokenType.IDENTIFIER &&
+				this.enumNames.has(token.value) &&
+				nextType === TokenType.LBRACKET &&
+				this.isArrayVariableDeclaration();
 			const isStatement =
 				(this.isTypeToken(token.type) && nextType !== TokenType.FUNC) ||
 				token.type === TokenType.PRINT ||
@@ -2124,7 +2171,9 @@ export class Parser {
 					(nextType === TokenType.IMMUTABLE || nextType === TokenType.MUTABLE)) ||
 				(token.type === TokenType.IDENTIFIER &&
 					this.enumNames.has(token.value) &&
-					(nextType === TokenType.IMMUTABLE || nextType === TokenType.MUTABLE));
+					(nextType === TokenType.IMMUTABLE || nextType === TokenType.MUTABLE)) ||
+				isStructArrayDecl ||
+				isEnumArrayDecl;
 
 			if (isStatement) {
 				body.push(this.parseStatement());
@@ -2311,7 +2360,12 @@ export class Parser {
 	// 10. Primary: literals, identifiers, (expr)
 
 	parseExpression(): Expression {
-		return this.parseOr();
+		this.enterParse("expression");
+		try {
+			return this.parseOr();
+		} finally {
+			this.exitParse();
+		}
 	}
 
 	private parseOr(): Expression {
@@ -2895,11 +2949,19 @@ export class Parser {
 		const token = this.advance(); // consume [
 		const elements: Expression[] = [];
 
+		// Skip newlines for multi-line arrays
+		this.skipNewlines();
+
 		while (this.peek().type !== TokenType.RBRACKET) {
 			elements.push(this.parseExpression());
 
+			// Skip newlines after expression
+			this.skipNewlines();
+
 			if (this.peek().type === TokenType.COMMA) {
 				this.advance();
+				// Skip newlines after comma
+				this.skipNewlines();
 			}
 		}
 
@@ -3218,6 +3280,10 @@ export class Parser {
 	}
 
 	private peek(): Token {
+		// Return EOF token if past the end to prevent undefined errors
+		if (this.pos >= this.tokens.length) {
+			return { type: TokenType.EOF, value: "", line: 0, column: 0 };
+		}
 		return this.tokens[this.pos];
 	}
 
@@ -3226,6 +3292,10 @@ export class Parser {
 	}
 
 	private advance(): Token {
+		// Return EOF token if past the end to prevent undefined errors
+		if (this.pos >= this.tokens.length) {
+			return { type: TokenType.EOF, value: "", line: 0, column: 0 };
+		}
 		return this.tokens[this.pos++];
 	}
 
@@ -3250,6 +3320,25 @@ export class Parser {
 		while (this.peek()?.type === TokenType.NEWLINE) {
 			this.advance();
 		}
+	}
+
+	// Check if current position starts an array variable declaration (Type[]#var or Type[]~var)
+	// vs an array return type for function (Type[] Z funcName)
+	private isArrayVariableDeclaration(): boolean {
+		// We're at Type, next is [
+		// Look for pattern: [ optionalSize ] # or ~ (variable decl)
+		// vs: [ optionalSize ] Z (function return type)
+		let lookAhead = 2; // Start after Type and [
+		if (this.tokens[this.pos + lookAhead]?.type === TokenType.NUMBER_LITERAL) {
+			lookAhead++; // Skip optional array size
+		}
+		if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
+			lookAhead++; // Skip ]
+			const afterBracket = this.tokens[this.pos + lookAhead]?.type;
+			// It's a variable declaration if followed by # or ~
+			return afterBracket === TokenType.IMMUTABLE || afterBracket === TokenType.MUTABLE;
+		}
+		return false;
 	}
 
 	private isAtEnd(): boolean {

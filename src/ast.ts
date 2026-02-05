@@ -12,6 +12,7 @@ export interface ArrayType {
 	kind: "array";
 	elementType: ArrayElementType;
 	size?: number; // Optional fixed size (e.g., i[5])
+	isEmpty?: boolean; // Internal flag for empty array literals (used in type checking)
 }
 
 // Tuple type: element type + optional length (undefined = inferred from value)

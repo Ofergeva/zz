@@ -26,11 +26,17 @@ interface CompTimeScope {
 	functions: Map<string, CompTimeFunctionDeclaration>;
 }
 
+// Security and performance limits
+const MAX_RECURSION_DEPTH = 1000;
+const MAX_ITERATIONS = 100000;
+
 export class CompTimeEvaluator {
 	private scope: CompTimeScope;
 	private sourceDir: string;
 	private sourceFile: string;
 	private errors: string[] = [];
+	private recursionDepth: number = 0;
+	private iterationCount: number = 0;
 
 	constructor(sourceDir: string, sourceFile: string = "unknown.zz") {
 		this.sourceDir = sourceDir;
@@ -41,8 +47,45 @@ export class CompTimeEvaluator {
 		};
 	}
 
+	// Validate that a path doesn't escape the source directory (prevent path traversal)
+	private validatePath(requestedPath: string): string {
+		const resolved = path.resolve(this.sourceDir, requestedPath);
+		const normalizedSourceDir = path.resolve(this.sourceDir);
+
+		// Check if the resolved path is within the source directory
+		if (!resolved.startsWith(normalizedSourceDir + path.sep) && resolved !== normalizedSourceDir) {
+			throw new Error(`$read: Path traversal detected. Cannot access '${requestedPath}' outside source directory.`);
+		}
+
+		return resolved;
+	}
+
+	// Check and increment recursion depth
+	private enterRecursion(): void {
+		this.recursionDepth++;
+		if (this.recursionDepth > MAX_RECURSION_DEPTH) {
+			throw new Error(`Maximum recursion depth (${MAX_RECURSION_DEPTH}) exceeded in compile-time execution`);
+		}
+	}
+
+	// Decrement recursion depth
+	private exitRecursion(): void {
+		this.recursionDepth--;
+	}
+
+	// Check iteration count to prevent infinite loops
+	private checkIteration(): void {
+		this.iterationCount++;
+		if (this.iterationCount > MAX_ITERATIONS) {
+			throw new Error(`Maximum iteration count (${MAX_ITERATIONS}) exceeded in compile-time execution`);
+		}
+	}
+
 	evaluate(program: Program): string[] {
 		this.errors = [];
+		// Reset counters at the start of each evaluation
+		this.recursionDepth = 0;
+		this.iterationCount = 0;
 
 		// First pass: collect $Z function declarations
 		for (const stmt of program.statements) {
@@ -272,6 +315,9 @@ export class CompTimeEvaluator {
 	}
 
 	private evaluateExpression(expr: Expression): CompTimeValue {
+		// Track iterations to prevent runaway compile-time execution
+		this.checkIteration();
+
 		switch (expr.type) {
 			case "NumberLiteral":
 				return expr.isFloat
@@ -457,37 +503,44 @@ export class CompTimeEvaluator {
 			throw new Error(`Unknown compile-time function '${name}'`);
 		}
 
-		// Evaluate arguments
-		const args = expr.arguments.map((arg) => this.evaluateExpression(arg.value));
+		// Check recursion depth before entering function
+		this.enterRecursion();
 
-		// Create new scope for function execution
-		const savedVariables = new Map(this.scope.variables);
+		try {
+			// Evaluate arguments
+			const args = expr.arguments.map((arg) => this.evaluateExpression(arg.value));
 
-		// Bind parameters to arguments
-		for (let i = 0; i < func.parameters.length; i++) {
-			const param = func.parameters[i];
-			const arg = args[i];
-			if (arg === undefined) {
-				throw new Error(`Missing argument for parameter '${param.name}' in function '${name}'`);
+			// Create new scope for function execution
+			const savedVariables = new Map(this.scope.variables);
+
+			// Bind parameters to arguments
+			for (let i = 0; i < func.parameters.length; i++) {
+				const param = func.parameters[i];
+				const arg = args[i];
+				if (arg === undefined) {
+					throw new Error(`Missing argument for parameter '${param.name}' in function '${name}'`);
+				}
+				this.scope.variables.set(param.name, arg);
 			}
-			this.scope.variables.set(param.name, arg);
+
+			// Execute function body
+			for (const stmt of func.body) {
+				this.evaluateCtStatement(stmt);
+			}
+
+			// Evaluate return expression
+			let result: CompTimeValue = { kind: "null" };
+			if (func.returnExpression) {
+				result = this.evaluateExpression(func.returnExpression);
+			}
+
+			// Restore scope
+			this.scope.variables = savedVariables;
+
+			return result;
+		} finally {
+			this.exitRecursion();
 		}
-
-		// Execute function body
-		for (const stmt of func.body) {
-			this.evaluateCtStatement(stmt);
-		}
-
-		// Evaluate return expression
-		let result: CompTimeValue = { kind: "null" };
-		if (func.returnExpression) {
-			result = this.evaluateExpression(func.returnExpression);
-		}
-
-		// Restore scope
-		this.scope.variables = savedVariables;
-
-		return result;
 	}
 
 	private evaluateCtStatement(stmt: Statement): void {
@@ -551,7 +604,8 @@ export class CompTimeEvaluator {
 				if (pathArg.kind !== "string") {
 					throw new Error("$read requires a string path");
 				}
-				const fullPath = path.resolve(this.sourceDir, pathArg.value);
+				// Validate path to prevent traversal attacks
+				const fullPath = this.validatePath(pathArg.value);
 				try {
 					const content = fs.readFileSync(fullPath, "utf-8");
 					return { kind: "string", value: content };

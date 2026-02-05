@@ -599,7 +599,8 @@ ${methods}
         const value = this.generateExpression(match.value);
         const tempVar = `__match_${match.line}`;
         const lines = [];
-        lines.push(`(function() {`);
+        // Use async IIFE to support await inside match arms
+        lines.push(`(await (async function() {`);
         lines.push(`  const ${tempVar} = ${value};`);
         let first = true;
         for (const arm of match.arms) {
@@ -621,7 +622,7 @@ ${methods}
             }
             lines.push(`  }`);
         }
-        lines.push(`})();`);
+        lines.push(`})())`);
         return lines.join("\n");
     }
     generatePatternCondition(pattern, tempVar, guard) {

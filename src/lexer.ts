@@ -464,7 +464,8 @@ export class Lexer {
 		const startColumn = this.column;
 		this.advance(); // consume opening quote
 
-		let value = "";
+		// Use array + join to avoid O(n²) string concatenation
+		const chars: string[] = [];
 		while (!this.isAtEnd() && this.peek() !== quoteChar) {
 			if (this.peek() === "\n") {
 				throw new Error(`Unterminated string at line ${this.line}`);
@@ -472,13 +473,13 @@ export class Lexer {
 			if (this.peek() === "\\") {
 				this.advance();
 				const escaped = this.peek();
-				if (escaped === "n") value += "\n";
-				else if (escaped === "t") value += "\t";
-				else if (escaped === quoteChar) value += quoteChar;
-				else if (escaped === "\\") value += "\\";
-				else value += escaped;
+				if (escaped === "n") chars.push("\n");
+				else if (escaped === "t") chars.push("\t");
+				else if (escaped === quoteChar) chars.push(quoteChar);
+				else if (escaped === "\\") chars.push("\\");
+				else chars.push(escaped);
 			} else {
-				value += this.peek();
+				chars.push(this.peek());
 			}
 			this.advance();
 		}
@@ -488,13 +489,14 @@ export class Lexer {
 		}
 
 		this.advance(); // consume closing quote
-		return { type: TokenType.STRING_LITERAL, value, line: this.line, column: startColumn };
+		return { type: TokenType.STRING_LITERAL, value: chars.join(""), line: this.line, column: startColumn };
 	}
 
 	private readInterpolatedString(startColumn: number): Token {
 		this.advance(); // consume opening quote
 
-		let value = "";
+		// Use array + join to avoid O(n²) string concatenation
+		const chars: string[] = [];
 		let braceDepth = 0;
 
 		while (!this.isAtEnd() && (this.peek() !== '"' || braceDepth > 0)) {
@@ -504,25 +506,25 @@ export class Lexer {
 
 			if (this.peek() === "{") {
 				braceDepth++;
-				value += this.peek();
+				chars.push(this.peek());
 				this.advance();
 			} else if (this.peek() === "}") {
 				braceDepth--;
-				value += this.peek();
+				chars.push(this.peek());
 				this.advance();
 			} else if (this.peek() === "\\") {
 				this.advance();
 				const escaped = this.peek();
-				if (escaped === "n") value += "\n";
-				else if (escaped === "t") value += "\t";
-				else if (escaped === '"') value += '"';
-				else if (escaped === "\\") value += "\\";
-				else if (escaped === "{") value += "{";
-				else if (escaped === "}") value += "}";
-				else value += escaped;
+				if (escaped === "n") chars.push("\n");
+				else if (escaped === "t") chars.push("\t");
+				else if (escaped === '"') chars.push('"');
+				else if (escaped === "\\") chars.push("\\");
+				else if (escaped === "{") chars.push("{");
+				else if (escaped === "}") chars.push("}");
+				else chars.push(escaped);
 				this.advance();
 			} else {
-				value += this.peek();
+				chars.push(this.peek());
 				this.advance();
 			}
 		}
@@ -532,7 +534,7 @@ export class Lexer {
 		}
 
 		this.advance(); // consume closing quote
-		return { type: TokenType.INTERP_STRING, value, line: this.line, column: startColumn };
+		return { type: TokenType.INTERP_STRING, value: chars.join(""), line: this.line, column: startColumn };
 	}
 
 	private readJsBlock(): Token {
@@ -561,7 +563,8 @@ export class Lexer {
 		}
 		this.advance(); // consume opening {
 
-		let code = "";
+		// Use array + join to avoid O(n²) string concatenation
+		const chars: string[] = [];
 		let braceDepth = 1;
 
 		while (!this.isAtEnd() && braceDepth > 0) {
@@ -579,7 +582,7 @@ export class Lexer {
 				this.column = 0;
 			}
 
-			code += ch;
+			chars.push(ch);
 			this.advance();
 		}
 
@@ -589,53 +592,57 @@ export class Lexer {
 
 		this.advance(); // consume closing }
 
-		return { type: TokenType.JS_BLOCK, value: code.trim(), line: startLine, column: startColumn };
+		return { type: TokenType.JS_BLOCK, value: chars.join("").trim(), line: startLine, column: startColumn };
 	}
 
 	private readCompTimeIdentifier(): Token {
 		const startColumn = this.column;
 		this.advance(); // consume $
 
-		let value = "$";
+		// Use array + join to avoid O(n²) string concatenation
+		const chars: string[] = ["$"];
 		while (!this.isAtEnd() && this.isAlphaNumeric(this.peek())) {
-			value += this.peek();
+			chars.push(this.peek());
 			this.advance();
 		}
 
 		// Return as IDENTIFIER - parser will validate it's a valid CT built-in
-		return { type: TokenType.IDENTIFIER, value, line: this.line, column: startColumn };
+		return { type: TokenType.IDENTIFIER, value: chars.join(""), line: this.line, column: startColumn };
 	}
 
 	private readNumber(): Token {
 		const startColumn = this.column;
-		let value = "";
+		// Use array + join to avoid O(n²) string concatenation
+		const chars: string[] = [];
 
 		while (!this.isAtEnd() && this.isDigit(this.peek())) {
-			value += this.peek();
+			chars.push(this.peek());
 			this.advance();
 		}
 
 		// Check for float
 		if (this.peek() === "." && this.isDigit(this.peekNext())) {
-			value += this.peek();
+			chars.push(this.peek());
 			this.advance();
 			while (!this.isAtEnd() && this.isDigit(this.peek())) {
-				value += this.peek();
+				chars.push(this.peek());
 				this.advance();
 			}
 		}
 
-		return { type: TokenType.NUMBER_LITERAL, value, line: this.line, column: startColumn };
+		return { type: TokenType.NUMBER_LITERAL, value: chars.join(""), line: this.line, column: startColumn };
 	}
 
 	private readIdentifier(): Token {
 		const startColumn = this.column;
-		let value = "";
+		// Use array + join to avoid O(n²) string concatenation
+		const chars: string[] = [];
 
 		while (!this.isAtEnd() && this.isAlphaNumeric(this.peek())) {
-			value += this.peek();
+			chars.push(this.peek());
 			this.advance();
 		}
+		const value = chars.join("");
 
 		// Check for tuple types: ti5, tsN, tf3, tb2, etc.
 		// Pattern: t + (i|f|s|b) + (N | digits)

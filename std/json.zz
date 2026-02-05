@@ -1,0 +1,69 @@
+// JSON parsing and serialization utilities
+
+// Parse a JSON string into a J object
+// Returns null if parsing fails
+->J Z parse(s#jsonStr)
+  $js{
+    try {
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      return null;
+    }
+  }
+;
+
+// Convert a J object to a JSON string
+->s Z stringify(J#obj)
+  $js{ return JSON.stringify(obj); }
+;
+
+// Convert a J object to a pretty-printed JSON string with indentation
+->s Z format(J#obj i#indent)
+  $js{ return JSON.stringify(obj, null, indent); }
+;
+
+// Check if a string is valid JSON
+->b Z isValid(s#jsonStr)
+  $js{
+    try {
+      JSON.parse(jsonStr);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+;
+
+// Safely get a nested value from a J object using dot notation path
+// e.g., get(obj, "user.name") returns obj.user.name or null if path doesn't exist
+->J Z get(J#obj s#path)
+  $js{
+    const parts = path.split('.');
+    let current = obj;
+    for (const part of parts) {
+      if (current === null || current === undefined) return null;
+      current = current[part];
+    }
+    return current;
+  }
+;
+
+// Deep clone a J object
+->J Z clone(J#obj)
+  $js{ return JSON.parse(JSON.stringify(obj)); }
+;
+
+// Merge two J objects (shallow merge, right overwrites left)
+->J Z merge(J#left J#right)
+  $js{ return { ...left, ...right }; }
+;
+
+// Get all keys of a J object as a string array
+->s[] Z keys(J#obj)
+  $js{ return Object.keys(obj); }
+;
+
+// Get all values of a J object as a J array
+->J[] Z values(J#obj)
+  $js{ return Object.values(obj); }
+;
