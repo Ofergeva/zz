@@ -54,6 +54,8 @@ import {
 	SpawnExpression,
 	CompTimeExpression,
 	CompTimeFunctionDeclaration,
+	TypeParameterType,
+	isTypeParameterType,
 } from "./ast.js";
 import { formatError } from "./errors.js";
 
@@ -68,12 +70,14 @@ interface FunctionInfo {
 	returnType: DataType | "void";
 	line: number;
 	imported?: boolean; // True for imported functions (skip validation)
+	typeParameters?: string[];  // Type parameters for generic functions
 }
 
 interface StructInfo {
 	fields: StructField[];
 	methods: Map<string, MethodInfo>;
 	line: number;
+	typeParameters?: string[];  // Type parameters for generic structs
 }
 
 interface MethodInfo {
@@ -199,6 +203,7 @@ export class TypeChecker {
 			fields: decl.fields,
 			methods: methodMap,
 			line: decl.line,
+			typeParameters: decl.typeParameters,
 		});
 	}
 
@@ -1059,6 +1064,7 @@ export class TypeChecker {
 			parameters: decl.parameters,
 			returnType: decl.returnType,
 			line: decl.line,
+			typeParameters: decl.typeParameters,
 		});
 
 		// Save current variables (for scope)
@@ -1140,7 +1146,77 @@ export class TypeChecker {
 			return;
 		}
 
-		// Check arguments
+		// Handle generic functions - infer type arguments or validate explicit ones
+		let actualParams = funcInfo.parameters;
+		const bindings = new Map<string, DataType>();
+
+		if (funcInfo.typeParameters && funcInfo.typeParameters.length > 0) {
+			// Check if explicit type arguments provided
+			if (call.typeArguments && call.typeArguments.length > 0) {
+				if (call.typeArguments.length !== funcInfo.typeParameters.length) {
+					this.errors.push(
+						`Generic function '${call.name}' expects ${funcInfo.typeParameters.length} type argument(s), got ${call.typeArguments.length} at line ${line}.`,
+					);
+					return;
+				}
+
+				// Use explicit type arguments
+				for (let i = 0; i < funcInfo.typeParameters.length; i++) {
+					bindings.set(funcInfo.typeParameters[i], call.typeArguments[i]);
+				}
+			} else {
+				// Infer type arguments from call arguments
+				for (let i = 0; i < funcInfo.parameters.length && i < call.arguments.length; i++) {
+					const param = funcInfo.parameters[i];
+					const arg = call.arguments[i];
+					const argType = this.inferExpressionType(arg.value);
+
+					if (!argType) continue;
+
+					// If param type is a type parameter, bind it
+					if (isTypeParameterType(param.dataType)) {
+						const existing = bindings.get(param.dataType.name);
+						if (existing && !this.typesEqual(existing, argType)) {
+							this.errors.push(
+								`Type parameter '${param.dataType.name}' inferred as both ${this.typeToString(existing)} and ${this.typeToString(argType)} at line ${line}.`,
+							);
+						} else {
+							bindings.set(param.dataType.name, argType);
+						}
+					}
+
+					// If param type is T[], and arg is array, bind T to element type
+					if (isArrayType(param.dataType) && isTypeParameterType(param.dataType.elementType) && isArrayType(argType)) {
+						const existing = bindings.get(param.dataType.elementType.name);
+						if (existing && !this.typesEqual(existing, argType.elementType)) {
+							this.errors.push(
+								`Type parameter '${param.dataType.elementType.name}' inferred as both ${this.typeToString(existing)} and ${this.typeToString(argType.elementType)} at line ${line}.`,
+							);
+						} else {
+							bindings.set(param.dataType.elementType.name, argType.elementType);
+						}
+					}
+				}
+
+				// Check all type params are bound
+				for (const tp of funcInfo.typeParameters) {
+					if (!bindings.has(tp)) {
+						this.errors.push(
+							`Cannot infer type argument for '${tp}' in call to '${call.name}' at line ${line}. Specify type arguments explicitly.`,
+						);
+						return;
+					}
+				}
+			}
+
+			// Substitute type params in parameter types
+			actualParams = funcInfo.parameters.map((p) => ({
+				dataType: this.substituteTypeParams(p.dataType, bindings),
+				name: p.name,
+			}));
+		}
+
+		// Check arguments (using actualParams which have substituted types for generics)
 		const positionalArgs = call.arguments.filter((arg) => !arg.name);
 		const namedArgs = call.arguments.filter((arg) => arg.name);
 
@@ -1149,13 +1225,13 @@ export class TypeChecker {
 
 		// Process positional arguments first
 		for (let i = 0; i < positionalArgs.length; i++) {
-			if (i >= funcInfo.parameters.length) {
+			if (i >= actualParams.length) {
 				this.errors.push(
-					`Too many arguments for function '${call.name}' at line ${line}. Expected ${funcInfo.parameters.length}.`,
+					`Too many arguments for function '${call.name}' at line ${line}. Expected ${actualParams.length}.`,
 				);
 				break;
 			}
-			const param = funcInfo.parameters[i];
+			const param = actualParams[i];
 			providedParams.set(param.name, positionalArgs[i].value);
 			this.checkExpression(positionalArgs[i].value, line);
 
@@ -1170,7 +1246,7 @@ export class TypeChecker {
 
 		// Process named arguments
 		for (const arg of namedArgs) {
-			const param = funcInfo.parameters.find((p) => p.name === arg.name);
+			const param = actualParams.find((p) => p.name === arg.name);
 			if (!param) {
 				this.errors.push(`Unknown parameter '${arg.name}' for function '${call.name}' at line ${line}.`);
 				continue;
@@ -1192,7 +1268,7 @@ export class TypeChecker {
 		}
 
 		// Check all required parameters are provided
-		for (const param of funcInfo.parameters) {
+		for (const param of actualParams) {
 			if (!providedParams.has(param.name)) {
 				this.errors.push(`Missing argument '${param.name}' for function '${call.name}' at line ${line}.`);
 			}
@@ -1502,6 +1578,14 @@ export class TypeChecker {
 				if (structInfo) {
 					const methodInfo = structInfo.methods.get(expr.method);
 					if (methodInfo) {
+						// Create type parameter substitution bindings for generic structs
+						const bindings = new Map<string, DataType>();
+						if (structInfo.typeParameters && structInfo.typeParameters.length > 0 && objectType.typeArguments) {
+							for (let i = 0; i < structInfo.typeParameters.length; i++) {
+								bindings.set(structInfo.typeParameters[i], objectType.typeArguments[i]);
+							}
+						}
+
 						// Validate arguments
 						if (expr.arguments.length !== methodInfo.parameters.length) {
 							this.errors.push(
@@ -1510,7 +1594,11 @@ export class TypeChecker {
 						} else {
 							for (let i = 0; i < expr.arguments.length; i++) {
 								const argType = this.inferExpressionType(expr.arguments[i]);
-								const paramType = methodInfo.parameters[i].dataType;
+								// Substitute type parameters in method parameter types
+								const paramType =
+									bindings.size > 0
+										? this.substituteTypeParams(methodInfo.parameters[i].dataType, bindings)
+										: methodInfo.parameters[i].dataType;
 								if (argType && !this.typesCompatible(argType, paramType)) {
 									this.errors.push(
 										`Type mismatch at line ${line}: argument ${i + 1} to method '${expr.method}' should be ${this.typeToString(paramType)}, got ${this.typeToString(argType)}.`,
@@ -1655,6 +1743,31 @@ export class TypeChecker {
 			return;
 		}
 
+		// Check type arguments for generic structs
+		let bindings = new Map<string, DataType>();
+		if (structInfo.typeParameters && structInfo.typeParameters.length > 0) {
+			if (!expr.typeArguments || expr.typeArguments.length === 0) {
+				this.errors.push(
+					`Generic struct '${expr.structName}' requires ${structInfo.typeParameters.length} type argument(s) at line ${line}.`,
+				);
+				return;
+			}
+
+			if (expr.typeArguments.length !== structInfo.typeParameters.length) {
+				this.errors.push(
+					`Generic struct '${expr.structName}' expects ${structInfo.typeParameters.length} type argument(s), got ${expr.typeArguments.length} at line ${line}.`,
+				);
+				return;
+			}
+
+			// Create substitution bindings
+			for (let i = 0; i < structInfo.typeParameters.length; i++) {
+				const paramName = structInfo.typeParameters[i];
+				const argType = expr.typeArguments[i];
+				bindings.set(paramName, argType);
+			}
+		}
+
 		// Check arguments
 		const positionalArgs = expr.arguments.filter((arg) => !arg.name);
 		const namedArgs = expr.arguments.filter((arg) => arg.name);
@@ -1674,11 +1787,13 @@ export class TypeChecker {
 			providedFields.set(field.name, positionalArgs[i].value);
 			this.checkExpression(positionalArgs[i].value, line);
 
-			// Type check
+			// Type check (substitute type params if generic)
+			const expectedType =
+				bindings.size > 0 ? this.substituteTypeParams(field.dataType, bindings) : field.dataType;
 			const argType = this.inferExpressionType(positionalArgs[i].value);
-			if (argType && !this.typesCompatible(argType, field.dataType)) {
+			if (argType && !this.typesCompatible(argType, expectedType)) {
 				this.errors.push(
-					`Type mismatch at line ${line}: field '${field.name}' of struct '${expr.structName}' expects ${this.typeToString(field.dataType)}, got ${this.typeToString(argType)}.`,
+					`Type mismatch at line ${line}: field '${field.name}' of struct '${expr.structName}' expects ${this.typeToString(expectedType)}, got ${this.typeToString(argType)}.`,
 				);
 			}
 		}
@@ -1697,11 +1812,13 @@ export class TypeChecker {
 			providedFields.set(arg.name!, arg.value);
 			this.checkExpression(arg.value, line);
 
-			// Type check
+			// Type check (substitute type params if generic)
+			const expectedType =
+				bindings.size > 0 ? this.substituteTypeParams(field.dataType, bindings) : field.dataType;
 			const argType = this.inferExpressionType(arg.value);
-			if (argType && !this.typesCompatible(argType, field.dataType)) {
+			if (argType && !this.typesCompatible(argType, expectedType)) {
 				this.errors.push(
-					`Type mismatch at line ${line}: field '${arg.name}' of struct '${expr.structName}' expects ${this.typeToString(field.dataType)}, got ${this.typeToString(argType)}.`,
+					`Type mismatch at line ${line}: field '${arg.name}' of struct '${expr.structName}' expects ${this.typeToString(expectedType)}, got ${this.typeToString(argType)}.`,
 				);
 			}
 		}
@@ -1737,9 +1854,43 @@ export class TypeChecker {
 		return [">", "<", ">=", "<=", "==", "!="].includes(op);
 	}
 
+	// Substitute type parameters with concrete types
+	private substituteTypeParams(type: DataType, bindings: Map<string, DataType>): DataType {
+		if (isTypeParameterType(type)) {
+			const bound = bindings.get(type.name);
+			if (!bound) {
+				throw new Error(`Unbound type parameter '${type.name}'`);
+			}
+			return bound;
+		}
+
+		if (isArrayType(type)) {
+			return {
+				kind: "array",
+				elementType: this.substituteTypeParams(type.elementType, bindings) as any,
+				size: type.size,
+			};
+		}
+
+		if (isStructType(type) && type.typeArguments) {
+			return {
+				kind: "struct",
+				name: type.name,
+				typeArguments: type.typeArguments.map((t) => this.substituteTypeParams(t, bindings)),
+			};
+		}
+
+		// Primitives, enums, J, tuples: no substitution needed
+		return type;
+	}
+
 	private typesEqual(a: DataType | null, b: DataType | null | "void"): boolean {
 		if (a === null || b === null || b === "void") {
 			return false;
+		}
+		// Both type parameters
+		if (isTypeParameterType(a) && isTypeParameterType(b)) {
+			return a.name === b.name;
 		}
 		// Both primitives
 		if (isPrimitiveType(a) && isPrimitiveType(b)) {
@@ -1768,7 +1919,22 @@ export class TypeChecker {
 		}
 		// Both structs
 		if (isStructType(a) && isStructType(b)) {
-			return a.name === b.name;
+			if (a.name !== b.name) return false;
+
+			// Compare type arguments
+			if (a.typeArguments && b.typeArguments) {
+				if (a.typeArguments.length !== b.typeArguments.length) return false;
+				for (let i = 0; i < a.typeArguments.length; i++) {
+					if (!this.typesEqual(a.typeArguments[i], b.typeArguments[i])) {
+						return false;
+					}
+				}
+			} else if (a.typeArguments || b.typeArguments) {
+				// One has type args, the other doesn't
+				return false;
+			}
+
+			return true;
 		}
 		// Both J types
 		if (isJType(a) && isJType(b)) {
@@ -1794,6 +1960,7 @@ export class TypeChecker {
 		if (type === null) return "unknown";
 		if (type === "void") return "void";
 		if (isPrimitiveType(type)) return type;
+		if (isTypeParameterType(type)) return type.name;
 		if (isTupleType(type)) {
 			const lenStr = type.length !== undefined ? type.length.toString() : "N";
 			return `t${type.elementType[0]}${lenStr}`;
@@ -1802,7 +1969,12 @@ export class TypeChecker {
 			return type.name;
 		}
 		if (isStructType(type)) {
-			return type.name;
+			let str = type.name;
+			if (type.typeArguments && type.typeArguments.length > 0) {
+				const args = type.typeArguments.map((t) => this.typeToString(t)).join(", ");
+				str += `<${args}>`;
+			}
+			return str;
 		}
 		if (isArrayType(type)) {
 			return `${this.typeToString(type.elementType)}[]`;
@@ -1861,6 +2033,42 @@ export class TypeChecker {
 			case "FunctionCall": {
 				const funcInfo = this.functions.get(expr.name);
 				if (funcInfo && funcInfo.returnType !== "void") {
+					// Handle generic functions - substitute type parameters in return type
+					if (funcInfo.typeParameters && funcInfo.typeParameters.length > 0) {
+						const bindings = new Map<string, DataType>();
+
+						// If explicit type arguments provided, use them
+						if (expr.typeArguments && expr.typeArguments.length > 0) {
+							for (let i = 0; i < funcInfo.typeParameters.length; i++) {
+								bindings.set(funcInfo.typeParameters[i], expr.typeArguments[i]);
+							}
+						} else {
+							// Infer type arguments from call arguments
+							for (let i = 0; i < funcInfo.parameters.length && i < expr.arguments.length; i++) {
+								const param = funcInfo.parameters[i];
+								const arg = expr.arguments[i];
+								const argType = this.inferExpressionType(arg.value);
+
+								if (!argType) continue;
+
+								// If param type is a type parameter, bind it
+								if (isTypeParameterType(param.dataType)) {
+									bindings.set(param.dataType.name, argType);
+								}
+
+								// If param type is T[], bind T to element type
+								if (isArrayType(param.dataType) && isTypeParameterType(param.dataType.elementType) && isArrayType(argType)) {
+									bindings.set(param.dataType.elementType.name, argType.elementType);
+								}
+							}
+						}
+
+						// Substitute type params in return type
+						if (bindings.size > 0) {
+							return this.substituteTypeParams(funcInfo.returnType, bindings);
+						}
+					}
+
 					return funcInfo.returnType;
 				}
 				return null;
@@ -2025,6 +2233,14 @@ export class TypeChecker {
 					if (structInfo) {
 						const methodInfo = structInfo.methods.get(expr.method);
 						if (methodInfo && methodInfo.returnType !== "void") {
+							// Substitute type parameters for generic structs
+							if (structInfo.typeParameters && structInfo.typeParameters.length > 0 && objectType.typeArguments) {
+								const bindings = new Map<string, DataType>();
+								for (let i = 0; i < structInfo.typeParameters.length; i++) {
+									bindings.set(structInfo.typeParameters[i], objectType.typeArguments[i]);
+								}
+								return this.substituteTypeParams(methodInfo.returnType, bindings);
+							}
 							return methodInfo.returnType;
 						}
 					}
@@ -2084,6 +2300,14 @@ export class TypeChecker {
 					if (structInfo) {
 						const field = structInfo.fields.find((f) => f.name === expr.property);
 						if (field) {
+							// Substitute type parameters for generic structs
+							if (structInfo.typeParameters && structInfo.typeParameters.length > 0 && objectType.typeArguments) {
+								const bindings = new Map<string, DataType>();
+								for (let i = 0; i < structInfo.typeParameters.length; i++) {
+									bindings.set(structInfo.typeParameters[i], objectType.typeArguments[i]);
+								}
+								return this.substituteTypeParams(field.dataType, bindings);
+							}
 							return field.dataType;
 						}
 					}
@@ -2102,9 +2326,9 @@ export class TypeChecker {
 				}
 				return null;
 			case "StructInstantiation":
-				// Return the struct type
+				// Return the struct type with type arguments
 				if (this.structs.has(expr.structName)) {
-					return { kind: "struct", name: expr.structName };
+					return { kind: "struct", name: expr.structName, typeArguments: expr.typeArguments };
 				}
 				return null;
 			case "MatchExpression":

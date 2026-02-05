@@ -10,6 +10,7 @@ export declare class CodeGenerator {
     private structMethods;
     private options?;
     private hasSpawn;
+    private currentStructFields;
     constructor(options?: CodeGenOptions);
     generate(program: Program): string;
     private generateStatement;

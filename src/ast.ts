@@ -1,11 +1,11 @@
 // AST Node Types for ZZ Language
 
 export type PrimitiveType = "string" | "int" | "float" | "bool";
-export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType;
+export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType | TypeParameterType;
 export type Mutability = "immutable" | "mutable";
 
 // Element types allowed in arrays (primitives + complex types)
-export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType;
+export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType;
 
 // Array type: element type + optional fixed size
 export interface ArrayType {
@@ -32,11 +32,18 @@ export interface EnumType {
 export interface StructType {
 	kind: "struct";
 	name: string;
+	typeArguments?: DataType[];  // Optional type arguments for generic structs
 }
 
 // J type: JSON-like object with string keys and dynamic values
 export interface JType {
 	kind: "j";
+}
+
+// Type parameter: generic type variable (T, U, etc.)
+export interface TypeParameterType {
+	kind: "typeParameter";
+	name: string;
 }
 
 // Helper to check if a type is an array
@@ -71,7 +78,12 @@ export function isPrimitiveType(type: DataType): type is PrimitiveType {
 
 // Helper to check if a type is a valid array element type
 export function isArrayElementType(type: DataType): type is ArrayElementType {
-	return isPrimitiveType(type) || isStructType(type) || isEnumType(type) || isJType(type) || isTupleType(type);
+	return isPrimitiveType(type) || isStructType(type) || isEnumType(type) || isJType(type) || isTupleType(type) || isTypeParameterType(type);
+}
+
+// Helper to check if a type is a type parameter
+export function isTypeParameterType(type: DataType): type is TypeParameterType {
+	return typeof type === "object" && type.kind === "typeParameter";
 }
 
 // Base interface for all AST nodes
@@ -316,6 +328,7 @@ export interface Parameter {
 export interface FunctionDeclaration extends ASTNode {
 	type: "FunctionDeclaration";
 	name: string;
+	typeParameters: string[];  // Type parameters (e.g., ["T"])
 	parameters: Parameter[];
 	returnType: DataType | "void";
 	body: Statement[];
@@ -334,6 +347,7 @@ export interface FunctionCall extends ASTNode {
 	type: "FunctionCall";
 	name: string;
 	arguments: FunctionArgument[];
+	typeArguments?: DataType[];  // Optional type arguments for generic functions
 }
 
 // Expression statement (for function calls used as statements)
@@ -452,6 +466,7 @@ export interface StructMethod {
 export interface StructDeclaration extends ASTNode {
 	type: "StructDeclaration";
 	name: string;
+	typeParameters: string[];  // Type parameters (e.g., ["T", "U"])
 	fields: StructField[];
 	methods: StructMethod[];
 	exported: boolean;
@@ -462,6 +477,7 @@ export interface StructInstantiation extends ASTNode {
 	type: "StructInstantiation";
 	structName: string;
 	arguments: FunctionArgument[];
+	typeArguments?: DataType[];  // Optional type arguments for generic structs
 }
 
 // J object field: key-value pair in a J literal
@@ -599,6 +615,7 @@ export interface ImportedModuleInfo {
 		{
 			parameters: Parameter[];
 			returnType: DataType | "void";
+			typeParameters?: string[];  // Type parameters for generic functions
 		}
 	>;
 	variables: Map<
@@ -612,6 +629,7 @@ export interface ImportedModuleInfo {
 		string,
 		{
 			fields: StructField[];
+			typeParameters?: string[];  // Type parameters for generic structs
 		}
 	>;
 	enums: Map<string, string[]>;

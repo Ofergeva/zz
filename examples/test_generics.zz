@@ -1,0 +1,27 @@
+// Test generics with a simple Stack<T>
+
+S Stack<T>
+  T[]#items
+
+  Z push(T#item)
+    items.push(item)
+  ;
+
+  i Z len()
+    items.len()
+  ;
+;
+
+// Test with int stack
+Stack<i>#intStack = Stack<i>([])
+intStack.push(10)
+intStack.push(20)
+print(s"Int stack length: {intStack.len()}")
+
+// Test with string stack
+Stack<s>#strStack = Stack<s>([])
+strStack.push("hello")
+strStack.push("world")
+print(s"String stack length: {strStack.len()}")
+
+print("Stack<T> generics test passed!")

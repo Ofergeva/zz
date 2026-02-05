@@ -78,6 +78,7 @@ Every variable must be declared with its type. Typos become compile errors, not 
 ## Features
 
 - Strong static typing with type inference
+- **Generics** - Type-safe generic structs and functions with type inference
 - Immutable by default with explicit mutability
 - Concise syntax using symbols instead of keywords
 - Compiles to clean, readable JavaScript

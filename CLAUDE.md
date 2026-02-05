@@ -216,6 +216,85 @@ Z printHost(J#cfg)
 - Exhaustiveness checking for enums
 - Compiles to IIFE with if/else-if chain
 
+### Generics
+
+Generics enable type-safe, reusable code with type parameters.
+
+#### Generic Structs
+
+```zz
+S Stack<T>
+  T[]#items
+
+  Z push(T#item)
+    items.push(item)
+  ;
+
+  i Z size()
+    items.len()
+  ;
+;
+
+Stack<i>#intStack = Stack<i>([])
+intStack.push(10)
+
+Stack<s>#strStack = Stack<s>([])
+strStack.push("hello")
+```
+
+Multi-parameter generics:
+```zz
+S Pair<A, B>
+  A#first
+  B#second
+;
+
+Pair<i, s>#p = Pair<i, s>(42, "answer")
+```
+
+#### Generic Functions
+
+```zz
+<T> T Z first(T[]#arr)
+  arr[0]
+;
+
+i#x = first([1, 2, 3])       // T inferred as i
+s#y = first(["a", "b"])      // T inferred as s
+
+// Explicit type args
+i#z = first<i>([1, 2, 3])
+```
+
+Multi-parameter:
+```zz
+<T, U> U Z transform(T[]#arr, T#defaultVal)
+  // ...
+;
+```
+
+#### Type Inference
+
+- **Function calls**: Type arguments inferred from argument types
+- **Struct instantiation**: Type arguments must be explicit in variable declaration
+- **Inference rules**:
+  - `T#param` matches argument type directly
+  - `T[]#param` matches array element type
+  - Multiple occurrences of `T` must match the same type
+
+#### Semantics
+
+- **Erasure-based**: Type parameters are compile-time only, stripped in JS output (no monomorphization)
+- **No constraints**: Any type can be used for type parameters (constraints are future work)
+- **Type safety**: Full compile-time type checking with substitution
+
+#### Limitations (v1)
+
+- No type constraints (`T: Comparable` not yet supported)
+- No higher-kinded types
+- Type parameters cannot be used in comptime expressions
+- Struct methods should avoid names like `len`, `push`, `pop` that conflict with built-in array methods
+
 ### JS Injection
 
 - `$js { code }` → injects raw JavaScript verbatim into output

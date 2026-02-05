@@ -5,6 +5,7 @@ export declare class Parser {
     private pos;
     private enumNames;
     private structNames;
+    private typeParamNames;
     private parseDepth;
     constructor(tokens: Token[], externalTypes?: {
         structNames?: Set<string>;
@@ -80,6 +81,10 @@ export declare class Parser {
     private isTupleTypeToken;
     private tupleTokenToElementType;
     private tokenToDataType;
+    private parseTypeParameterList;
+    private parseTypeArgumentList;
+    private parseTypeExpression;
+    private isGenericTypeArgsFollowedBy;
     private parseCompTimeExpression;
     private parseCompTimeFunctionDeclaration;
     private tryParseExpression;

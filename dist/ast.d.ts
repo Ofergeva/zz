@@ -1,7 +1,7 @@
 export type PrimitiveType = "string" | "int" | "float" | "bool";
-export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType;
+export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType | TypeParameterType;
 export type Mutability = "immutable" | "mutable";
-export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType;
+export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType;
 export interface ArrayType {
     kind: "array";
     elementType: ArrayElementType;
@@ -20,9 +20,14 @@ export interface EnumType {
 export interface StructType {
     kind: "struct";
     name: string;
+    typeArguments?: DataType[];
 }
 export interface JType {
     kind: "j";
+}
+export interface TypeParameterType {
+    kind: "typeParameter";
+    name: string;
 }
 export declare function isArrayType(type: DataType): type is ArrayType;
 export declare function isTupleType(type: DataType): type is TupleType;
@@ -31,6 +36,7 @@ export declare function isStructType(type: DataType): type is StructType;
 export declare function isJType(type: DataType): type is JType;
 export declare function isPrimitiveType(type: DataType): type is PrimitiveType;
 export declare function isArrayElementType(type: DataType): type is ArrayElementType;
+export declare function isTypeParameterType(type: DataType): type is TypeParameterType;
 export interface ASTNode {
     type: string;
     line: number;
@@ -179,6 +185,7 @@ export interface Parameter {
 export interface FunctionDeclaration extends ASTNode {
     type: "FunctionDeclaration";
     name: string;
+    typeParameters: string[];
     parameters: Parameter[];
     returnType: DataType | "void";
     body: Statement[];
@@ -193,6 +200,7 @@ export interface FunctionCall extends ASTNode {
     type: "FunctionCall";
     name: string;
     arguments: FunctionArgument[];
+    typeArguments?: DataType[];
 }
 export interface ExpressionStatement extends ASTNode {
     type: "ExpressionStatement";
@@ -278,6 +286,7 @@ export interface StructMethod {
 export interface StructDeclaration extends ASTNode {
     type: "StructDeclaration";
     name: string;
+    typeParameters: string[];
     fields: StructField[];
     methods: StructMethod[];
     exported: boolean;
@@ -286,6 +295,7 @@ export interface StructInstantiation extends ASTNode {
     type: "StructInstantiation";
     structName: string;
     arguments: FunctionArgument[];
+    typeArguments?: DataType[];
 }
 export interface JField {
     key: string;
@@ -401,6 +411,7 @@ export interface ImportedModuleInfo {
     functions: Map<string, {
         parameters: Parameter[];
         returnType: DataType | "void";
+        typeParameters?: string[];
     }>;
     variables: Map<string, {
         dataType: DataType;
@@ -408,6 +419,7 @@ export interface ImportedModuleInfo {
     }>;
     structs: Map<string, {
         fields: StructField[];
+        typeParameters?: string[];
     }>;
     enums: Map<string, string[]>;
 }

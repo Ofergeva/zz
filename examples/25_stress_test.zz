@@ -440,6 +440,93 @@ print(handleResult(Result(false, "Page not found", 404)))
 print(handleResult(Result(false, "Internal error", 500)))
 print(handleResult(Result(false, "Unknown error", 999)))
 
+// === 17. Generics Test ===
+print("")
+print("=== Generics Test ===")
+
+// Generic struct: Stack<T>
+S Stack<T>
+  T[]#items
+
+  Z push(T#item)
+    items.push(item)
+  ;
+
+  i Z size()
+    items.len()
+  ;
+
+  b Z isEmpty()
+    items.len() == 0
+  ;
+;
+
+// Stack of ints
+Stack<i>#intStack = Stack<i>([])
+intStack.push(1)
+intStack.push(2)
+intStack.push(3)
+print(s"Int stack size: {intStack.size()}")
+
+// Stack of strings
+Stack<s>#strStack = Stack<s>([])
+strStack.push("hello")
+strStack.push("world")
+print(s"String stack size: {strStack.size()}")
+
+// Stack of Vector2 structs
+Stack<Vector2>#vecStack = Stack<Vector2>([])
+vecStack.push(Vector2(1.0, 2.0))
+vecStack.push(Vector2(3.0, 4.0))
+print(s"Vector stack size: {vecStack.size()}")
+
+// Generic function: first<T>
+<T> T Z first(T[]#arr)
+  arr[0]
+;
+
+i#firstInt = first([10, 20, 30])
+print(s"First int: {firstInt}")
+
+s#firstStr = first(["a", "b", "c"])
+print(s"First string: {firstStr}")
+
+Vector2#firstVec = first([Vector2(5.0, 6.0), Vector2(7.0, 8.0)])
+print(s"First vector: ({firstVec.x}, {firstVec.y})")
+
+// Multi-parameter generics: Pair<A, B>
+S Pair<A, B>
+  A#first
+  B#second
+;
+
+Pair<i, s>#pair1 = Pair<i, s>(42, "answer")
+print(s"Pair: ({pair1.first}, {pair1.second})")
+
+Pair<f, b>#pair2 = Pair<f, b>(3.14, true)
+print(s"Pair: ({pair2.first}, {pair2.second})")
+
+// Generic Result<T> type
+S GenericResult<T>
+  b#success
+  T#value
+  s#errorMsg
+;
+
+GenericResult<i>#okResult = GenericResult<i>(true, 100, "")
+?(okResult.success)
+  print(s"Result value: {okResult.value}")
+;
+
+GenericResult<s>#errResult = GenericResult<s>(false, "", "Something went wrong")
+?(errResult.success)
+  print(s"Success: {errResult.value}")
+:
+  print(s"Error: {errResult.errorMsg}")
+;
+
+print("Generics tests passed!")
+
 // === Test Complete ===
 print("")
 print("=== All Stress Tests Completed Successfully ===")

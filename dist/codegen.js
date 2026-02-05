@@ -11,6 +11,8 @@ export class CodeGenerator {
     options;
     // Track whether any SpawnExpression exists (for auto-import)
     hasSpawn = false;
+    // Track current struct context for field name checking
+    currentStructFields = new Set();
     constructor(options) {
         this.options = options;
     }
@@ -126,6 +128,8 @@ ${methods}
     generateStructMethod(method, structDecl) {
         const params = method.parameters.map((p) => p.name).join(", ");
         const isNonVoid = method.returnType !== "void";
+        // Set current struct field context
+        this.currentStructFields = new Set(structDecl.fields.map((f) => f.name));
         // Generate body statements
         const bodyLines = method.body.map((s) => {
             // Replace field access with this.field
@@ -138,6 +142,8 @@ ${methods}
             const withThis = this.replaceFieldsWithThis(returnExpr, structDecl);
             bodyLines.push("    return " + withThis + ";");
         }
+        // Clear struct field context
+        this.currentStructFields.clear();
         const body = bodyLines.join("\n");
         return `  async ${method.name}(${params}) {\n${body}\n  }`;
     }
@@ -413,8 +419,34 @@ ${methods}
             case "MethodCall": {
                 const object = this.generateExpression(expr.object);
                 const args = expr.arguments.map((a) => this.generateExpression(a)).join(", ");
-                // Built-in methods map to JS equivalents
                 const builtinMethods = ["len", "push", "pop", "at", "has", "get", "set"];
+                // Heuristic: If object is a MemberExpression (like this.field), prefer built-ins
+                // Also treat Identifiers that are field names as member expressions
+                const isObjectMemberExpr = expr.object.type === "MemberExpression";
+                const isObjectFieldName = expr.object.type === "Identifier" && this.currentStructFields.has(expr.object.name);
+                if ((isObjectMemberExpr || isObjectFieldName) && builtinMethods.includes(expr.method)) {
+                    // Member expressions (this.field, obj.prop) use built-ins for array/string/tuple methods
+                    switch (expr.method) {
+                        case "len":
+                            return `${object}.length`;
+                        case "push":
+                            return `await ${object}.push(${args})`;
+                        case "pop":
+                            return `await ${object}.pop()`;
+                        case "at":
+                            return `await ${object}.charAt(${args})`;
+                        case "has":
+                            return `(${args} in ${object})`;
+                        case "get":
+                            return `${object}[${args}]`;
+                        case "set": {
+                            const setArgs = expr.arguments.map((a) => this.generateExpression(a));
+                            return `(${object}[${setArgs[0]}] = ${setArgs[1]})`;
+                        }
+                    }
+                }
+                // Check built-in methods first (for plain Identifier objects too)
+                // This prevents conflicts when structs define methods with same names as built-ins
                 if (builtinMethods.includes(expr.method)) {
                     switch (expr.method) {
                         case "len":
@@ -435,15 +467,17 @@ ${methods}
                         }
                     }
                 }
-                // Check if this is a struct method (keep as method call, not UFCS)
-                for (const [, methods] of this.structMethods) {
-                    if (methods.has(expr.method)) {
-                        // Struct method: object.method(args)
-                        if (args) {
-                            return `await ${object}.${expr.method}(${args})`;
-                        }
-                        else {
-                            return `await ${object}.${expr.method}()`;
+                // Check if this is a struct method (for Identifier objects that are not fields)
+                if (!isObjectMemberExpr && !isObjectFieldName) {
+                    for (const [, methods] of this.structMethods) {
+                        if (methods.has(expr.method)) {
+                            // Struct method: object.method(args)
+                            if (args) {
+                                return `await ${object}.${expr.method}(${args})`;
+                            }
+                            else {
+                                return `await ${object}.${expr.method}()`;
+                            }
                         }
                     }
                 }
@@ -551,9 +585,14 @@ ${methods}
     generateMethodCallCodeWithoutAwait(expr) {
         const object = this.generateExpression(expr.object);
         const args = expr.arguments.map((a) => this.generateExpression(a)).join(", ");
-        // Built-in methods map to JS equivalents
         const builtinMethods = ["len", "push", "pop", "at", "has", "get", "set"];
-        if (builtinMethods.includes(expr.method)) {
+        // Heuristic: If object is a MemberExpression (like this.field), prefer built-ins
+        // Also treat Identifiers that are field names as member expressions
+        // If object is just an Identifier (and not a field), check struct methods first
+        const isObjectMemberExpr = expr.object.type === "MemberExpression";
+        const isObjectFieldName = expr.object.type === "Identifier" && this.currentStructFields.has(expr.object.name);
+        if ((isObjectMemberExpr || isObjectFieldName) && builtinMethods.includes(expr.method)) {
+            // Member expressions (this.field, obj.prop) use built-ins for array/string/tuple methods
             switch (expr.method) {
                 case "len":
                     return `${object}.length`;
@@ -573,15 +612,38 @@ ${methods}
                 }
             }
         }
-        // Check if this is a struct method (keep as method call, not UFCS)
-        for (const [, methods] of this.structMethods) {
-            if (methods.has(expr.method)) {
-                // Struct method: object.method(args)
-                if (args) {
-                    return `${object}.${expr.method}(${args})`;
+        // Check if this is a struct method (for Identifier objects that are not fields)
+        if (!isObjectMemberExpr && !isObjectFieldName) {
+            for (const [, methods] of this.structMethods) {
+                if (methods.has(expr.method)) {
+                    // Struct method: object.method(args)
+                    if (args) {
+                        return `${object}.${expr.method}(${args})`;
+                    }
+                    else {
+                        return `${object}.${expr.method}()`;
+                    }
                 }
-                else {
-                    return `${object}.${expr.method}()`;
+            }
+        }
+        // Built-in methods for remaining cases
+        if (builtinMethods.includes(expr.method)) {
+            switch (expr.method) {
+                case "len":
+                    return `${object}.length`;
+                case "push":
+                    return `${object}.push(${args})`;
+                case "pop":
+                    return `${object}.pop()`;
+                case "at":
+                    return `${object}.charAt(${args})`;
+                case "has":
+                    return `(${args} in ${object})`;
+                case "get":
+                    return `${object}[${args}]`;
+                case "set": {
+                    const setArgs = expr.arguments.map((a) => this.generateExpression(a));
+                    return `(${object}[${setArgs[0]}] = ${setArgs[1]})`;
                 }
             }
         }

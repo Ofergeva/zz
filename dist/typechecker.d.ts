@@ -50,6 +50,7 @@ export declare class TypeChecker {
     private isValidJValueType;
     private requireBooleanCondition;
     private isComparisonOperator;
+    private substituteTypeParams;
     private typesEqual;
     private typesCompatible;
     private typeToString;

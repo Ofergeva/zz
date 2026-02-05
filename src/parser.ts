@@ -80,6 +80,8 @@ import {
 	JPatternField,
 	CompTimeExpression,
 	CompTimeFunctionDeclaration,
+	TypeParameterType,
+	isTypeParameterType,
 } from "./ast.js";
 
 // Parser security limits
@@ -90,6 +92,7 @@ export class Parser {
 	private pos: number = 0;
 	private enumNames: Set<string> = new Set(); // Track known enum names for type resolution
 	private structNames: Set<string> = new Set(); // Track known struct names for type resolution
+	private typeParamNames: Set<string> = new Set(); // Track active type parameters for generic structs/functions
 	private parseDepth: number = 0; // Track recursion depth to prevent stack overflow
 
 	constructor(tokens: Token[], externalTypes?: { structNames?: Set<string>; enumNames?: Set<string> }) {
@@ -229,6 +232,46 @@ export class Parser {
 			return this.parseStructDeclaration();
 		}
 
+		// Generic function declaration: <T> ReturnType Z funcName(...) or <T> Z funcName(...)
+		if (token.type === TokenType.LT) {
+			// Lookahead to check if this is a generic function: <TypeParams> ... Z
+			// Scan manually without modifying state
+			let lookAhead = 1; // start after <
+			let depth = 1; // track < > nesting
+
+			// Scan past type parameter list
+			while (lookAhead < this.tokens.length && depth > 0) {
+				const t = this.tokens[this.pos + lookAhead];
+				if (t.type === TokenType.LT) depth++;
+				else if (t.type === TokenType.GT) depth--;
+				lookAhead++;
+			}
+
+			// After closing >, check what follows
+			// Skip newlines
+			while (
+				lookAhead < this.tokens.length &&
+				(this.tokens[this.pos + lookAhead].type === TokenType.NEWLINE ||
+					this.tokens[this.pos + lookAhead].value === "\n")
+			) {
+				lookAhead++;
+			}
+
+			const afterTypeParams = this.tokens[this.pos + lookAhead];
+			if (afterTypeParams) {
+				// Could be: <T> Z funcName, <T> i Z funcName, <T> T Z funcName, <T> SomeStruct Z funcName, etc.
+				const isVoidFunc = afterTypeParams.type === TokenType.FUNC;
+				const isTypeToken = this.isTypeToken(afterTypeParams.type);
+				// Accept any identifier as potential return type (could be type param, struct, or enum)
+				const isIdentifier = afterTypeParams.type === TokenType.IDENTIFIER;
+
+				if (isVoidFunc || isTypeToken || isIdentifier) {
+					// This is a generic function declaration
+					return this.parseFunctionDeclaration();
+				}
+			}
+		}
+
 		// Enum type variable declaration: Color#c = Color.Red or Color[]#colors = [...]
 		// Or enum return type for function: Color Z getColor() or Color[] Z getColors()
 		if (token.type === TokenType.IDENTIFIER && this.enumNames.has(token.value)) {
@@ -259,11 +302,29 @@ export class Parser {
 		}
 
 		// Struct type variable declaration: Person#p = Person(...) or Person[]#people = [...]
+		// Or generic struct: Stack<T>#s = Stack<T>([...])
 		// Or struct return type for function: Person Z createPerson() or Person[] Z getPoints()
 		if (token.type === TokenType.IDENTIFIER && this.structNames.has(token.value)) {
 			const nextToken = this.peekNext();
 			if (nextToken?.type === TokenType.IMMUTABLE || nextToken?.type === TokenType.MUTABLE) {
 				return this.parseStructVariableDeclaration();
+			}
+			// Check for generic struct variable: StructName<Type>#var
+			if (nextToken?.type === TokenType.LT) {
+				// Lookahead to check if this is StructName<Type>#var
+				let lookAhead = 2; // skip struct name and <
+				let depth = 1; // track < > nesting
+				while (lookAhead < this.tokens.length && depth > 0) {
+					const t = this.tokens[this.pos + lookAhead];
+					if (t.type === TokenType.LT) depth++;
+					else if (t.type === TokenType.GT) depth--;
+					lookAhead++;
+				}
+				// After closing >, check if followed by # or ~
+				const afterTypeArgs = this.tokens[this.pos + lookAhead]?.type;
+				if (afterTypeArgs === TokenType.IMMUTABLE || afterTypeArgs === TokenType.MUTABLE) {
+					return this.parseStructVariableDeclaration();
+				}
 			}
 			// Check for array of struct: Person[]#people vs Person[] Z getPoints()
 			if (nextToken?.type === TokenType.LBRACKET) {
@@ -1531,6 +1592,17 @@ export class Parser {
 		const nameToken = this.expect([TokenType.IDENTIFIER]);
 		this.skipNewlines();
 
+		// Parse type parameters if present: S Stack<T> or S Pair<A, B>
+		let typeParameters: string[] = [];
+		if (this.peek().type === TokenType.LT) {
+			this.advance(); // consume <
+			typeParameters = this.parseTypeParameterList();
+			this.skipNewlines();
+
+			// Add type params to scope for parsing fields/methods
+			typeParameters.forEach((tp) => this.typeParamNames.add(tp));
+		}
+
 		const fields: StructField[] = [];
 		const methods: StructMethod[] = [];
 
@@ -1538,8 +1610,12 @@ export class Parser {
 			// Check if this is a method declaration (type Z or Z for void)
 			if (this.isMethodStart()) {
 				methods.push(this.parseStructMethod());
-			} else if (this.isTypeToken(this.peek().type) || this.isStructOrEnumType(this.peek())) {
-				// Field declaration: type#name
+			} else if (
+				this.isTypeToken(this.peek().type) ||
+				this.isStructOrEnumType(this.peek()) ||
+				this.typeParamNames.has(this.peek().value)
+			) {
+				// Field declaration: type#name (including type parameters)
 				fields.push(this.parseStructField());
 			} else {
 				throw new Error(`Unexpected token in struct body at line ${this.peek().line}`);
@@ -1548,9 +1624,13 @@ export class Parser {
 		}
 		this.expect([TokenType.SEMICOLON]);
 
+		// Remove type params from scope
+		typeParameters.forEach((tp) => this.typeParamNames.delete(tp));
+
 		return {
 			type: "StructDeclaration",
 			name: nameToken.value,
+			typeParameters,
 			fields,
 			methods,
 			exported,
@@ -1597,11 +1677,35 @@ export class Parser {
 		const typeToken = this.peek();
 		let dataType: DataType;
 
+		// Check for type parameter
+		if (typeToken.type === TokenType.IDENTIFIER && this.typeParamNames.has(typeToken.value)) {
+			this.advance();
+			dataType = { kind: "typeParameter", name: typeToken.value };
+
+			// Check for array of type param: T[]
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				dataType = { kind: "array", elementType: dataType, size };
+			}
+		}
 		// Check for struct or enum type
-		if (typeToken.type === TokenType.IDENTIFIER) {
+		else if (typeToken.type === TokenType.IDENTIFIER) {
 			this.advance();
 			if (this.structNames.has(typeToken.value)) {
-				dataType = { kind: "struct", name: typeToken.value };
+				let structType: StructType = { kind: "struct", name: typeToken.value };
+
+				// Parse type arguments if present: StructName<T>
+				if (this.peek().type === TokenType.LT) {
+					this.advance();
+					structType.typeArguments = this.parseTypeArgumentList();
+				}
+
+				dataType = structType;
 			} else if (this.enumNames.has(typeToken.value)) {
 				dataType = { kind: "enum", name: typeToken.value };
 			} else {
@@ -1651,8 +1755,23 @@ export class Parser {
 		if (this.peek().type !== TokenType.FUNC) {
 			const typeToken = this.advance();
 
+			// Check for type parameter return type
+			if (typeToken.type === TokenType.IDENTIFIER && this.typeParamNames.has(typeToken.value)) {
+				returnType = { kind: "typeParameter", name: typeToken.value };
+
+				// Check for array of type param: T[]
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance();
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					returnType = { kind: "array", elementType: returnType, size };
+				}
+			}
 			// Check for struct or enum return type
-			if (typeToken.type === TokenType.IDENTIFIER) {
+			else if (typeToken.type === TokenType.IDENTIFIER) {
 				if (this.structNames.has(typeToken.value)) {
 					returnType = { kind: "struct", name: typeToken.value };
 				} else if (this.enumNames.has(typeToken.value)) {
@@ -1697,8 +1816,24 @@ export class Parser {
 			let paramType: DataType;
 			const paramTypeToken = this.peek();
 
+			// Check for type parameter: T#item or T[]#items
+			if (paramTypeToken.type === TokenType.IDENTIFIER && this.typeParamNames.has(paramTypeToken.value)) {
+				this.advance();
+				paramType = { kind: "typeParameter", name: paramTypeToken.value };
+
+				// Check for array of type param: T[]
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance();
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					paramType = { kind: "array", elementType: paramType, size };
+				}
+			}
 			// Check for struct parameter type: Person#p or Person[]#people
-			if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
+			else if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
 				this.advance();
 				const structType: StructType = { kind: "struct", name: paramTypeToken.value };
 				// Check for array of struct
@@ -1867,19 +2002,25 @@ export class Parser {
 		const typeToken = this.advance(); // consume struct name (e.g., Person)
 		const structName = typeToken.value;
 
-		// Check for array of struct: Person[]#people
+		// Parse type arguments if present: StructName<Type, Type>
+		let structType: StructType = { kind: "struct", name: structName };
+		if (this.peek().type === TokenType.LT) {
+			this.advance(); // consume <
+			structType.typeArguments = this.parseTypeArgumentList();
+		}
+
+		// Check for array of struct: StructName<T>[]#people
 		let dataType: DataType;
 		if (this.peek().type === TokenType.LBRACKET) {
 			this.advance(); // consume [
 			let size: number | undefined;
 			if (this.peek().type === TokenType.NUMBER_LITERAL) {
-				const sizeToken = this.advance();
-				size = parseInt(sizeToken.value, 10);
+				size = parseInt(this.advance().value, 10);
 			}
 			this.expect([TokenType.RBRACKET]);
-			dataType = { kind: "array", elementType: { kind: "struct", name: structName }, size };
+			dataType = { kind: "array", elementType: structType, size };
 		} else {
-			dataType = { kind: "struct", name: structName };
+			dataType = structType;
 		}
 
 		const mutabilityToken = this.expect([TokenType.IMMUTABLE, TokenType.MUTABLE]);
@@ -1905,12 +2046,42 @@ export class Parser {
 	}
 
 	private parseFunctionDeclaration(exported: boolean = false): FunctionDeclaration {
+		let typeParameters: string[] = [];
 		let returnType: DataType | "void" = "void";
 		let startToken = this.peek();
 
-		// Check for return type before Z
+		// Check for type parameters at start: <T, U> ReturnType Z funcName(...)
+		if (this.peek().type === TokenType.LT) {
+			const ltToken = this.advance(); // consume <
+			startToken = ltToken;
+			typeParameters = this.parseTypeParameterList();
+			this.skipNewlines();
+
+			// Add to scope for parsing return type and parameters
+			typeParameters.forEach((tp) => this.typeParamNames.add(tp));
+		}
+
+		// Check for return type before Z (can now reference type parameters)
+		// Check for type parameter return type: T Z or T[] Z
+		if (this.peek().type === TokenType.IDENTIFIER && this.typeParamNames.has(this.peek().value)) {
+			const typeToken = this.advance();
+			startToken = startToken.type === TokenType.LT ? startToken : typeToken;
+			const typeParamType: TypeParameterType = { kind: "typeParameter", name: typeToken.value };
+			// Check for array of type param: T[] Z
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				returnType = { kind: "array", elementType: typeParamType, size };
+			} else {
+				returnType = typeParamType;
+			}
+		}
 		// Check for J return type: J Z or J[] Z
-		if (this.peek().type === TokenType.TYPE_J) {
+		else if (this.peek().type === TokenType.TYPE_J) {
 			const typeToken = this.advance();
 			startToken = typeToken;
 			// Check for array of J: J[] Z
@@ -2016,12 +2187,29 @@ export class Parser {
 		const parameters: Parameter[] = [];
 
 		while (this.peek().type !== TokenType.RPAREN) {
-			// Each parameter is type#name, type[]#name, ti5#name, EnumName#name, or StructName#name
+			// Each parameter is type#name, type[]#name, ti5#name, EnumName#name, StructName#name, or T#name (type param)
 			let paramType: DataType;
 			const paramTypeToken = this.peek();
 
+			// Check for type parameter: T#item or T[]#items
+			if (paramTypeToken.type === TokenType.IDENTIFIER && this.typeParamNames.has(paramTypeToken.value)) {
+				this.advance();
+				const typeParamType: TypeParameterType = { kind: "typeParameter", name: paramTypeToken.value };
+				// Check for array of type param
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance(); // consume [
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					paramType = { kind: "array", elementType: typeParamType, size };
+				} else {
+					paramType = typeParamType;
+				}
+			}
 			// Check for struct parameter type: Person#p or Person[]#people
-			if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
+			else if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
 				this.advance();
 				const structType: StructType = { kind: "struct", name: paramTypeToken.value };
 				// Check for array of struct
@@ -2212,9 +2400,13 @@ export class Parser {
 		this.expect([TokenType.SEMICOLON]);
 		this.skipNewlines();
 
+		// Remove type parameters from scope
+		typeParameters.forEach((tp) => this.typeParamNames.delete(tp));
+
 		return {
 			type: "FunctionDeclaration",
 			name,
+			typeParameters,
 			parameters,
 			returnType,
 			body,
@@ -2833,7 +3025,85 @@ export class Parser {
 
 		// Handle postfix operations: function calls, struct instantiation, index access, method calls
 		while (true) {
-			if (this.peek().type === TokenType.LPAREN) {
+			// Check for generic struct instantiation or function call: Name<Type>(...)
+			if (this.peek().type === TokenType.LT && expr.type === "Identifier") {
+				// Lookahead to check if this is Name<...>(...) pattern
+				const savedPos = this.pos;
+				try {
+					this.advance(); // consume <
+					// Try to parse type arguments
+					const typeArgs = this.parseTypeArgumentList();
+					// Check if followed by (
+					if (this.peek().type === TokenType.LPAREN) {
+						// This is a generic call - determine if struct or function
+						if (this.structNames.has((expr as Identifier).name)) {
+							// Need to re-parse as struct instantiation, but we've already consumed the type args
+							// Pass the type args we just parsed
+							const structName: string = (expr as Identifier).name;
+							this.advance(); // consume (
+							const args: FunctionArgument[] = [];
+							while (this.peek().type !== TokenType.RPAREN) {
+								// Check for named argument: name=value
+								if (this.peek().type === TokenType.IDENTIFIER && this.peekNext()?.type === TokenType.EQUALS) {
+									const argNameToken = this.advance();
+									this.expect([TokenType.EQUALS]);
+									args.push({ name: argNameToken.value, value: this.parseExpression() });
+								} else {
+									args.push({ value: this.parseExpression() });
+								}
+								if (this.peek().type === TokenType.COMMA) {
+									this.advance();
+									this.skipNewlines();
+								}
+							}
+							this.expect([TokenType.RPAREN]);
+							expr = {
+								type: "StructInstantiation",
+								structName,
+								arguments: args,
+								typeArguments: typeArgs,
+								line: token.line,
+								column: token.column,
+							};
+						} else {
+							// Function call with type arguments
+							const funcName: string = (expr as Identifier).name;
+							this.advance(); // consume (
+							const args: FunctionArgument[] = [];
+							while (this.peek().type !== TokenType.RPAREN) {
+								if (this.peek().type === TokenType.IDENTIFIER && this.peekNext()?.type === TokenType.EQUALS) {
+									const argNameToken = this.advance();
+									this.expect([TokenType.EQUALS]);
+									args.push({ name: argNameToken.value, value: this.parseExpression() });
+								} else {
+									args.push({ value: this.parseExpression() });
+								}
+								if (this.peek().type === TokenType.COMMA) {
+									this.advance();
+									this.skipNewlines();
+								}
+							}
+							this.expect([TokenType.RPAREN]);
+							expr = {
+								type: "FunctionCall",
+								name: funcName,
+								arguments: args,
+								typeArguments: typeArgs,
+								line: token.line,
+								column: token.column,
+							};
+						}
+					} else {
+						// Not followed by (, backtrack - it's a comparison
+						this.pos = savedPos;
+						break;
+					}
+				} catch (e) {
+					// Failed to parse type arguments, backtrack - it's a comparison
+					this.pos = savedPos;
+					break;
+				}
+			} else if (this.peek().type === TokenType.LPAREN) {
 				if (expr.type === "Identifier") {
 					// Check if this is a struct instantiation: StructName(...)
 					if (this.structNames.has((expr as Identifier).name)) {
@@ -2912,6 +3182,13 @@ export class Parser {
 	}
 
 	private parseStructInstantiation(nameToken: Token): StructInstantiation {
+		// Check for type arguments before (: StructName<T>(...)
+		let typeArguments: DataType[] | undefined;
+		if (this.peek().type === TokenType.LT) {
+			this.advance(); // consume <
+			typeArguments = this.parseTypeArgumentList();
+		}
+
 		this.advance(); // consume (
 
 		const args: FunctionArgument[] = [];
@@ -2941,6 +3218,7 @@ export class Parser {
 			type: "StructInstantiation",
 			structName: nameToken.value,
 			arguments: args,
+			typeArguments,
 			line: nameToken.line,
 			column: nameToken.column,
 		};
@@ -3066,6 +3344,248 @@ export class Parser {
 		}
 	}
 
+	// Parse type parameter list: < T [, U]* >
+	// Assumes LT already consumed
+	private parseTypeParameterList(): string[] {
+		const typeParams: string[] = [];
+
+		while (this.peek().type !== TokenType.GT) {
+			const nameToken = this.expect([TokenType.IDENTIFIER]);
+			typeParams.push(nameToken.value);
+
+			if (this.peek().type === TokenType.COMMA) {
+				this.advance();
+				this.skipNewlines();
+			} else if (this.peek().type !== TokenType.GT) {
+				throw new Error(`Expected ',' or '>' in type parameter list at line ${this.peek().line}`);
+			}
+		}
+
+		this.expect([TokenType.GT]);
+		return typeParams;
+	}
+
+	// Parse type argument list: < Type [, Type]* >
+	// Assumes LT already consumed
+	private parseTypeArgumentList(): DataType[] {
+		const typeArgs: DataType[] = [];
+
+		while (this.peek().type !== TokenType.GT) {
+			typeArgs.push(this.parseTypeExpression());
+
+			if (this.peek().type === TokenType.COMMA) {
+				this.advance();
+				this.skipNewlines();
+			} else if (this.peek().type !== TokenType.GT) {
+				throw new Error(`Expected ',' or '>' in type argument list at line ${this.peek().line}`);
+			}
+		}
+
+		this.expect([TokenType.GT]);
+		return typeArgs;
+	}
+
+	// Parse a type expression: primitive, struct name, enum name, tuple type, type param, or array
+	private parseTypeExpression(): DataType {
+		const token = this.peek();
+
+		// Type parameter (if in scope)
+		if (token.type === TokenType.IDENTIFIER && this.typeParamNames.has(token.value)) {
+			const paramName = this.advance().value;
+			let dataType: DataType = { kind: "typeParameter", name: paramName };
+
+			// Check for array: T[]
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				dataType = { kind: "array", elementType: dataType, size };
+			}
+
+			return dataType;
+		}
+
+		// Struct or enum type
+		if (token.type === TokenType.IDENTIFIER) {
+			this.advance();
+
+			// Check for primitive type names (s, i, f, b) and J appearing as identifiers
+			if (token.value === "s" || token.value === "i" || token.value === "f" || token.value === "b" || token.value === "J") {
+				// Handle J type
+				if (token.value === "J") {
+					const jType: JType = { kind: "j" };
+
+					// Check for array: J[]
+					if (this.peek().type === TokenType.LBRACKET) {
+						this.advance();
+						let size: number | undefined;
+						if (this.peek().type === TokenType.NUMBER_LITERAL) {
+							size = parseInt(this.advance().value, 10);
+						}
+						this.expect([TokenType.RBRACKET]);
+						return { kind: "array", elementType: jType, size };
+					}
+
+					return jType;
+				}
+
+				// Handle primitive types
+				let primitiveType: PrimitiveType;
+				switch (token.value) {
+					case "s":
+						primitiveType = "string";
+						break;
+					case "i":
+						primitiveType = "int";
+						break;
+					case "f":
+						primitiveType = "float";
+						break;
+					case "b":
+						primitiveType = "bool";
+						break;
+					default:
+						throw new Error(`Unexpected primitive type: ${token.value}`);
+				}
+
+				// Check for array: i[]
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance();
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					return { kind: "array", elementType: primitiveType, size };
+				}
+
+				return primitiveType;
+			}
+
+			if (this.structNames.has(token.value)) {
+				let structType: StructType = { kind: "struct", name: token.value };
+
+				// Check for type arguments: StructName<Type, Type>
+				if (this.peek().type === TokenType.LT) {
+					this.advance(); // consume <
+					structType.typeArguments = this.parseTypeArgumentList();
+				}
+
+				// Check for array: StructName<T>[]
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance();
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					return { kind: "array", elementType: structType, size };
+				}
+
+				return structType;
+			} else if (this.enumNames.has(token.value)) {
+				const enumType: EnumType = { kind: "enum", name: token.value };
+
+				// Check for array
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance();
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					return { kind: "array", elementType: enumType, size };
+				}
+
+				return enumType;
+			} else {
+				throw new Error(`Unknown type '${token.value}' at line ${token.line}`);
+			}
+		}
+
+		// Primitive, J, or tuple type
+		if (this.isTypeToken(token.type)) {
+			this.advance();
+
+			if (token.type === TokenType.TYPE_J) {
+				return { kind: "j" } as JType;
+			}
+
+			if (this.isTupleTypeToken(token.type)) {
+				const elementType = this.tupleTokenToElementType(token);
+				const length = token.tupleLength === "N" ? undefined : parseInt(token.tupleLength!, 10);
+				return { kind: "tuple", elementType, length };
+			}
+
+			const baseType = this.tokenToDataType(token.type);
+
+			// Check for array
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				return { kind: "array", elementType: baseType, size };
+			}
+
+			return baseType;
+		}
+
+		throw new Error(`Expected type at line ${token.line}`);
+	}
+
+	// Speculatively check if current position starts with < Type [, Type]* > followed by one of expectedTokens
+	// Used for disambiguating StructName<Type>#var from comparison
+	private isGenericTypeArgsFollowedBy(expectedTokens: TokenType[]): boolean {
+		const savedPos = this.pos;
+
+		try {
+			// Check if current position has <
+			if (this.peek().type !== TokenType.LT) {
+				return false;
+			}
+			this.advance(); // consume <
+
+			// Scan type arguments
+			while (this.peek().type !== TokenType.GT && this.peek().type !== TokenType.EOF) {
+				// Skip tokens that look like types
+				if (
+					this.isTypeToken(this.peek().type) ||
+					this.peek().type === TokenType.IDENTIFIER ||
+					this.peek().type === TokenType.COMMA ||
+					this.peek().type === TokenType.LBRACKET ||
+					this.peek().type === TokenType.RBRACKET ||
+					this.peek().type === TokenType.NUMBER_LITERAL
+				) {
+					this.advance();
+				} else {
+					// Not a type-like token, probably not type args
+					this.pos = savedPos;
+					return false;
+				}
+			}
+
+			if (this.peek().type !== TokenType.GT) {
+				this.pos = savedPos;
+				return false;
+			}
+			this.advance(); // consume >
+
+			// Check if followed by expected token
+			const result = expectedTokens.includes(this.peek().type);
+			this.pos = savedPos;
+			return result;
+		} catch {
+			this.pos = savedPos;
+			return false;
+		}
+	}
+
 	// Parse compile-time expression: ${expr}
 	private parseCompTimeExpression(): CompTimeExpression {
 		const token = this.peek();
@@ -3145,8 +3665,24 @@ export class Parser {
 			let paramType: DataType;
 			const paramTypeToken = this.peek();
 
+			// Check for type parameter: T#item or T[]#items
+			if (paramTypeToken.type === TokenType.IDENTIFIER && this.typeParamNames.has(paramTypeToken.value)) {
+				this.advance();
+				paramType = { kind: "typeParameter", name: paramTypeToken.value };
+
+				// Check for array of type param: T[]
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance();
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					paramType = { kind: "array", elementType: paramType, size };
+				}
+			}
 			// Check for struct parameter type: Person#p or Person[]#people
-			if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
+			else if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
 				this.advance();
 				const structType: StructType = { kind: "struct", name: paramTypeToken.value };
 				if (this.peek().type === TokenType.LBRACKET) {

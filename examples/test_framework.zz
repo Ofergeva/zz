@@ -1,0 +1,53 @@
+// Test the testing framework itself
+<- { assert, assertEqual, assertEqualStr, assertApprox, assertFalse, assertContains, skip } = std/test
+
+// Basic assertion tests
+print("Running tests...")
+print("")
+
+// Test assert
+assert(true, "should be true")
+print("✓ assert(true)")
+
+// Test assertEqual
+assertEqual(5, 5, "5 should equal 5")
+assertEqual(100, 100, "100 should equal 100")
+print("✓ assertEqual integers")
+
+// Test assertEqualStr
+assertEqualStr("hello", "hello", "strings should match")
+assertEqualStr("world", "world", "another string test")
+print("✓ assertEqualStr strings")
+
+// Test assertApprox
+assertApprox(3.14159, 3.14, 0.01, "pi approximation")
+assertApprox(2.71828, 2.72, 0.01, "e approximation")
+print("✓ assertApprox floats")
+
+// Test assertFalse
+assertFalse(false, "false should be false")
+assertFalse(1 > 2, "1 > 2 should be false")
+print("✓ assertFalse")
+
+// Test assertContains
+assertContains("hello world", "world", "should contain world")
+assertContains("testing framework", "test", "should contain test")
+print("✓ assertContains")
+
+// Skip example
+skip("This test is skipped for demonstration")
+
+// Math tests
+assertEqual(2 + 2, 4, "addition")
+assertEqual(10 - 3, 7, "subtraction")
+assertEqual(6 * 7, 42, "multiplication")
+print("✓ math operations")
+
+// String tests
+s#greeting = "Hello"
+s#name = "World"
+assertEqualStr(s"{greeting}, {name}!", "Hello, World!", "interpolation")
+print("✓ string interpolation")
+
+print("")
+print("All framework tests passed!")
