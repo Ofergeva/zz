@@ -23,3 +23,7 @@ export function isJType(type) {
 export function isPrimitiveType(type) {
     return typeof type === "string";
 }
+// Helper to check if a type is a valid array element type
+export function isArrayElementType(type) {
+    return isPrimitiveType(type) || isStructType(type) || isEnumType(type) || isJType(type) || isTupleType(type);
+}

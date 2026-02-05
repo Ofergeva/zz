@@ -76,6 +76,9 @@ export declare class Parser {
     private isTupleTypeToken;
     private tupleTokenToElementType;
     private tokenToDataType;
+    private parseCompTimeExpression;
+    private parseCompTimeFunctionDeclaration;
+    private tryParseExpression;
     private peek;
     private peekNext;
     private advance;

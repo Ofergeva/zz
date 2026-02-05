@@ -1,5 +1,5 @@
 // Type Checker for ZZ Language
-import { isArrayType, isTupleType, isPrimitiveType, isEnumType, isStructType, isJType, } from "./ast.js";
+import { isArrayType, isTupleType, isPrimitiveType, isEnumType, isStructType, isJType, isArrayElementType, } from "./ast.js";
 export class TypeChecker {
     variables = new Map();
     functions = new Map();
@@ -9,6 +9,10 @@ export class TypeChecker {
     loopDepth = 0; // Track if we're inside a loop
     currentStructName = null; // Track current struct for method body checking
     moduleTypes;
+    // Compile-time execution tracking
+    comptimeContext = false; // True when inside ${} or $Z body
+    comptimeFunctions = new Map(); // $Z function declarations
+    comptimeVariables = new Map(); // Variables declared in CT context
     constructor(moduleTypes) {
         this.moduleTypes = moduleTypes ?? new Map();
     }
@@ -24,13 +28,16 @@ export class TypeChecker {
             methods: new Map([["onError", { parameters: [{ dataType: "string", name: "handler" }], returnType: { kind: "struct", name: "Spawn" } }]]),
             line: 0,
         });
-        // First pass: collect enum and struct declarations
+        // First pass: collect enum, struct, and compile-time function declarations
         for (const statement of program.statements) {
             if (statement.type === "EnumDeclaration") {
                 this.registerEnum(statement);
             }
             else if (statement.type === "StructDeclaration") {
                 this.registerStruct(statement);
+            }
+            else if (statement.type === "CompTimeFunctionDeclaration") {
+                this.registerCompTimeFunction(statement);
             }
         }
         // Second pass: check all statements
@@ -89,6 +96,48 @@ export class TypeChecker {
             methods: methodMap,
             line: decl.line,
         });
+    }
+    registerCompTimeFunction(decl) {
+        if (this.comptimeFunctions.has(decl.name)) {
+            this.errors.push(`Duplicate compile-time function '$Z ${decl.name}' at line ${decl.line}.`);
+            return;
+        }
+        this.comptimeFunctions.set(decl.name, {
+            parameters: decl.parameters,
+            returnType: decl.returnType,
+            line: decl.line,
+        });
+    }
+    checkCompTimeFunctionDeclaration(decl) {
+        // Save current scope
+        const savedVariables = new Map(this.variables);
+        const savedComptimeContext = this.comptimeContext;
+        // Enter compile-time context
+        this.comptimeContext = true;
+        // Add parameters to scope (all immutable)
+        for (const param of decl.parameters) {
+            this.variables.set(param.name, {
+                dataType: param.dataType,
+                mutability: "immutable",
+                line: decl.line,
+            });
+        }
+        // Check body
+        for (const stmt of decl.body) {
+            this.checkStatement(stmt);
+        }
+        // Check return expression if present
+        if (decl.returnExpression) {
+            const exprType = this.inferExpressionType(decl.returnExpression);
+            if (decl.returnType !== "void" && exprType !== null) {
+                if (!this.typesCompatible(exprType, decl.returnType)) {
+                    this.errors.push(`Compile-time function '$Z ${decl.name}' returns '${this.typeToString(exprType)}' but declared return type is '${this.typeToString(decl.returnType)}' at line ${decl.line}.`);
+                }
+            }
+        }
+        // Restore scope
+        this.variables = savedVariables;
+        this.comptimeContext = savedComptimeContext;
     }
     validateFieldType(dataType, structName, line) {
         if (isPrimitiveType(dataType)) {
@@ -189,6 +238,10 @@ export class TypeChecker {
                 break;
             case "JSBlockStatement":
                 // Raw JavaScript injection - skip type checking
+                break;
+            case "CompTimeFunctionDeclaration":
+                // Already registered in first pass, check the body
+                this.checkCompTimeFunctionDeclaration(statement);
                 break;
         }
     }
@@ -419,8 +472,8 @@ export class TypeChecker {
         // Get the array's element type and verify the value matches
         if (containerType && isArrayType(containerType)) {
             const valueType = this.inferExpressionType(stmt.value);
-            if (valueType && isPrimitiveType(valueType) && valueType !== containerType.elementType) {
-                this.errors.push(`Type mismatch at line ${stmt.line}: cannot assign ${valueType} to ${containerType.elementType} array element.`);
+            if (valueType && !this.typesEqual(valueType, containerType.elementType)) {
+                this.errors.push(`Type mismatch at line ${stmt.line}: cannot assign ${this.typeToString(valueType)} to ${this.typeToString(containerType.elementType)} array element.`);
             }
         }
     }
@@ -786,6 +839,27 @@ export class TypeChecker {
         this.variables = savedVariables;
     }
     checkFunctionCall(call, line) {
+        // Handle compile-time built-in functions ($read, $env, etc.)
+        if (call.name.startsWith("$")) {
+            const validBuiltins = ["$read", "$env", "$defined", "$line", "$file", "$date", "$time"];
+            if (!validBuiltins.includes(call.name)) {
+                this.errors.push(`Unknown compile-time built-in function '${call.name}' at line ${line}.`);
+            }
+            // Validate argument expressions
+            for (const arg of call.arguments) {
+                this.checkExpression(arg.value, line);
+            }
+            return;
+        }
+        // Handle compile-time function calls ($Z functions)
+        const ctFuncInfo = this.comptimeFunctions.get(call.name);
+        if (ctFuncInfo) {
+            // Validate arguments for CT function
+            for (const arg of call.arguments) {
+                this.checkExpression(arg.value, line);
+            }
+            return;
+        }
         const funcInfo = this.functions.get(call.name);
         if (!funcInfo) {
             this.errors.push(`Undeclared function '${call.name}' at line ${line}.`);
@@ -1053,8 +1127,8 @@ export class TypeChecker {
                         }
                         else {
                             const argType = this.inferExpressionType(expr.arguments[0]);
-                            if (argType && isPrimitiveType(argType) && argType !== objectType.elementType) {
-                                this.errors.push(`Type mismatch at line ${line}: cannot push ${argType} to ${objectType.elementType} array.`);
+                            if (argType && !this.typesEqual(argType, objectType.elementType)) {
+                                this.errors.push(`Type mismatch at line ${line}: cannot push ${this.typeToString(argType)} to ${this.typeToString(objectType.elementType)} array.`);
                             }
                         }
                     }
@@ -1207,6 +1281,56 @@ export class TypeChecker {
                 this.checkExpression(expr.call, line);
             }
         }
+        else if (expr.type === "CompTimeExpression") {
+            // Check the inner expression in compile-time context
+            const savedContext = this.comptimeContext;
+            this.comptimeContext = true;
+            this.checkCompTimeInnerExpression(expr.expression, line);
+            this.comptimeContext = savedContext;
+        }
+    }
+    checkCompTimeInnerExpression(expr, line) {
+        // First do standard expression checking
+        this.checkExpression(expr, line);
+        // Additional compile-time specific checks
+        if (expr.type === "Identifier") {
+            // In compile-time context, check if it's a CT variable or CT function
+            const name = expr.name;
+            // Allow CT built-in functions (start with $)
+            if (name.startsWith("$")) {
+                const validBuiltins = ["$read", "$env", "$defined", "$line", "$file", "$date", "$time"];
+                if (!validBuiltins.includes(name)) {
+                    this.errors.push(`Unknown compile-time built-in function '${name}' at line ${line}. Valid: ${validBuiltins.join(", ")}.`);
+                }
+                return;
+            }
+            // Check if it's a CT function
+            if (this.comptimeFunctions.has(name)) {
+                return; // Valid CT function reference
+            }
+            // Check if it's a CT variable (added during $Z function body checking)
+            if (this.variables.has(name)) {
+                return; // Valid variable in current CT scope
+            }
+            // Runtime variables are not accessible in CT context
+            // (Already caught by regular checkExpression if undefined)
+        }
+        // Check function calls
+        if (expr.type === "FunctionCall") {
+            const name = expr.name;
+            // Allow CT built-in functions
+            if (name.startsWith("$")) {
+                return;
+            }
+            // Allow CT function calls
+            if (this.comptimeFunctions.has(name)) {
+                return;
+            }
+            // Disallow runtime function calls in CT context
+            if (this.functions.has(name)) {
+                this.errors.push(`Cannot call runtime function '${name}' in compile-time context at line ${line}. Only $Z functions and built-in $ functions are allowed.`);
+            }
+        }
     }
     checkStructInstantiation(expr, line) {
         const structInfo = this.structs.get(expr.structName);
@@ -1287,9 +1411,9 @@ export class TypeChecker {
         if (isPrimitiveType(a) && isPrimitiveType(b)) {
             return a === b;
         }
-        // Both arrays
+        // Both arrays - use recursive typesEqual for element types (handles complex types)
         if (isArrayType(a) && isArrayType(b)) {
-            return a.elementType === b.elementType;
+            return this.typesEqual(a.elementType, b.elementType);
         }
         // Both tuples
         if (isTupleType(a) && isTupleType(b)) {
@@ -1346,7 +1470,7 @@ export class TypeChecker {
             return type.name;
         }
         if (isArrayType(type)) {
-            return `${type.elementType}[]`;
+            return `${this.typeToString(type.elementType)}[]`;
         }
         if (isJType(type)) {
             return "J";
@@ -1411,7 +1535,8 @@ export class TypeChecker {
                     return { kind: "array", elementType: "int" };
                 }
                 const firstElemType = this.inferExpressionType(expr.elements[0]);
-                if (firstElemType && isPrimitiveType(firstElemType)) {
+                // Handle all valid array element types (primitives, structs, enums, J, tuples)
+                if (firstElemType && isArrayElementType(firstElemType)) {
                     return { kind: "array", elementType: firstElemType };
                 }
                 return { kind: "array", elementType: "int" };
@@ -1646,6 +1771,9 @@ export class TypeChecker {
                 return null;
             case "SpawnExpression":
                 return { kind: "struct", name: "Spawn" };
+            case "CompTimeExpression":
+                // The type of a compile-time expression is the type of its inner expression
+                return this.inferExpressionType(expr.expression);
             default:
                 return null;
         }

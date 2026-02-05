@@ -39,6 +39,8 @@ import {
 	JField,
 	JPattern,
 	isJType,
+	CompTimeExpression,
+	CompTimeValue,
 } from "./ast.js";
 
 export interface CodeGenOptions {
@@ -154,6 +156,9 @@ export class CodeGenerator {
 				return this.generateMatchExpression(statement);
 			case "JSBlockStatement":
 				return (statement as JSBlockStatement).code;
+			case "CompTimeFunctionDeclaration":
+				// Compile-time functions are not emitted to output
+				return "";
 		}
 	}
 
@@ -612,6 +617,38 @@ ${methods}
 					// MethodCall — generate without await
 					return `new Spawn(${this.generateMethodCallCodeWithoutAwait(expr.call)})`;
 				}
+			}
+			case "CompTimeExpression": {
+				// The evaluator should have set evaluatedValue
+				if (expr.evaluatedValue) {
+					return this.serializeCompTimeValue(expr.evaluatedValue);
+				}
+				// Fallback: if not evaluated, emit null (shouldn't happen if evaluator ran)
+				return "null";
+			}
+		}
+	}
+
+	private serializeCompTimeValue(value: CompTimeValue): string {
+		switch (value.kind) {
+			case "int":
+			case "float":
+				return value.value.toString();
+			case "string":
+				return JSON.stringify(value.value);
+			case "bool":
+				return value.value.toString();
+			case "null":
+				return "null";
+			case "array":
+				return `[${value.values.map((v) => this.serializeCompTimeValue(v)).join(", ")}]`;
+			case "tuple":
+				return `Object.freeze([${value.values.map((v) => this.serializeCompTimeValue(v)).join(", ")}])`;
+			case "j": {
+				const fields = value.fields
+					.map((f) => `${JSON.stringify(f.key)}: ${this.serializeCompTimeValue(f.value)}`)
+					.join(", ");
+				return `{${fields}}`;
 			}
 		}
 	}

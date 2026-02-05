@@ -4,10 +4,13 @@ export type PrimitiveType = "string" | "int" | "float" | "bool";
 export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType;
 export type Mutability = "immutable" | "mutable";
 
+// Element types allowed in arrays (primitives + complex types)
+export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType;
+
 // Array type: element type + optional fixed size
 export interface ArrayType {
 	kind: "array";
-	elementType: PrimitiveType;
+	elementType: ArrayElementType;
 	size?: number; // Optional fixed size (e.g., i[5])
 }
 
@@ -65,6 +68,11 @@ export function isPrimitiveType(type: DataType): type is PrimitiveType {
 	return typeof type === "string";
 }
 
+// Helper to check if a type is a valid array element type
+export function isArrayElementType(type: DataType): type is ArrayElementType {
+	return isPrimitiveType(type) || isStructType(type) || isEnumType(type) || isJType(type) || isTupleType(type);
+}
+
 // Base interface for all AST nodes
 export interface ASTNode {
 	type: string;
@@ -102,7 +110,8 @@ export type Statement =
 	| EnumDeclaration
 	| StructDeclaration
 	| MatchExpression
-	| JSBlockStatement;
+	| JSBlockStatement
+	| CompTimeFunctionDeclaration;
 
 export interface VariableDeclaration extends ASTNode {
 	type: "VariableDeclaration";
@@ -202,7 +211,8 @@ export type Expression =
 	| StructInstantiation
 	| MatchExpression
 	| SpawnExpression
-	| JLiteral;
+	| JLiteral
+	| CompTimeExpression;
 
 export interface StringLiteral extends ASTNode {
 	type: "StringLiteral";
@@ -551,6 +561,34 @@ export interface JSBlockStatement extends ASTNode {
 export interface SpawnExpression extends ASTNode {
 	type: "SpawnExpression";
 	call: FunctionCall | MethodCall;
+}
+
+// Compile-time value: result of evaluating a compile-time expression
+export type CompTimeValue =
+	| { kind: "int"; value: number }
+	| { kind: "float"; value: number }
+	| { kind: "string"; value: string }
+	| { kind: "bool"; value: boolean }
+	| { kind: "null" }
+	| { kind: "array"; elementType: PrimitiveType; values: CompTimeValue[] }
+	| { kind: "tuple"; elementType: PrimitiveType; values: CompTimeValue[] }
+	| { kind: "j"; fields: { key: string; value: CompTimeValue }[] };
+
+// Compile-time expression: ${expr}
+export interface CompTimeExpression extends ASTNode {
+	type: "CompTimeExpression";
+	expression: Expression;
+	evaluatedValue?: CompTimeValue; // Filled by evaluator phase
+}
+
+// Compile-time function declaration: $Z name(params) body;
+export interface CompTimeFunctionDeclaration extends ASTNode {
+	type: "CompTimeFunctionDeclaration";
+	name: string;
+	parameters: Parameter[];
+	returnType: DataType | "void";
+	body: Statement[];
+	returnExpression: Expression | null;
 }
 
 // Type information extracted from an imported .zz module

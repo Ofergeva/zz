@@ -80,6 +80,8 @@ export declare enum TokenType {
     TRUE = "TRUE",
     FALSE = "FALSE",
     JS_BLOCK = "JS_BLOCK",// $js { ... }
+    COMPTIME_START = "COMPTIME_START",// ${
+    COMPTIME_FUNC = "COMPTIME_FUNC",// $Z
     IDENTIFIER = "IDENTIFIER",
     NEWLINE = "NEWLINE",
     EOF = "EOF"
@@ -102,6 +104,7 @@ export declare class Lexer {
     private readString;
     private readInterpolatedString;
     private readJsBlock;
+    private readCompTimeIdentifier;
     private readNumber;
     private readIdentifier;
     private skipWhitespace;

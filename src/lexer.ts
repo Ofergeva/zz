@@ -120,6 +120,10 @@ export enum TokenType {
 	// JS injection
 	JS_BLOCK = "JS_BLOCK", // $js { ... }
 
+	// Compile-time execution
+	COMPTIME_START = "COMPTIME_START", // ${
+	COMPTIME_FUNC = "COMPTIME_FUNC", // $Z
+
 	// Other
 	IDENTIFIER = "IDENTIFIER",
 	NEWLINE = "NEWLINE",
@@ -420,13 +424,31 @@ export class Lexer {
 			return this.makeToken(TokenType.NULL, "_");
 		}
 
-		// JS injection block: $js { ... }
+		// $ prefix: $js { ... }, ${ ... }, $Z, $read, $env, etc.
 		if (char === "$") {
-			if (this.source[this.pos + 1] === "j" && this.source[this.pos + 2] === "s") {
+			const next = this.source[this.pos + 1];
+			// $js { ... } - raw JS injection
+			if (next === "j" && this.source[this.pos + 2] === "s") {
 				return this.readJsBlock();
 			}
+			// ${ ... } - compile-time expression
+			if (next === "{") {
+				this.advance(); // consume $
+				this.advance(); // consume {
+				return this.makeToken(TokenType.COMPTIME_START, "${");
+			}
+			// $Z - compile-time function declaration
+			if (next === "Z" && !this.isAlphaNumeric(this.source[this.pos + 2] || "")) {
+				this.advance(); // consume $
+				this.advance(); // consume Z
+				return this.makeToken(TokenType.COMPTIME_FUNC, "$Z");
+			}
+			// $identifier - compile-time built-in function (e.g., $read, $env, $line)
+			if (this.isAlpha(next)) {
+				return this.readCompTimeIdentifier();
+			}
 			throw new Error(
-				`Unexpected character '$' at line ${this.line}, column ${this.column}. Did you mean '$js { ... }'?`,
+				`Unexpected character '$' at line ${this.line}, column ${this.column}. Expected '$js { ... }', '\${...}', '$Z', or a compile-time function like '$read', '$env'.`,
 			);
 		}
 
@@ -570,6 +592,20 @@ export class Lexer {
 		return { type: TokenType.JS_BLOCK, value: code.trim(), line: startLine, column: startColumn };
 	}
 
+	private readCompTimeIdentifier(): Token {
+		const startColumn = this.column;
+		this.advance(); // consume $
+
+		let value = "$";
+		while (!this.isAtEnd() && this.isAlphaNumeric(this.peek())) {
+			value += this.peek();
+			this.advance();
+		}
+
+		// Return as IDENTIFIER - parser will validate it's a valid CT built-in
+		return { type: TokenType.IDENTIFIER, value, line: this.line, column: startColumn };
+	}
+
 	private readNumber(): Token {
 		const startColumn = this.column;
 		let value = "";
@@ -623,8 +659,8 @@ export class Lexer {
 				};
 			}
 
-			// Tuple type declaration: ti5#, tfN~, etc.
-			if (next === "#" || next === "~") {
+			// Tuple type declaration: ti5#, tfN~, etc. or tuple array: ti5[], ti3[]#
+			if (next === "#" || next === "~" || next === "[") {
 				return { type: tupleTypeToken, value, line: this.line, column: startColumn, tupleLength: lengthSpec };
 			}
 

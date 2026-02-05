@@ -1,9 +1,10 @@
 export type PrimitiveType = "string" | "int" | "float" | "bool";
 export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType;
 export type Mutability = "immutable" | "mutable";
+export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType;
 export interface ArrayType {
     kind: "array";
-    elementType: PrimitiveType;
+    elementType: ArrayElementType;
     size?: number;
 }
 export interface TupleType {
@@ -28,6 +29,7 @@ export declare function isEnumType(type: DataType): type is EnumType;
 export declare function isStructType(type: DataType): type is StructType;
 export declare function isJType(type: DataType): type is JType;
 export declare function isPrimitiveType(type: DataType): type is PrimitiveType;
+export declare function isArrayElementType(type: DataType): type is ArrayElementType;
 export interface ASTNode {
     type: string;
     line: number;
@@ -37,7 +39,7 @@ export interface Program extends ASTNode {
     type: "Program";
     statements: Statement[];
 }
-export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | ForEachStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression | JSBlockStatement;
+export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | ForEachStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression | JSBlockStatement | CompTimeFunctionDeclaration;
 export interface VariableDeclaration extends ASTNode {
     type: "VariableDeclaration";
     dataType: DataType;
@@ -93,7 +95,7 @@ export interface TryStatement extends ASTNode {
     catchVariable: string;
     catchBody: Statement[];
 }
-export type Expression = StringLiteral | NumberLiteral | BoolLiteral | NullLiteral | Identifier | BinaryExpression | UnaryExpression | InterpolatedString | CastExpression | FunctionCall | ArrayLiteral | TupleLiteral | RangeExpression | IndexAccess | MethodCall | MemberExpression | EnumAccess | StructInstantiation | MatchExpression | SpawnExpression | JLiteral;
+export type Expression = StringLiteral | NumberLiteral | BoolLiteral | NullLiteral | Identifier | BinaryExpression | UnaryExpression | InterpolatedString | CastExpression | FunctionCall | ArrayLiteral | TupleLiteral | RangeExpression | IndexAccess | MethodCall | MemberExpression | EnumAccess | StructInstantiation | MatchExpression | SpawnExpression | JLiteral | CompTimeExpression;
 export interface StringLiteral extends ASTNode {
     type: "StringLiteral";
     value: string;
@@ -351,6 +353,48 @@ export interface JSBlockStatement extends ASTNode {
 export interface SpawnExpression extends ASTNode {
     type: "SpawnExpression";
     call: FunctionCall | MethodCall;
+}
+export type CompTimeValue = {
+    kind: "int";
+    value: number;
+} | {
+    kind: "float";
+    value: number;
+} | {
+    kind: "string";
+    value: string;
+} | {
+    kind: "bool";
+    value: boolean;
+} | {
+    kind: "null";
+} | {
+    kind: "array";
+    elementType: PrimitiveType;
+    values: CompTimeValue[];
+} | {
+    kind: "tuple";
+    elementType: PrimitiveType;
+    values: CompTimeValue[];
+} | {
+    kind: "j";
+    fields: {
+        key: string;
+        value: CompTimeValue;
+    }[];
+};
+export interface CompTimeExpression extends ASTNode {
+    type: "CompTimeExpression";
+    expression: Expression;
+    evaluatedValue?: CompTimeValue;
+}
+export interface CompTimeFunctionDeclaration extends ASTNode {
+    type: "CompTimeFunctionDeclaration";
+    name: string;
+    parameters: Parameter[];
+    returnType: DataType | "void";
+    body: Statement[];
+    returnExpression: Expression | null;
 }
 export interface ImportedModuleInfo {
     functions: Map<string, {

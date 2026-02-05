@@ -8,6 +8,7 @@ import { Lexer, TokenType } from "./lexer.js";
 import { Parser } from "./parser.js";
 import { TypeChecker } from "./typechecker.js";
 import { CodeGenerator } from "./codegen.js";
+import { CompTimeEvaluator } from "./evaluator.js";
 // Scan tokens for struct/enum names (same logic as Parser.collectTypeNames)
 function collectTypeNamesFromTokens(tokens) {
     const structNames = new Set();
@@ -181,9 +182,16 @@ function compile(source, filename, codeGenOptions) {
     const ast = parser.parse();
     // Step 3: Type checking
     const typeChecker = new TypeChecker(moduleTypes);
-    const errors = typeChecker.check(ast);
-    if (errors.length > 0) {
-        return { js: "", errors };
+    const typeErrors = typeChecker.check(ast);
+    if (typeErrors.length > 0) {
+        return { js: "", errors: typeErrors };
+    }
+    // Step 3.5: Compile-time evaluation
+    const sourceDir = codeGenOptions?.sourceDir || ".";
+    const evaluator = new CompTimeEvaluator(sourceDir, filename);
+    const evalErrors = evaluator.evaluate(ast);
+    if (evalErrors.length > 0) {
+        return { js: "", errors: evalErrors };
     }
     // Step 4: Code generation
     const codeGen = new CodeGenerator(codeGenOptions);

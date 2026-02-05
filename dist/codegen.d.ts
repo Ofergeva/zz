@@ -35,6 +35,7 @@ export declare class CodeGenerator {
     private generateFunctionDeclaration;
     private generateFunctionCallCode;
     private generateExpression;
+    private serializeCompTimeValue;
     private generateMethodCallCodeWithoutAwait;
     private generateMatchExpression;
     private generatePatternCondition;

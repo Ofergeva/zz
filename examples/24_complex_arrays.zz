@@ -1,0 +1,53 @@
+// Complex Array Types Examples
+
+// === Struct Arrays ===
+S Point
+  i#x
+  i#y
+;
+
+Point[]~points = [Point(1, 2), Point(3, 4)]
+print(s"First point x: {points[0].x}")
+print(s"First point y: {points[0].y}")
+points.push(Point(5, 6))
+print(s"Points length: {points.len()}")
+
+// === Enum Arrays ===
+E Color Red Green Blue ;
+
+Color[]~colors = [Color.Red, Color.Green, Color.Blue]
+print(s"Colors length: {colors.len()}")
+
+// === J Object Arrays ===
+J[]~configs = [{ host: "localhost", port: 8080 }, { host: "remote", port: 443 }]
+print(s"First config host: {configs[0].host}")
+configs.push({ host: "new", port: 9000 })
+print(s"Configs length: {configs.len()}")
+
+// === Tuple Arrays ===
+ti3[]~coords = [(1, 2, 3), (4, 5, 6)]
+print(s"First coord y: {coords[0][1]}")
+coords.push((7, 8, 9))
+print(s"Coords length: {coords.len()}")
+
+// === Function with Complex Array Parameters ===
+Z printPoints(Point[]#pts)
+  i#len = pts.len()
+  i~idx = 0
+  @(idx < len)
+    print(s"  Point({pts[idx].x}, {pts[idx].y})")
+    idx = idx + 1
+  ;
+;
+
+print("All points:")
+printPoints(points)
+
+// === Function returning Complex Array ===
+Point[] Z makePoints()
+  [Point(10, 20), Point(30, 40)]
+;
+
+Point[]#newPoints = makePoints()
+print(s"New points length: {newPoints.len()}")
+print(s"New point 0 x: {newPoints[0].x}")

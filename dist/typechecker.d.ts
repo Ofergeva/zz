@@ -8,10 +8,15 @@ export declare class TypeChecker {
     private loopDepth;
     private currentStructName;
     private moduleTypes;
+    private comptimeContext;
+    private comptimeFunctions;
+    private comptimeVariables;
     constructor(moduleTypes?: Map<string, ImportedModuleInfo>);
     check(program: Program): string[];
     private registerEnum;
     private registerStruct;
+    private registerCompTimeFunction;
+    private checkCompTimeFunctionDeclaration;
     private validateFieldType;
     private checkStatement;
     private checkStructDeclaration;
@@ -37,6 +42,7 @@ export declare class TypeChecker {
     private checkFunctionDeclaration;
     private checkFunctionCall;
     private checkExpression;
+    private checkCompTimeInnerExpression;
     private checkStructInstantiation;
     private isNumeric;
     private isValidJValueType;

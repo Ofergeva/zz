@@ -29,8 +29,9 @@ src/
 ├── lexer.ts       # Tokenizer (100+ token types)
 ├── parser.ts      # Recursive descent parser
 ├── ast.ts         # AST node type definitions
-├── codegen.ts     # JavaScript code generator
-└── typechecker.ts # Static type validation
+├── typechecker.ts # Static type validation
+├── evaluator.ts   # Compile-time expression evaluator
+└── codegen.ts     # JavaScript code generator
 
 examples/          # Example .zz files with compiled/ output
 editors/           # Vim, Sublime syntax highlighting
@@ -42,7 +43,8 @@ vscode-zz/         # VS Code extension
 1. **Lexer** → Tokens
 2. **Parser** → AST
 3. **Type Checker** → Validation
-4. **Code Generator** → JavaScript
+4. **Evaluator** → Compile-time expression evaluation
+5. **Code Generator** → JavaScript
 
 ## Language Syntax Quick Reference
 
@@ -51,11 +53,49 @@ vscode-zz/         # VS Code extension
 - `s#name = "text"` → `const name = "text"` (string, immutable)
 - `i~count = 0` → `let count = 0` (int, mutable)
 - Primitives: `s` (string), `i` (int), `f` (float), `b` (bool)
-- Arrays: `i[]` (dynamic), `i[5]` (fixed-size)
+- Arrays: `i[]` (dynamic), `i[5]` (fixed-size), supports complex element types
 - Tuples: `ti5` (5 ints), `tiN` (inferred length), always immutable
 - J objects: `J#config = { host: "localhost", port: 8080 }` (JSON-like, string-keyed)
 - Null: `_` (no undefined in ZZ)
 - String interpolation: `s"Hello, {name}!"`
+
+### Arrays of Complex Types
+
+Arrays can contain structs, enums, J objects, and tuples:
+
+```zz
+// Struct arrays
+S Point i#x i#y ;
+Point[]~points = [Point(1, 2), Point(3, 4)]
+points.push(Point(5, 6))
+print(points[0].x)
+
+// Enum arrays
+E Color Red Green Blue ;
+Color[]~colors = [Color.Red, Color.Green]
+
+// J object arrays
+J[]~configs = [{ host: "a" }, { host: "b" }]
+configs.push({ host: "c" })
+
+// Tuple arrays
+ti3[]~coords = [(1, 2, 3), (4, 5, 6)]
+coords.push((7, 8, 9))
+
+// Function with complex array parameter
+Z printPoints(Point[]#pts)
+  @(p#pts) print(s"({p.x}, {p.y})") ;
+;
+
+// Function returning complex array
+Point[] Z makePoints()
+  [Point(10, 20), Point(30, 40)]
+;
+```
+
+- All array methods (`push`, `pop`, `len`) work with complex element types
+- Type checking ensures correct element types for push and index assignment
+- Fixed-size arrays (`Point[3]#`) cannot use `push` or `pop`
 
 ### Control Flow
 
@@ -171,6 +211,69 @@ Z printHost(J#cfg)
 - No type checking on injected code
 - No trailing `;` needed — `}` terminates the block
 - ZZ-defined variables are accessible in the JS block
+
+### Compile-Time Execution
+
+Code inside `${}` is evaluated at compile time and substituted with literal values.
+
+```zz
+// Basic arithmetic - evaluated at compile time
+i#computed = ${2 + 3 * 4}        // → const computed = 14;
+
+// String operations
+s#greeting = ${"Hello" + ", World!"}
+
+// Environment variables
+s#env = ${$env("NODE_ENV", "development")}
+
+// Build metadata
+s#buildDate = ${$date()}
+i#lineNum = ${$line()}
+```
+
+**Compile-time functions** (`$Z`):
+```zz
+$Z i factorial(i#n)
+  ??(n)
+    | 0 => 1
+    | 1 => 1
+    | _ => n * factorial(n - 1)
+  ;
+;
+
+i#fact5 = ${factorial(5)}        // → const fact5 = 120;
+```
+
+**Rules:**
+- `$Z` functions can only call other `$Z` functions (no runtime function calls)
+- Inside `$Z` body, calls to `$Z` functions are implicitly compile-time
+- Runtime code must use `${}` to call `$Z` functions
+- `$Z` functions are NOT emitted to JS output
+
+**Allowed at compile time:**
+- Literals, arithmetic, string operations, comparisons, logical ops
+- Match expressions (pattern matching)
+- Array/tuple/J literals with compile-time elements
+- Calls to `$Z` functions and built-in `$` functions
+
+**Forbidden at compile time:**
+- Runtime variable references
+- Runtime function calls (regular `Z` functions)
+- Side effects: `print()`, `error()`, file writes
+- Mutability: no `~` variables in compile-time context
+
+**Built-in compile-time functions:**
+
+| Function | Description |
+|----------|-------------|
+| `$read(path)` | Read file contents at compile time |
+| `$env(name)` | Get environment variable |
+| `$env(name, default)` | Get env var with default |
+| `$defined(name)` | Check if env var exists |
+| `$line()` | Current source line number |
+| `$file()` | Current source file name |
+| `$date()` | Compile date (ISO format) |
+| `$time()` | Compile time (ISO format) |
 
 ### Modules
 

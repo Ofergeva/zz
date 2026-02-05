@@ -123,17 +123,21 @@ node dist/index.js yourfile.zz --ast
 
 ### Types
 
-| Prefix  | Type             | Example                       |
-| ------- | ---------------- | ----------------------------- |
-| `s`     | string           | `s#name = "hello"`            |
-| `i`     | int              | `i#count = 42`                |
-| `f`     | float            | `f#pi = 3.14`                 |
-| `b`     | bool             | `b#flag = true`               |
-| `i[]`   | int array        | `i[]#nums = [1, 2, 3]`        |
-| `ti5`   | tuple of 5 ints  | `ti5#point = (1, 2, 3, 4, 5)` |
-| `tiN`   | tuple (inferred) | `tiN#vals = (1, 2, 3)`        |
-| `Color` | enum type        | `Color#c = Color.Red`         |
-| `J`     | JSON-like object | `J#config = { port: 8080 }`   |
+| Prefix    | Type               | Example                            |
+| --------- | ------------------ | ---------------------------------- |
+| `s`       | string             | `s#name = "hello"`                 |
+| `i`       | int                | `i#count = 42`                     |
+| `f`       | float              | `f#pi = 3.14`                      |
+| `b`       | bool               | `b#flag = true`                    |
+| `i[]`     | int array          | `i[]#nums = [1, 2, 3]`             |
+| `ti5`     | tuple of 5 ints    | `ti5#point = (1, 2, 3, 4, 5)`      |
+| `tiN`     | tuple (inferred)   | `tiN#vals = (1, 2, 3)`             |
+| `Color`   | enum type          | `Color#c = Color.Red`              |
+| `J`       | JSON-like object   | `J#config = { port: 8080 }`        |
+| `Point[]` | struct array       | `Point[]#pts = [Point(1,2)]`       |
+| `Color[]` | enum array         | `Color[]#cols = [Color.Red]`       |
+| `J[]`     | J object array     | `J[]#cfgs = [{ host: "a" }]`       |
+| `ti3[]`   | tuple array        | `ti3[]#coords = [(1,2,3)]`         |
 
 ### Mutability
 
@@ -504,6 +508,44 @@ i#last = arr.pop()    // returns 4, arr is now [1, 2, 3]
 ```
 
 **Note:** `push` and `pop` only work on dynamic arrays (`i[]`). Fixed-size arrays (`i[5]`) will produce a compile error if you try to use these methods.
+
+### Arrays of Complex Types
+
+Arrays can contain structs, enums, J objects, and tuples:
+
+```zz
+// Struct arrays
+S Point i#x i#y ;
+Point[]~points = [Point(1, 2), Point(3, 4)]
+points.push(Point(5, 6))
+print(points[0].x)
+
+// Enum arrays
+E Color Red Green Blue ;
+Color[]~colors = [Color.Red, Color.Green]
+
+// J object arrays
+J[]~configs = [{ host: "a" }, { host: "b" }]
+configs.push({ host: "c" })
+
+// Tuple arrays
+ti3[]~coords = [(1, 2, 3), (4, 5, 6)]
+coords.push((7, 8, 9))
+```
+
+Functions can take and return arrays of complex types:
+
+```zz
+// Complex array parameter
+Z printPoints(Point[]#pts)
+  @(p#pts) print(s"({p.x}, {p.y})") ;
+;
+
+// Complex array return type
+Point[] Z makePoints()
+  [Point(10, 20), Point(30, 40)]
+;
+```
 
 ### Array Parameters
 
@@ -1209,6 +1251,93 @@ $js {
 - Complex JS patterns (async/await, generators, etc.)
 - Calling third-party JS libraries directly
 - Performance-critical code that needs specific JS idioms
+
+---
+
+## Compile-Time Execution
+
+Code inside `${}` is evaluated at compile time and substituted with literal values. This enables compile-time computation, environment-based configuration, and build metadata.
+
+### Basic Usage
+
+```zz
+// Arithmetic evaluated at compile time
+i#computed = ${2 + 3 * 4}        // Compiles to: const computed = 14;
+
+// String operations
+s#greeting = ${"Hello" + ", World!"}
+
+// Comparisons
+b#isDebug = ${$env("DEBUG", "false") == "true"}
+```
+
+### Environment Variables
+
+```zz
+s#env = ${$env("NODE_ENV", "development")}
+s#apiKey = ${$env("API_KEY")}                   // empty string if not set
+b#hasKey = ${$defined("API_KEY")}               // true if env var exists
+```
+
+### Build Metadata
+
+```zz
+s#buildDate = ${$date()}     // ISO date: "2024-01-15"
+s#buildTime = ${$time()}     // ISO timestamp
+i#lineNum = ${$line()}       // Current line number
+s#fileName = ${$file()}      // Current file name
+```
+
+### Compile-Time Functions (`$Z`)
+
+Define functions that execute at compile time:
+
+```zz
+$Z i factorial(i#n)
+  ??(n)
+    | 0 => 1
+    | 1 => 1
+    | _ => n * factorial(n - 1)
+  ;
+;
+
+i#fact5 = ${factorial(5)}    // Compiles to: const fact5 = 120;
+i#fact10 = ${factorial(10)}  // Compiles to: const fact10 = 3628800;
+```
+
+**Rules:**
+- `$Z` functions can only call other `$Z` functions
+- Inside `$Z` body, calls to `$Z` functions are implicitly compile-time (no `${}` needed)
+- Runtime code must use `${}` to call `$Z` functions
+- `$Z` functions are NOT emitted to JS output
+
+### Built-in Compile-Time Functions
+
+| Function | Description |
+|----------|-------------|
+| `$read(path)` | Read file contents at compile time |
+| `$env(name)` | Get environment variable |
+| `$env(name, default)` | Get env var with default |
+| `$defined(name)` | Check if env var exists (returns bool) |
+| `$line()` | Current source line number |
+| `$file()` | Current source file name |
+| `$date()` | Compile date (ISO format) |
+| `$time()` | Compile time (ISO format) |
+
+### Allowed at Compile Time
+
+- Literals, arithmetic, string operations
+- Comparisons and logical operators
+- Match expressions (pattern matching)
+- Array, tuple, and J literals
+- Calls to `$Z` functions and built-in `$` functions
+
+### Forbidden at Compile Time
+
+- Runtime variable references
+- Runtime function calls (regular `Z` functions)
+- Side effects: `print()`, `error()`
+- Mutability: no `~` variables in compile-time context
 
 ---
 

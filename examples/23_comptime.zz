@@ -1,0 +1,50 @@
+// Compile-Time Execution Examples
+
+// === Basic Arithmetic ===
+i#computed = ${2 + 3 * 4}
+print(s"Computed at compile time: {computed}")
+
+// === String Operations ===
+s#greeting = ${"Hello" + ", " + "World!"}
+print(greeting)
+
+// === Comparisons ===
+b#isGreater = ${10 > 5}
+print(s"10 > 5 is: {isGreater}")
+
+// === Environment Variables ===
+s#nodeEnv = ${$env("NODE_ENV", "development")}
+print(s"Running in: {nodeEnv}")
+
+// === Build Metadata ===
+s#buildDate = ${$date()}
+i#lineNum = ${$line()}
+print(s"Built on: {buildDate}")
+print(s"This line number was: {lineNum}")
+
+// === Compile-Time Functions ===
+$Z i factorial(i#n)
+  ??(n)
+    | 0 => 1
+    | 1 => 1
+    | _ => n * factorial(n - 1)
+  ;
+;
+
+i#fact5 = ${factorial(5)}
+print(s"5! = {fact5}")
+
+i#fact10 = ${factorial(10)}
+print(s"10! = {fact10}")
+
+// === Fibonacci ===
+$Z i fib(i#n)
+  ??(n)
+    | 0 => 0
+    | 1 => 1
+    | _ => fib(n - 1) + fib(n - 2)
+  ;
+;
+
+i#fib10 = ${fib(10)}
+print(s"Fibonacci(10) = {fib10}")
