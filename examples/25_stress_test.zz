@@ -604,6 +604,76 @@ cat.describe()
 
 print("Traits tests passed!")
 
+// === Multi-dimensional Arrays ===
+print("")
+print("=== Multi-dimensional Arrays ===")
+
+// 2D int array
+i[][]~matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+print(s"Matrix[0][0]: {matrix[0][0]}")
+print(s"Matrix[1][2]: {matrix[1][2]}")
+
+// Push a row
+matrix.push([10, 11, 12])
+print(s"Matrix rows after push: {matrix.len()}")
+
+// 2D string array
+s[][]#words = [["hello", "world"], ["foo", "bar"]]
+print(s"Words[0][1]: {words[0][1]}")
+print(s"Words[1][0]: {words[1][0]}")
+
+// 3D int array
+i[][][]#cube = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+print(s"Cube[0][0][0]: {cube[0][0][0]}")
+print(s"Cube[1][1][1]: {cube[1][1][1]}")
+
+print("Multi-dimensional arrays passed!")
+
+// === Arrays in J Objects ===
+print("")
+print("=== Arrays in J Objects ===")
+
+J#config = {
+  name: "test",
+  tags: ["a", "b", "c"],
+  scores: [1, 2, 3],
+  nested: { items: [10, 20, 30] }
+}
+print(s"Config name: {config.name}")
+
+J~settings = {
+  colors: ["red", "green", "blue"],
+  values: [100, 200, 300]
+}
+print(s"Settings has colors: {settings.has("colors")}")
+
+print("Arrays in J objects passed!")
+
+// === JSON Array Parsing ===
+print("")
+print("=== JSON Array Parsing ===")
+<- { parseArray, parseIntArray, parseStrArray, isArray } = std/json
+
+J[]#items = parseArray("[{\"id\": 1}, {\"id\": 2}, {\"id\": 3}]")
+print(s"Parsed J array length: {items.len()}")
+
+i[]#nums = parseIntArray("[10, 20, 30, 40, 50]")
+print(s"Parsed int array length: {nums.len()}")
+print(s"First int: {nums[0]}")
+
+s[]#strs = parseStrArray("[\"hello\", \"world\"]")
+print(s"Parsed str array length: {strs.len()}")
+print(s"First str: {strs[0]}")
+
+// isArray check
+<- { parse } = std/json
+J#jsonObj = parse("{\"key\": \"value\"}")
+J#jsonArr = parse("[1, 2, 3]")
+print(s"Object isArray: {isArray(jsonObj)}")
+print(s"Array isArray: {isArray(jsonArr)}")
+
+print("JSON array parsing passed!")
+
 // === Test Complete ===
 print("")
 print("=== All Stress Tests Completed Successfully ===")

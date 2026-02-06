@@ -5,6 +5,36 @@ export async function parse(jsonStr) {
       return null;
     }
 }
+export async function parseArray(jsonStr) {
+  try {
+      const result = JSON.parse(jsonStr);
+      if (Array.isArray(result)) return result;
+      return [];
+    } catch (e) {
+      return [];
+    }
+}
+export async function parseIntArray(jsonStr) {
+  try {
+      const result = JSON.parse(jsonStr);
+      if (Array.isArray(result)) return result;
+      return [];
+    } catch (e) {
+      return [];
+    }
+}
+export async function parseStrArray(jsonStr) {
+  try {
+      const result = JSON.parse(jsonStr);
+      if (Array.isArray(result)) return result;
+      return [];
+    } catch (e) {
+      return [];
+    }
+}
+export async function isArray(obj) {
+  return Array.isArray(obj);
+}
 export async function stringify(obj) {
   return JSON.stringify(obj);
 }

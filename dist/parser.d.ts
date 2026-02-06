@@ -101,6 +101,8 @@ export declare class Parser {
     private expect;
     private expectEndOfStatement;
     private skipNewlines;
+    private wrapInArrayLayers;
+    private skipArrayBracketsLookahead;
     private isArrayVariableDeclaration;
     private isAtEnd;
 }

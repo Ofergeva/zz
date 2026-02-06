@@ -5,7 +5,7 @@ export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | Struct
 export type Mutability = "immutable" | "mutable";
 
 // Element types allowed in arrays (primitives + complex types)
-export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType | TraitType;
+export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType | TraitType | ArrayType;
 
 // Array type: element type + optional fixed size
 export interface ArrayType {
@@ -84,7 +84,7 @@ export function isPrimitiveType(type: DataType): type is PrimitiveType {
 
 // Helper to check if a type is a valid array element type
 export function isArrayElementType(type: DataType): type is ArrayElementType {
-	return isPrimitiveType(type) || isStructType(type) || isEnumType(type) || isJType(type) || isTupleType(type) || isTypeParameterType(type);
+	return isPrimitiveType(type) || isStructType(type) || isEnumType(type) || isJType(type) || isTupleType(type) || isTypeParameterType(type) || isArrayType(type);
 }
 
 // Helper to check if a type is a type parameter

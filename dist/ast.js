@@ -25,7 +25,7 @@ export function isPrimitiveType(type) {
 }
 // Helper to check if a type is a valid array element type
 export function isArrayElementType(type) {
-    return isPrimitiveType(type) || isStructType(type) || isEnumType(type) || isJType(type) || isTupleType(type) || isTypeParameterType(type);
+    return isPrimitiveType(type) || isStructType(type) || isEnumType(type) || isJType(type) || isTupleType(type) || isTypeParameterType(type) || isArrayType(type);
 }
 // Helper to check if a type is a type parameter
 export function isTypeParameterType(type) {

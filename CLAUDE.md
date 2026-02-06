@@ -110,6 +110,28 @@ Point[] Z makePoints()
 - Type checking ensures correct element types for push and index assignment
 - Fixed-size arrays (`Point[3]#`) cannot use `push` or `pop`
 
+### Multi-dimensional Arrays
+
+Arrays can be nested to any depth:
+
+```zz
+// 2D array (matrix)
+i[][]~matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+matrix[0][1]       // 2
+matrix.push([10, 11, 12])
+
+// 3D array
+i[][][]#cube = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+cube[0][0][0]      // 1
+
+// Works with complex types too
+Point[][]#grid = [[Point(0, 0), Point(1, 0)], [Point(0, 1), Point(1, 1)]]
+```
+
+- Element types nest naturally: `i[][]` is "array of array of int"
+- All array operations (`push`, `pop`, `len`, indexing) work at each level
+- Type checking validates element types at every nesting level
+
 ### Control Flow
 
 - `?(cond) ... ;` → if
@@ -161,6 +183,7 @@ J#config = {
   host: "localhost",
   port: 8080,
   ssl: false,
+  tags: ["web", "api"],
   limits: { maxConn: 100, timeout: 30 }
 }
 
@@ -190,7 +213,7 @@ Z printHost(J#cfg)
 ```
 
 - `J#` is immutable (`Object.freeze()` in JS), `J~` is mutable
-- Values must be `s`, `i`, `f`, `b`, `_` (null), or nested `J`
+- Values can be `s`, `i`, `f`, `b`, `_` (null), nested `J`, or arrays of these types
 - Dot access returns dynamic/untyped values
 - `set()` and field assignment are compile errors on `J#`
 
@@ -243,6 +266,7 @@ strStack.push("hello")
 ```
 
 Multi-parameter generics:
+
 ```zz
 S Pair<A, B>
   A#first
@@ -267,6 +291,7 @@ i#z = first<i>([1, 2, 3])
 ```
 
 Multi-parameter:
+
 ```zz
 <T, U> U Z transform(T[]#arr, T#defaultVal)
   // ...
@@ -486,6 +511,7 @@ i#fact5 = ${factorial(5)}        // → const fact5 = 120;
 Import with `<- { funcName } = std/module`:
 
 **std/string** - String manipulation
+
 - `upper(s)`, `lower(s)`, `trim(s)` - case and whitespace
 - `split(s, sep)`, `join(arr, sep)` - splitting and joining
 - `has(s, sub)`, `find(s, sub)` - searching
@@ -494,7 +520,12 @@ Import with `<- { funcName } = std/module`:
 - `repeat(s, n)`, `padStart(s, len, pad)`, `padEnd(s, len, pad)`
 
 **std/json** - JSON utilities
+
 - `parse(s)` - parse JSON string to J object
+- `parseArray(s)` - parse JSON array string to `J[]`
+- `parseIntArray(s)` - parse JSON array string to `i[]`
+- `parseStrArray(s)` - parse JSON array string to `s[]`
+- `isArray(j)` - check if a J value is actually an array
 - `stringify(j)`, `format(j)` - convert J to string
 - `isValid(s)` - check if string is valid JSON
 - `get(j, path)` - get nested value by dot path
@@ -502,6 +533,7 @@ Import with `<- { funcName } = std/module`:
 - `keys(j)`, `values(j)` - get keys/values arrays
 
 **std/http** - HTTP client (using fetch)
+
 - `get(url)`, `getWithHeaders(url, headers)` - GET requests
 - `post(url, body)`, `postWithHeaders(url, body, headers)` - POST requests
 - `put(url, body)`, `del(url)`, `patch(url, body)` - other methods
@@ -510,6 +542,7 @@ Import with `<- { funcName } = std/module`:
 - Returns `Response` struct with `status`, `statusText`, `body`, `headers`
 
 **std/test** - Testing framework
+
 - `assert(cond, msg)` - assert condition is true
 - `assertEqual(actual, expected, msg)` - compare integers
 - `assertEqualStr(actual, expected, msg)` - compare strings
@@ -554,4 +587,5 @@ Install: See `editors/vscode/README.md` for setup instructions.
 ## Agent instructions
 
 - After every change or improvement to the ZZ language, update the CLAUDE.md and README.md files.
+- After every change or improvement to the ZZ language, update the ZZ\__AGENT_GUIDE_.md file.
 - After every change or improvement to the ZZ language, update the examples/25_stress_test.zz and make sure it still passes.

@@ -12,6 +12,53 @@
   }
 ;
 
+// Parse a JSON string containing an array into a J[] (array of J objects)
+// Returns empty array if parsing fails or result is not an array
+->J[] Z parseArray(s#jsonStr)
+  $js{
+    try {
+      const result = JSON.parse(jsonStr);
+      if (Array.isArray(result)) return result;
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+;
+
+// Parse a JSON string containing an array of integers
+// Returns empty array if parsing fails or result is not an array
+->i[] Z parseIntArray(s#jsonStr)
+  $js{
+    try {
+      const result = JSON.parse(jsonStr);
+      if (Array.isArray(result)) return result;
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+;
+
+// Parse a JSON string containing an array of strings
+// Returns empty array if parsing fails or result is not an array
+->s[] Z parseStrArray(s#jsonStr)
+  $js{
+    try {
+      const result = JSON.parse(jsonStr);
+      if (Array.isArray(result)) return result;
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+;
+
+// Check if a J value is actually an array (e.g., result of JSON.parse on an array string)
+->b Z isArray(J#obj)
+  $js{ return Array.isArray(obj); }
+;
+
 // Convert a J object to a JSON string
 ->s Z stringify(J#obj)
   $js{ return JSON.stringify(obj); }

@@ -1841,7 +1841,7 @@ export class TypeChecker {
 				const valueType = this.inferExpressionType(field.value);
 				if (valueType !== null && !this.isValidJValueType(valueType)) {
 					this.errors.push(
-						`Invalid J field value type at line ${line}: field '${field.key}' has type ${this.typeToString(valueType)}. J values must be string, int, float, bool, null, or J.`,
+						`Invalid J field value type at line ${line}: field '${field.key}' has type ${this.typeToString(valueType)}. J values must be string, int, float, bool, null, J, or arrays of these types.`,
 					);
 				}
 			}
@@ -2024,6 +2024,7 @@ export class TypeChecker {
 	private isValidJValueType(type: DataType): boolean {
 		if (isPrimitiveType(type)) return true; // s, i, f, b
 		if (isJType(type)) return true; // nested J
+		if (isArrayType(type)) return this.isValidJValueType(type.elementType); // arrays of valid J value types
 		return false;
 	}
 

@@ -549,6 +549,28 @@ Point[] Z makePoints()
 ;
 ```
 
+### Multi-dimensional Arrays
+
+Arrays can be nested to any depth:
+
+```zz
+// 2D array (matrix)
+i[][]~matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+print(matrix[0][1])       // 2
+matrix.push([10, 11, 12])
+
+// 3D array
+i[][][]#cube = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+print(cube[0][0][0])      // 1
+
+// Works with complex types too
+s[][]#words = [["hello", "world"], ["foo", "bar"]]
+```
+
+- Element types nest naturally: `i[][]` is "array of array of int"
+- All array operations (`push`, `pop`, `len`, indexing) work at each level
+- Type checking validates element types at every nesting level
+
 ### Array Parameters
 
 ```zz
@@ -1020,7 +1042,7 @@ Traits can be exported and imported across modules:
 
 ## J Objects (JSON-like)
 
-J objects are JSON-like, string-keyed objects whose values can be `s`, `i`, `f`, `b`, `_` (null), or nested `J`. They bridge the gap between rigid structs and raw JavaScript objects — typed and safe, but flexible in shape.
+J objects are JSON-like, string-keyed objects whose values can be `s`, `i`, `f`, `b`, `_` (null), nested `J`, or arrays of these types. They bridge the gap between rigid structs and raw JavaScript objects — typed and safe, but flexible in shape.
 
 ### Declaration
 
@@ -1029,7 +1051,8 @@ J objects are JSON-like, string-keyed objects whose values can be `s`, `i`, `f`,
 J#config = {
   host: "localhost",
   port: 8080,
-  ssl: false
+  ssl: false,
+  tags: ["web", "api"]
 }
 
 // Mutable J object
@@ -2018,6 +2041,29 @@ cp editors/sublime-text/* ~/.config/sublime-text/Packages/User/
 3. Restart the IDE
 
 See [editors/README.md](editors/README.md) for more details and Emacs support.
+
+---
+
+## AI Agent Guide
+
+If you're using AI coding agents (Claude Code, Cursor, GitHub Copilot, etc.) to write ZZ code, drop the [`ZZ_AGENT_GUIDE.md`](ZZ_AGENT_GUIDE.md) file into your project root or reference it in your agent's context.
+
+The agent guide is a compact (~500 line) reference optimized for LLM consumption — no design philosophy, no editor setup, no generated JS examples. Instead it focuses on:
+
+- **Critical rules** that cause compile errors (conditions must be boolean, every block ends with `;`, etc.)
+- **Complete syntax** in scannable table/list format
+- **Common pitfalls** mapping JS/TS/Python habits to ZZ equivalents
+- **What ZZ does NOT have** — prevents agents from generating unsupported syntax
+- **Standard library API** — function signatures at a glance
+
+### Usage
+
+Copy `ZZ_AGENT_GUIDE.md` into any project that contains `.zz` files. Most AI agents will automatically pick it up from the project root. You can also:
+
+- **Claude Code**: Reference it in your `CLAUDE.md` with a note to read `ZZ_AGENT_GUIDE.md` for ZZ syntax
+- **Cursor**: Add it to `.cursor/rules/` or reference it in `.cursorrules`
+- **GitHub Copilot**: Place it in `.github/copilot-instructions.md` or include its contents there
+- **Other agents**: Add the file path to whatever context/instructions mechanism your agent supports
 
 ---
 

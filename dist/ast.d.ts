@@ -1,7 +1,7 @@
 export type PrimitiveType = "string" | "int" | "float" | "bool";
 export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType | TypeParameterType | TraitType;
 export type Mutability = "immutable" | "mutable";
-export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType | TraitType;
+export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType | TraitType | ArrayType;
 export interface ArrayType {
     kind: "array";
     elementType: ArrayElementType;

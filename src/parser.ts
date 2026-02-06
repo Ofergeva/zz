@@ -306,6 +306,7 @@ export class Parser {
 				}
 				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 					lookAhead++;
+					lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
 					if (afterBracket === TokenType.FUNC) {
 						return this.parseFunctionDeclaration();
@@ -353,6 +354,7 @@ export class Parser {
 				}
 				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 					lookAhead++;
+					lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
 					if (afterBracket === TokenType.FUNC) {
 						return this.parseFunctionDeclaration();
@@ -381,6 +383,7 @@ export class Parser {
 				}
 				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 					lookAhead++;
+					lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
 					if (afterBracket === TokenType.FUNC) {
 						return this.parseFunctionDeclaration();
@@ -410,6 +413,7 @@ export class Parser {
 				}
 				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 					lookAhead++;
+					lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
 					if (afterBracket === TokenType.FUNC) {
 						return this.parseFunctionDeclaration();
@@ -655,6 +659,7 @@ export class Parser {
 				}
 				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 					lookAhead++;
+					lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
 					if (afterBracket === TokenType.FUNC) {
 						return this.parseFunctionDeclaration(true);
@@ -682,6 +687,7 @@ export class Parser {
 				}
 				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 					lookAhead++;
+					lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
 					if (afterBracket === TokenType.FUNC) {
 						return this.parseFunctionDeclaration(true);
@@ -709,6 +715,7 @@ export class Parser {
 				}
 				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 					lookAhead++;
+					lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
 					if (afterBracket === TokenType.FUNC) {
 						return this.parseFunctionDeclaration(true);
@@ -736,6 +743,7 @@ export class Parser {
 				}
 				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 					lookAhead++;
+					lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
 					if (afterBracket === TokenType.FUNC) {
 						return this.parseFunctionDeclaration(true);
@@ -761,6 +769,7 @@ export class Parser {
 				}
 				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 					lookAhead++;
+					lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 					if (this.tokens[this.pos + lookAhead]?.type === TokenType.FUNC) {
 						return this.parseFunctionDeclaration(true);
 					}
@@ -793,6 +802,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				dataType = { kind: "array", elementType: { kind: "j" }, size };
+				dataType = this.wrapInArrayLayers(dataType);
 			} else {
 				dataType = { kind: "j" } as JType;
 			}
@@ -817,6 +827,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				dataType = { kind: "array", elementType: tupleType, size };
+				dataType = this.wrapInArrayLayers(dataType);
 			} else {
 				dataType = tupleType;
 			}
@@ -841,6 +852,7 @@ export class Parser {
 					elementType: this.tokenToDataType(typeToken.type),
 					size,
 				};
+				dataType = this.wrapInArrayLayers(dataType);
 			}
 		}
 
@@ -1706,6 +1718,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				dataType = { kind: "array", elementType: dataType as any, size };
+				dataType = this.wrapInArrayLayers(dataType);
 			}
 			return dataType;
 		}
@@ -1721,6 +1734,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				dataType = { kind: "array", elementType: { kind: "struct", name: token.value }, size };
+				dataType = this.wrapInArrayLayers(dataType);
 			}
 			return dataType;
 		}
@@ -1736,6 +1750,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				dataType = { kind: "array", elementType: { kind: "enum", name: token.value }, size };
+				dataType = this.wrapInArrayLayers(dataType);
 			}
 			return dataType;
 		}
@@ -1751,6 +1766,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				dataType = { kind: "array", elementType: { kind: "trait", name: token.value }, size };
+				dataType = this.wrapInArrayLayers(dataType);
 			}
 			return dataType;
 		}
@@ -1800,6 +1816,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				paramType = { kind: "array", elementType: paramType as any, size };
+				paramType = this.wrapInArrayLayers(paramType);
 			}
 		} else if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
 			this.advance();
@@ -1812,6 +1829,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				paramType = { kind: "array", elementType: structType, size };
+				paramType = this.wrapInArrayLayers(paramType);
 			} else {
 				paramType = structType;
 			}
@@ -1826,6 +1844,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				paramType = { kind: "array", elementType: enumType, size };
+				paramType = this.wrapInArrayLayers(paramType);
 			} else {
 				paramType = enumType;
 			}
@@ -1840,6 +1859,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				paramType = { kind: "array", elementType: traitType, size };
+				paramType = this.wrapInArrayLayers(paramType);
 			} else {
 				paramType = traitType;
 			}
@@ -1854,6 +1874,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				paramType = { kind: "array", elementType: paramType as any, size };
+				paramType = this.wrapInArrayLayers(paramType);
 			}
 		} else if (paramTypeToken.type === TokenType.TYPE_J) {
 			this.advance();
@@ -1865,6 +1886,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				paramType = { kind: "array", elementType: { kind: "j" }, size };
+				paramType = this.wrapInArrayLayers(paramType);
 			} else {
 				paramType = { kind: "j" };
 			}
@@ -1893,6 +1915,7 @@ export class Parser {
 			}
 			this.expect([TokenType.RBRACKET]);
 			dataType = { kind: "array", elementType: { kind: "trait", name: traitName }, size };
+			dataType = this.wrapInArrayLayers(dataType);
 		} else {
 			dataType = { kind: "trait", name: traitName };
 		}
@@ -1934,6 +1957,7 @@ export class Parser {
 			}
 			this.expect([TokenType.RBRACKET]);
 			dataType = { kind: "array", elementType: { kind: "enum", name: enumName }, size };
+			dataType = this.wrapInArrayLayers(dataType);
 		} else {
 			dataType = { kind: "enum", name: enumName };
 		}
@@ -2083,6 +2107,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				dataType = { kind: "array", elementType: dataType, size };
+				dataType = this.wrapInArrayLayers(dataType);
 			}
 		}
 		// Check for struct or enum type
@@ -2127,6 +2152,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				dataType = { kind: "array", elementType: dataType as PrimitiveType, size };
+				dataType = this.wrapInArrayLayers(dataType);
 			}
 		}
 
@@ -2162,6 +2188,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					returnType = { kind: "array", elementType: returnType, size };
+					returnType = this.wrapInArrayLayers(returnType);
 				}
 			}
 			// Check for struct or enum return type
@@ -2190,6 +2217,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					returnType = { kind: "array", elementType: baseType, size };
+					returnType = this.wrapInArrayLayers(returnType);
 				} else {
 					returnType = baseType;
 				}
@@ -2224,6 +2252,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: paramType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				}
 			}
 			// Check for struct parameter type: Person#p or Person[]#people
@@ -2239,6 +2268,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: structType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = structType;
 				}
@@ -2256,6 +2286,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: enumType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = enumType;
 				}
@@ -2272,6 +2303,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: traitType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = traitType;
 				}
@@ -2288,6 +2320,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: { kind: "j" }, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = { kind: "j" } as JType;
 				}
@@ -2307,6 +2340,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: tupleType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = tupleType;
 				}
@@ -2327,6 +2361,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: baseType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				}
 			} else {
 				throw new Error(`Expected type for parameter at line ${paramTypeToken.line}`);
@@ -2429,6 +2464,7 @@ export class Parser {
 			}
 			this.expect([TokenType.RBRACKET]);
 			dataType = { kind: "array", elementType: structType, size };
+			dataType = this.wrapInArrayLayers(dataType);
 		} else {
 			dataType = structType;
 		}
@@ -2486,6 +2522,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				returnType = { kind: "array", elementType: typeParamType, size };
+				returnType = this.wrapInArrayLayers(returnType);
 			} else {
 				returnType = typeParamType;
 			}
@@ -2503,6 +2540,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				returnType = { kind: "array", elementType: { kind: "j" }, size };
+				returnType = this.wrapInArrayLayers(returnType);
 			} else {
 				returnType = { kind: "j" } as JType;
 			}
@@ -2524,6 +2562,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					returnType = { kind: "array", elementType: tupleType, size };
+					returnType = this.wrapInArrayLayers(returnType);
 				} else {
 					returnType = tupleType;
 				}
@@ -2543,6 +2582,7 @@ export class Parser {
 
 					this.expect([TokenType.RBRACKET]);
 					returnType = { kind: "array", elementType: baseType, size };
+					returnType = this.wrapInArrayLayers(returnType);
 				} else {
 					returnType = baseType;
 				}
@@ -2562,6 +2602,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				returnType = { kind: "array", elementType: enumType, size };
+				returnType = this.wrapInArrayLayers(returnType);
 			} else {
 				returnType = enumType;
 			}
@@ -2580,6 +2621,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				returnType = { kind: "array", elementType: structType, size };
+				returnType = this.wrapInArrayLayers(returnType);
 			} else {
 				returnType = structType;
 			}
@@ -2597,6 +2639,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				returnType = { kind: "array", elementType: traitType, size };
+				returnType = this.wrapInArrayLayers(returnType);
 			} else {
 				returnType = traitType;
 			}
@@ -2631,6 +2674,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: typeParamType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = typeParamType;
 				}
@@ -2648,6 +2692,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: structType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = structType;
 				}
@@ -2665,6 +2710,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: enumType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = enumType;
 				}
@@ -2681,6 +2727,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: traitType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = traitType;
 				}
@@ -2697,6 +2744,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: { kind: "j" }, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = { kind: "j" } as JType;
 				}
@@ -2716,6 +2764,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: tupleType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = tupleType;
 				}
@@ -2739,6 +2788,7 @@ export class Parser {
 
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: baseType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				}
 			} else {
 				throw new Error(`Expected type for parameter at line ${paramTypeToken.line}, got '${paramTypeToken.value}'`);
@@ -3855,6 +3905,7 @@ export class Parser {
 				}
 				this.expect([TokenType.RBRACKET]);
 				dataType = { kind: "array", elementType: dataType, size };
+				dataType = this.wrapInArrayLayers(dataType);
 			}
 
 			return dataType;
@@ -3878,7 +3929,7 @@ export class Parser {
 							size = parseInt(this.advance().value, 10);
 						}
 						this.expect([TokenType.RBRACKET]);
-						return { kind: "array", elementType: jType, size };
+						return this.wrapInArrayLayers({ kind: "array", elementType: jType, size });
 					}
 
 					return jType;
@@ -3911,7 +3962,7 @@ export class Parser {
 						size = parseInt(this.advance().value, 10);
 					}
 					this.expect([TokenType.RBRACKET]);
-					return { kind: "array", elementType: primitiveType, size };
+					return this.wrapInArrayLayers({ kind: "array", elementType: primitiveType, size });
 				}
 
 				return primitiveType;
@@ -3934,7 +3985,7 @@ export class Parser {
 						size = parseInt(this.advance().value, 10);
 					}
 					this.expect([TokenType.RBRACKET]);
-					return { kind: "array", elementType: structType, size };
+					return this.wrapInArrayLayers({ kind: "array", elementType: structType, size });
 				}
 
 				return structType;
@@ -3949,7 +4000,7 @@ export class Parser {
 						size = parseInt(this.advance().value, 10);
 					}
 					this.expect([TokenType.RBRACKET]);
-					return { kind: "array", elementType: enumType, size };
+					return this.wrapInArrayLayers({ kind: "array", elementType: enumType, size });
 				}
 
 				return enumType;
@@ -3963,7 +4014,7 @@ export class Parser {
 						size = parseInt(this.advance().value, 10);
 					}
 					this.expect([TokenType.RBRACKET]);
-					return { kind: "array", elementType: traitType, size };
+					return this.wrapInArrayLayers({ kind: "array", elementType: traitType, size });
 				}
 
 				return traitType;
@@ -3996,7 +4047,7 @@ export class Parser {
 					size = parseInt(this.advance().value, 10);
 				}
 				this.expect([TokenType.RBRACKET]);
-				return { kind: "array", elementType: baseType, size };
+				return this.wrapInArrayLayers({ kind: "array", elementType: baseType, size });
 			}
 
 			return baseType;
@@ -4096,6 +4147,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					returnType = { kind: "array", elementType: baseType, size };
+					returnType = this.wrapInArrayLayers(returnType);
 				} else {
 					returnType = baseType;
 				}
@@ -4147,6 +4199,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: paramType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				}
 			}
 			// Check for struct parameter type: Person#p or Person[]#people
@@ -4161,6 +4214,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: structType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = structType;
 				}
@@ -4177,6 +4231,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: enumType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = enumType;
 				}
@@ -4192,6 +4247,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: { kind: "j" }, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = { kind: "j" } as JType;
 				}
@@ -4210,6 +4266,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: tupleType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				} else {
 					paramType = tupleType;
 				}
@@ -4227,6 +4284,7 @@ export class Parser {
 					}
 					this.expect([TokenType.RBRACKET]);
 					paramType = { kind: "array", elementType: baseType, size };
+					paramType = this.wrapInArrayLayers(paramType);
 				}
 			} else {
 				throw new Error(`Expected parameter type at line ${paramTypeToken.line}, column ${paramTypeToken.column}`);
@@ -4327,18 +4385,47 @@ export class Parser {
 		}
 	}
 
-	// Check if current position starts an array variable declaration (Type[]#var or Type[]~var)
+	// Wrap a type in zero or more levels of array nesting by consuming consecutive []
+	private wrapInArrayLayers(baseType: DataType): DataType {
+		let result = baseType;
+		while (this.peek().type === TokenType.LBRACKET) {
+			this.advance(); // consume [
+			let size: number | undefined;
+			if (this.peek().type === TokenType.NUMBER_LITERAL) {
+				size = parseInt(this.advance().value, 10);
+			}
+			this.expect([TokenType.RBRACKET]);
+			result = { kind: "array", elementType: result as any, size };
+			result = this.wrapInArrayLayers(result);
+		}
+		return result;
+	}
+
+	// Skip consecutive [] pairs in lookahead (for multi-dimensional arrays)
+	private skipArrayBracketsLookahead(startOffset: number): number {
+		let lookAhead = startOffset;
+		while (this.tokens[this.pos + lookAhead]?.type === TokenType.LBRACKET) {
+			lookAhead++; // skip [
+			if (this.tokens[this.pos + lookAhead]?.type === TokenType.NUMBER_LITERAL) lookAhead++;
+			if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) lookAhead++;
+		}
+		return lookAhead;
+	}
+
+	// Check if current position starts an array variable declaration (Type[]#var or Type[][]#var)
 	// vs an array return type for function (Type[] Z funcName)
 	private isArrayVariableDeclaration(): boolean {
 		// We're at Type, next is [
-		// Look for pattern: [ optionalSize ] # or ~ (variable decl)
-		// vs: [ optionalSize ] Z (function return type)
+		// Look for pattern: [ optionalSize ] ([]...)* # or ~ (variable decl)
+		// vs: [ optionalSize ] ([]...)* Z (function return type)
 		let lookAhead = 2; // Start after Type and [
 		if (this.tokens[this.pos + lookAhead]?.type === TokenType.NUMBER_LITERAL) {
 			lookAhead++; // Skip optional array size
 		}
 		if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
 			lookAhead++; // Skip ]
+			// Skip additional [] for multi-dimensional arrays
+			lookAhead = this.skipArrayBracketsLookahead(lookAhead);
 			const afterBracket = this.tokens[this.pos + lookAhead]?.type;
 			// It's a variable declaration if followed by # or ~
 			return afterBracket === TokenType.IMMUTABLE || afterBracket === TokenType.MUTABLE;
