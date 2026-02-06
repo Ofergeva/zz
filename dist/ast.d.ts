@@ -1,7 +1,7 @@
 export type PrimitiveType = "string" | "int" | "float" | "bool";
-export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType | TypeParameterType;
+export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType | TypeParameterType | TraitType;
 export type Mutability = "immutable" | "mutable";
-export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType;
+export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType | TraitType;
 export interface ArrayType {
     kind: "array";
     elementType: ArrayElementType;
@@ -29,6 +29,10 @@ export interface TypeParameterType {
     kind: "typeParameter";
     name: string;
 }
+export interface TraitType {
+    kind: "trait";
+    name: string;
+}
 export declare function isArrayType(type: DataType): type is ArrayType;
 export declare function isTupleType(type: DataType): type is TupleType;
 export declare function isEnumType(type: DataType): type is EnumType;
@@ -37,6 +41,7 @@ export declare function isJType(type: DataType): type is JType;
 export declare function isPrimitiveType(type: DataType): type is PrimitiveType;
 export declare function isArrayElementType(type: DataType): type is ArrayElementType;
 export declare function isTypeParameterType(type: DataType): type is TypeParameterType;
+export declare function isTraitType(type: DataType): type is TraitType;
 export interface ASTNode {
     type: string;
     line: number;
@@ -46,7 +51,7 @@ export interface Program extends ASTNode {
     type: "Program";
     statements: Statement[];
 }
-export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | ForEachStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression | JSBlockStatement | CompTimeFunctionDeclaration;
+export type Statement = VariableDeclaration | PrintStatement | ErrorStatement | Assignment | WhileStatement | ForStatement | ForEachStatement | IfStatement | FunctionDeclaration | ExpressionStatement | IndexAssignment | FieldAssignment | BreakStatement | ContinueStatement | TryStatement | ImportStatement | IncrementStatement | CompoundAssignment | ThrowStatement | EnumDeclaration | StructDeclaration | MatchExpression | JSBlockStatement | CompTimeFunctionDeclaration | TraitDeclaration;
 export interface VariableDeclaration extends ASTNode {
     type: "VariableDeclaration";
     dataType: DataType;
@@ -270,6 +275,17 @@ export interface EnumAccess extends ASTNode {
     enumName: string;
     variant: string;
 }
+export interface TraitMethodSignature {
+    name: string;
+    parameters: Parameter[];
+    returnType: DataType | "void";
+}
+export interface TraitDeclaration extends ASTNode {
+    type: "TraitDeclaration";
+    name: string;
+    methods: TraitMethodSignature[];
+    exported: boolean;
+}
 export interface StructField {
     name: string;
     dataType: DataType;
@@ -290,6 +306,7 @@ export interface StructDeclaration extends ASTNode {
     fields: StructField[];
     methods: StructMethod[];
     exported: boolean;
+    traitImplements: string[];
 }
 export interface StructInstantiation extends ASTNode {
     type: "StructInstantiation";
@@ -422,4 +439,7 @@ export interface ImportedModuleInfo {
         typeParameters?: string[];
     }>;
     enums: Map<string, string[]>;
+    traits: Map<string, {
+        methods: TraitMethodSignature[];
+    }>;
 }

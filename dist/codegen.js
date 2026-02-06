@@ -1,6 +1,6 @@
 // JavaScript Code Generator for ZZ Language
 import * as path from "path";
-import { isArrayType, isTupleType, isJType, } from "./ast.js";
+import { isArrayType, isTupleType, isJType, isStructType, } from "./ast.js";
 export class CodeGenerator {
     // Store function parameter info for named argument reordering
     functionParams = new Map();
@@ -13,6 +13,8 @@ export class CodeGenerator {
     hasSpawn = false;
     // Track current struct context for field name checking
     currentStructFields = new Set();
+    // Track variables that are struct instances (for method resolution)
+    structInstanceVars = new Set();
     constructor(options) {
         this.options = options;
     }
@@ -20,6 +22,7 @@ export class CodeGenerator {
         this.functionParams.clear();
         this.structFields.clear();
         this.structMethods.clear();
+        this.structInstanceVars.clear();
         this.hasSpawn = false;
         // Register built-in struct methods (Spawn)
         this.structMethods.set("Spawn", new Set(["onError"]));
@@ -103,6 +106,9 @@ export class CodeGenerator {
                 return statement.code;
             case "CompTimeFunctionDeclaration":
                 // Compile-time functions are not emitted to output
+                return "";
+            case "TraitDeclaration":
+                // Traits are compile-time only, no runtime representation
                 return "";
         }
     }
@@ -220,6 +226,10 @@ ${methods}
         let value = this.generateExpression(decl.value);
         if (isJType(decl.dataType) && decl.mutability === "immutable") {
             value = `Object.freeze(${value})`;
+        }
+        // Track struct instance variables for method resolution
+        if (isStructType(decl.dataType)) {
+            this.structInstanceVars.add(decl.name);
         }
         return `${exportPrefix}${keyword} ${decl.name} = ${value};`;
     }
@@ -445,8 +455,21 @@ ${methods}
                         }
                     }
                 }
-                // Check built-in methods first (for plain Identifier objects too)
-                // This prevents conflicts when structs define methods with same names as built-ins
+                // For known struct instance variables, prefer struct methods over built-ins
+                const isStructInstance = expr.object.type === "Identifier" && this.structInstanceVars.has(expr.object.name);
+                if (isStructInstance) {
+                    for (const [, methods] of this.structMethods) {
+                        if (methods.has(expr.method)) {
+                            if (args) {
+                                return `await ${object}.${expr.method}(${args})`;
+                            }
+                            else {
+                                return `await ${object}.${expr.method}()`;
+                            }
+                        }
+                    }
+                }
+                // Built-in methods for non-struct variables
                 if (builtinMethods.includes(expr.method)) {
                     switch (expr.method) {
                         case "len":

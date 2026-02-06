@@ -79,6 +79,7 @@ Every variable must be declared with its type. Typos become compile errors, not 
 
 - Strong static typing with type inference
 - **Generics** - Type-safe generic structs and functions with type inference
+- **Traits** - Compile-time contracts for polymorphism without inheritance
 - Immutable by default with explicit mutability
 - Concise syntax using symbols instead of keywords
 - Compiles to clean, readable JavaScript
@@ -907,6 +908,112 @@ S Size
 Point#p = Size(10, 20)     // ❌ Type mismatch
 Point#q = Point("a", "b")  // ❌ Field type mismatch
 print(p.z)                 // ❌ Unknown field
+```
+
+---
+
+## Traits
+
+Traits are compile-time contracts (interfaces) that structs can implement. They enable polymorphism without inheritance. Traits have **no runtime representation** — all checking is compile-time, no JavaScript is emitted for trait declarations.
+
+### Trait Declaration
+
+Use the `ZZ` keyword to declare a trait:
+
+```zz
+ZZ Printable
+  s Z toString()
+;
+
+ZZ Comparable
+  i Z compareTo(Self#other)
+;
+```
+
+- `ZZ` keyword starts the declaration
+- Methods are **signatures only** — no body
+- `Self` can be used in parameter types to mean "the implementing type"
+- `;` terminates the declaration
+
+### Implementing Traits
+
+Use `:` after the struct name to implement one or more traits:
+
+```zz
+S Point : Printable, Comparable
+  f#x
+  f#y
+
+  s Z toString()
+    s"({x}, {y})"
+  ;
+
+  i Z compareTo(Point#other)
+    i(x + y) - i(other.x + other.y)
+  ;
+;
+```
+
+The compiler validates at compile time that:
+- All required methods are present
+- Parameter counts and types match
+- Return types match
+- `Self` is correctly substituted with the struct name
+
+### Trait as Type (Polymorphism)
+
+Traits can be used as parameter types, enabling polymorphism:
+
+```zz
+Z display(Printable#item)
+  print(item.toString())
+;
+
+Point#p = Point(3.0, 4.0)
+display(p)  // Works — Point implements Printable
+```
+
+Trait-typed variables accept any struct that implements the trait:
+
+```zz
+Printable#printable = Point(7.0, 8.0)
+print(printable.toString())  // "(7, 8)"
+```
+
+### Type Safety
+
+```zz
+ZZ Describable
+  Z describe()
+;
+
+S Cat : Describable
+  s#name
+  Z describe() print(name) ;
+;
+
+S Dog   // Does NOT implement Describable
+  s#name
+;
+
+Z show(Describable#item) item.describe() ;
+
+show(Cat("Whiskers"))  // ✅ Cat implements Describable
+show(Dog("Rex"))       // ❌ Compile error: Dog doesn't implement Describable
+```
+
+### Exporting Traits
+
+Traits can be exported and imported across modules:
+
+```zz
+// shapes.zz
+->ZZ Drawable
+  Z draw()
+;
+
+// main.zz
+<- { Drawable } = "./shapes"
 ```
 
 ---
@@ -1830,8 +1937,11 @@ fizzbuzz(15)
 | `Color#c = Color.Red` | `const c = Color.Red`                   | Enum variable                   |
 | `Color.Red`           | `Color.Red`                             | Enum access                     |
 | `S Name ... ;`        | `class Name { ... }`                    | Struct declaration              |
+| `S Name : Trait`      | `class Name { ... }`                    | Struct implementing trait       |
 | `Name#x = Name(...)`  | `const x = new Name(...)`               | Immutable struct instance       |
 | `Name~x = Name(...)`  | `let x = new Name(...)`                 | Mutable struct instance         |
+| `ZZ Trait ... ;`      | *(nothing — erased)*                    | Trait declaration               |
+| `Trait#x = ...`       | `const x = ...`                         | Trait-typed variable            |
 | `J#x = { k: v }`     | `const x = Object.freeze({k: v})`      | Immutable J object              |
 | `J~x = { k: v }`     | `let x = {k: v}`                        | Mutable J object                |
 | `x.has("k")`         | `("k" in x)`                            | J key existence check           |

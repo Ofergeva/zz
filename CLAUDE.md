@@ -290,10 +290,81 @@ Multi-parameter:
 
 #### Limitations (v1)
 
-- No type constraints (`T: Comparable` not yet supported)
 - No higher-kinded types
 - Type parameters cannot be used in comptime expressions
 - Struct methods should avoid names like `len`, `push`, `pop` that conflict with built-in array methods
+
+### Traits
+
+Traits are compile-time contracts (interfaces) that structs can implement. They enable polymorphism without inheritance. Traits have **no runtime representation** — all checking is compile-time, and trait declarations emit no JavaScript code.
+
+#### Trait Declaration
+
+Use the `ZZ` keyword to declare a trait:
+
+```zz
+ZZ Printable
+  s Z toString()
+;
+
+ZZ Comparable
+  i Z compareTo(Self#other)
+;
+
+ZZ Describable
+  Z describe()
+;
+```
+
+- Methods are signatures only (no body)
+- `Self` can be used in parameter types to refer to the implementing struct type
+
+#### Struct Implementation
+
+Use `:` after the struct name to implement traits:
+
+```zz
+S Point : Printable, Comparable
+  f#x
+  f#y
+
+  s Z toString()
+    s"({x}, {y})"
+  ;
+
+  i Z compareTo(Point#other)
+    i(x + y) - i(other.x + other.y)
+  ;
+;
+```
+
+- A struct can implement multiple traits (comma-separated)
+- The compiler validates that all required methods are present with matching signatures
+- `Self` in trait methods is substituted with the implementing struct type during checking
+
+#### Trait as Type
+
+Traits can be used as parameter types for polymorphism:
+
+```zz
+Z display(Printable#item)
+  print(item.toString())
+;
+
+Point#p = Point(3.0, 4.0)
+display(p)  // Works — Point implements Printable
+```
+
+- Trait-typed variables accept any struct that implements the trait
+- Method calls on trait-typed values resolve to the trait's method signatures
+- Traits can be used in variable declarations: `Printable#p = Point(1.0, 2.0)`
+
+#### Semantics
+
+- **Erasure-based**: Traits are compile-time only, no runtime representation
+- **No inheritance**: Traits cannot extend other traits
+- **Self type**: `Self` in trait methods refers to the concrete implementing type
+- **Exported**: Traits can be exported (`->`) and imported (`<-`) across modules
 
 ### JS Injection
 
@@ -379,7 +450,7 @@ i#fact5 = ${factorial(5)}        // → const fact5 = 120;
 - JS module imports: `<-! { fetch } = "./lib/http"` (for npm/JS libraries without .zz source)
 - Import paths in ZZ are relative to the source `.zz` file, not the compiled output
 - `.js` extension is optional (auto-appended by compiler)
-- **Safe import type resolution**: `<-` imports parse the imported .zz file and extract full type signatures (function params/return types, variable types, structs, enums). The type checker validates calls against real types.
+- **Safe import type resolution**: `<-` imports parse the imported .zz file and extract full type signatures (function params/return types, variable types, structs, enums, traits). The type checker validates calls against real types.
 - **Auto-compilation**: Safe imports auto-compile the imported .zz file to .js if missing or stale (timestamp check). 1 level only — transitive imports are not followed.
 - Functions exported inside raw `$js{}` blocks fall back to placeholder types (untyped)
 - **Unsafe imports** (`<-!`): No type checking — all bindings get placeholder types
@@ -476,8 +547,8 @@ Install: See `editors/vscode/README.md` for setup instructions.
 - Variable names preserved exactly
 - Parentheses added for operator precedence safety
 - Range loops generate ascending/descending handling
-- Two-pass parsing: collect enum/struct names first, then parse (enables forward references)
-- Structs compile to JS classes, enums to frozen objects
+- Two-pass parsing: collect enum/struct/trait names first, then parse (enables forward references)
+- Structs compile to JS classes, enums to frozen objects, traits compile to nothing (erasure)
 - Implicit int→float widening: passing `int` where `float` is expected is allowed (assignments, arguments, returns)
 
 ## Agent instructions

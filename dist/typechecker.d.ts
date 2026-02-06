@@ -4,6 +4,7 @@ export declare class TypeChecker {
     private functions;
     private enums;
     private structs;
+    private traits;
     private errors;
     private loopDepth;
     private currentStructName;
@@ -17,6 +18,9 @@ export declare class TypeChecker {
     check(program: Program, source?: string): string[];
     private registerEnum;
     private registerStruct;
+    private registerTrait;
+    private checkStructTraitImplementation;
+    private substituteSelf;
     private registerCompTimeFunction;
     private checkCompTimeFunctionDeclaration;
     private validateFieldType;

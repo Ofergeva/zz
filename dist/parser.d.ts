@@ -5,11 +5,13 @@ export declare class Parser {
     private pos;
     private enumNames;
     private structNames;
+    private traitNames;
     private typeParamNames;
     private parseDepth;
     constructor(tokens: Token[], externalTypes?: {
         structNames?: Set<string>;
         enumNames?: Set<string>;
+        traitNames?: Set<string>;
     });
     private enterParse;
     private exitParse;
@@ -42,6 +44,11 @@ export declare class Parser {
     private parseJLiteral;
     private parseJPattern;
     private parseEnumDeclaration;
+    private parseTraitDeclaration;
+    private parseTraitMethodSignature;
+    private parseReturnType;
+    private parseTraitParameter;
+    private parseTraitVariableDeclaration;
     private parseEnumVariableDeclaration;
     private parseStructDeclaration;
     private isMethodStart;

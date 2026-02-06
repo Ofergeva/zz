@@ -527,6 +527,83 @@ GenericResult<s>#errResult = GenericResult<s>(false, "", "Something went wrong")
 
 print("Generics tests passed!")
 
+// === 18. Traits Test ===
+print("")
+print("=== Traits Test ===")
+
+// Basic trait declaration
+ZZ Printable
+  s Z toString()
+;
+
+ZZ Comparable
+  i Z compareTo(Self#other)
+;
+
+// Struct implementing a single trait
+S Point2D : Printable
+  f#x
+  f#y
+
+  s Z toString()
+    s"({x}, {y})"
+  ;
+;
+
+// Struct implementing multiple traits
+S Score : Printable, Comparable
+  i#value
+  s#label
+
+  s Z toString()
+    s"{label}: {value}"
+  ;
+
+  i Z compareTo(Score#other)
+    value - other.value
+  ;
+;
+
+// Trait as function parameter type (polymorphism)
+Z display(Printable#item)
+  print(s"Display: {item.toString()}")
+;
+
+Point2D#pt = Point2D(3.0, 4.0)
+display(pt)
+
+Score#s1 = Score(100, "Alice")
+Score#s2 = Score(85, "Bob")
+display(s1)
+display(s2)
+
+// Trait method call on trait-typed variable
+Printable#printable = Point2D(7.0, 8.0)
+print(s"Printable: {printable.toString()}")
+
+// Comparable Self type
+i#cmpResult = s1.compareTo(s2)
+print(s"Compare Alice vs Bob: {cmpResult}")
+
+// Trait with void method
+ZZ Describable
+  Z describe()
+;
+
+S Animal : Describable
+  s#name
+  s#sound
+
+  Z describe()
+    print(s"The {name} says {sound}")
+  ;
+;
+
+Animal#cat = Animal("cat", "meow")
+cat.describe()
+
+print("Traits tests passed!")
+
 // === Test Complete ===
 print("")
 print("=== All Stress Tests Completed Successfully ===")

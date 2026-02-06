@@ -14,18 +14,21 @@ import { CompTimeEvaluator } from "./evaluator.js";
 import { Program, ImportedModuleInfo } from "./ast.js";
 import { ZZError, formatError } from "./errors.js";
 
-// Scan tokens for struct/enum names (same logic as Parser.collectTypeNames)
-function collectTypeNamesFromTokens(tokens: Token[]): { structNames: Set<string>, enumNames: Set<string> } {
+// Scan tokens for struct/enum/trait names (same logic as Parser.collectTypeNames)
+function collectTypeNamesFromTokens(tokens: Token[]): { structNames: Set<string>, enumNames: Set<string>, traitNames: Set<string> } {
 	const structNames = new Set<string>();
 	const enumNames = new Set<string>();
+	const traitNames = new Set<string>();
 	for (let i = 0; i < tokens.length - 1; i++) {
 		if (tokens[i].type === TokenType.ENUM && tokens[i + 1].type === TokenType.IDENTIFIER) {
 			enumNames.add(tokens[i + 1].value);
 		} else if (tokens[i].type === TokenType.STRUCT && tokens[i + 1].type === TokenType.IDENTIFIER) {
 			structNames.add(tokens[i + 1].value);
+		} else if (tokens[i].type === TokenType.TRAIT && tokens[i + 1].type === TokenType.IDENTIFIER) {
+			traitNames.add(tokens[i + 1].value);
 		}
 	}
-	return { structNames, enumNames };
+	return { structNames, enumNames, traitNames };
 }
 
 // Extract exported type information from a parsed .zz AST
@@ -35,6 +38,7 @@ function extractExportedTypes(ast: Program): ImportedModuleInfo {
 		variables: new Map(),
 		structs: new Map(),
 		enums: new Map(),
+		traits: new Map(),
 	};
 
 	for (const stmt of ast.statements) {
@@ -67,6 +71,11 @@ function extractExportedTypes(ast: Program): ImportedModuleInfo {
 					info.enums.set(stmt.name, stmt.variants);
 				}
 				break;
+			case 'TraitDeclaration':
+				if (stmt.exported) {
+					info.traits.set(stmt.name, { methods: stmt.methods });
+				}
+				break;
 		}
 	}
 
@@ -78,9 +87,10 @@ function resolveImportedTypes(
 	tokens: Token[],
 	sourceDir: string,
 	stdLibDir: string
-): { structNames: Set<string>, enumNames: Set<string>, moduleTypes: Map<string, ImportedModuleInfo>, errors: string[] } {
+): { structNames: Set<string>, enumNames: Set<string>, traitNames: Set<string>, moduleTypes: Map<string, ImportedModuleInfo>, errors: string[] } {
 	const structNames = new Set<string>();
 	const enumNames = new Set<string>();
+	const traitNames = new Set<string>();
 	const moduleTypes = new Map<string, ImportedModuleInfo>();
 	const errors: string[] = [];
 
@@ -147,12 +157,14 @@ function resolveImportedTypes(
 
 		importedTypeNames.structNames.forEach(n => structNames.add(n));
 		importedTypeNames.enumNames.forEach(n => enumNames.add(n));
+		importedTypeNames.traitNames.forEach(n => traitNames.add(n));
 
 		// Parse the imported module to extract full type info
 		try {
 			const importedParser = new Parser(importedTokens, {
 				structNames: importedTypeNames.structNames,
 				enumNames: importedTypeNames.enumNames,
+				traitNames: importedTypeNames.traitNames,
 			});
 			const importedAst = importedParser.parse();
 			const moduleInfo = extractExportedTypes(importedAst);
@@ -181,7 +193,7 @@ function resolveImportedTypes(
 		}
 	}
 
-	return { structNames, enumNames, moduleTypes, errors };
+	return { structNames, enumNames, traitNames, moduleTypes, errors };
 }
 
 function compile(source: string, filename: string, codeGenOptions?: CodeGenOptions): { js: string; errors: string[] } {
@@ -190,14 +202,14 @@ function compile(source: string, filename: string, codeGenOptions?: CodeGenOptio
 	const tokens = lexer.tokenize();
 
 	// Step 1.5: Resolve types from imported .zz modules and auto-compile them
-	let externalTypes: { structNames?: Set<string>, enumNames?: Set<string> } | undefined;
+	let externalTypes: { structNames?: Set<string>, enumNames?: Set<string>, traitNames?: Set<string> } | undefined;
 	let moduleTypes: Map<string, ImportedModuleInfo> | undefined;
 	if (codeGenOptions) {
 		const resolved = resolveImportedTypes(tokens, codeGenOptions.sourceDir, codeGenOptions.stdLibDir);
 		if (resolved.errors.length > 0) {
 			return { js: "", errors: resolved.errors };
 		}
-		externalTypes = { structNames: resolved.structNames, enumNames: resolved.enumNames };
+		externalTypes = { structNames: resolved.structNames, enumNames: resolved.enumNames, traitNames: resolved.traitNames };
 		moduleTypes = resolved.moduleTypes;
 	}
 
@@ -290,7 +302,7 @@ function main(): void {
 				resolved.errors.forEach((e) => console.error(`  ${e}`));
 				process.exit(1);
 			}
-			const parser = new Parser(tokens, { structNames: resolved.structNames, enumNames: resolved.enumNames });
+			const parser = new Parser(tokens, { structNames: resolved.structNames, enumNames: resolved.enumNames, traitNames: resolved.traitNames });
 			// Note: resolved.moduleTypes available here for future AST type display
 			const ast = parser.parse();
 			console.log("\n=== AST ===");

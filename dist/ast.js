@@ -31,3 +31,7 @@ export function isArrayElementType(type) {
 export function isTypeParameterType(type) {
     return typeof type === "object" && type.kind === "typeParameter";
 }
+// Helper to check if a type is a trait
+export function isTraitType(type) {
+    return typeof type === "object" && type.kind === "trait";
+}

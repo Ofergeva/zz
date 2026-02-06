@@ -1,11 +1,11 @@
 // AST Node Types for ZZ Language
 
 export type PrimitiveType = "string" | "int" | "float" | "bool";
-export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType | TypeParameterType;
+export type DataType = PrimitiveType | ArrayType | TupleType | EnumType | StructType | JType | TypeParameterType | TraitType;
 export type Mutability = "immutable" | "mutable";
 
 // Element types allowed in arrays (primitives + complex types)
-export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType;
+export type ArrayElementType = PrimitiveType | StructType | EnumType | JType | TupleType | TypeParameterType | TraitType;
 
 // Array type: element type + optional fixed size
 export interface ArrayType {
@@ -43,6 +43,12 @@ export interface JType {
 // Type parameter: generic type variable (T, U, etc.)
 export interface TypeParameterType {
 	kind: "typeParameter";
+	name: string;
+}
+
+// Trait type: named trait for polymorphic typing
+export interface TraitType {
+	kind: "trait";
 	name: string;
 }
 
@@ -86,6 +92,11 @@ export function isTypeParameterType(type: DataType): type is TypeParameterType {
 	return typeof type === "object" && type.kind === "typeParameter";
 }
 
+// Helper to check if a type is a trait
+export function isTraitType(type: DataType): type is TraitType {
+	return typeof type === "object" && type.kind === "trait";
+}
+
 // Base interface for all AST nodes
 export interface ASTNode {
 	type: string;
@@ -124,7 +135,8 @@ export type Statement =
 	| StructDeclaration
 	| MatchExpression
 	| JSBlockStatement
-	| CompTimeFunctionDeclaration;
+	| CompTimeFunctionDeclaration
+	| TraitDeclaration;
 
 export interface VariableDeclaration extends ASTNode {
 	type: "VariableDeclaration";
@@ -445,6 +457,21 @@ export interface EnumAccess extends ASTNode {
 	variant: string;
 }
 
+// Trait method signature (no body, just the contract)
+export interface TraitMethodSignature {
+	name: string;
+	parameters: Parameter[];
+	returnType: DataType | "void";
+}
+
+// Trait declaration: ZZ Printable s Z toString() ;
+export interface TraitDeclaration extends ASTNode {
+	type: "TraitDeclaration";
+	name: string;
+	methods: TraitMethodSignature[];
+	exported: boolean;
+}
+
 // Struct field: type#name
 export interface StructField {
 	name: string;
@@ -470,6 +497,7 @@ export interface StructDeclaration extends ASTNode {
 	fields: StructField[];
 	methods: StructMethod[];
 	exported: boolean;
+	traitImplements: string[];  // Trait names this struct implements
 }
 
 // Struct instantiation: Person("Alice", 30)
@@ -633,4 +661,5 @@ export interface ImportedModuleInfo {
 		}
 	>;
 	enums: Map<string, string[]>;
+	traits: Map<string, { methods: TraitMethodSignature[] }>;
 }

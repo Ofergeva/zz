@@ -11,6 +11,7 @@ export declare class CodeGenerator {
     private options?;
     private hasSpawn;
     private currentStructFields;
+    private structInstanceVars;
     constructor(options?: CodeGenOptions);
     generate(program: Program): string;
     private generateStatement;

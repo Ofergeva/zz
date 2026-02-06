@@ -56,6 +56,10 @@ import {
 	CompTimeFunctionDeclaration,
 	TypeParameterType,
 	isTypeParameterType,
+	isTraitType,
+	TraitType,
+	TraitDeclaration,
+	TraitMethodSignature,
 } from "./ast.js";
 import { formatError } from "./errors.js";
 
@@ -78,6 +82,12 @@ interface StructInfo {
 	methods: Map<string, MethodInfo>;
 	line: number;
 	typeParameters?: string[];  // Type parameters for generic structs
+	traitImplements?: string[];  // Traits this struct claims to implement
+}
+
+interface TraitInfo {
+	methods: Map<string, MethodInfo>;
+	line: number;
 }
 
 interface MethodInfo {
@@ -90,6 +100,7 @@ export class TypeChecker {
 	private functions: Map<string, FunctionInfo> = new Map();
 	private enums: Map<string, string[]> = new Map(); // enum name -> variants
 	private structs: Map<string, StructInfo> = new Map(); // struct name -> info
+	private traits: Map<string, TraitInfo> = new Map(); // trait name -> info
 	private errors: string[] = [];
 	private loopDepth: number = 0; // Track if we're inside a loop
 	private currentStructName: string | null = null; // Track current struct for method body checking
@@ -118,6 +129,7 @@ export class TypeChecker {
 		this.functions.clear();
 		this.enums.clear();
 		this.structs.clear();
+		this.traits.clear();
 		this.errors = [];
 		this.source = source || "";
 
@@ -128,20 +140,47 @@ export class TypeChecker {
 			line: 0,
 		});
 
-		// First pass: collect enum, struct, and compile-time function declarations
+		// First pass: collect enum, struct, trait, and compile-time function declarations
 		for (const statement of program.statements) {
 			if (statement.type === "EnumDeclaration") {
 				this.registerEnum(statement);
 			} else if (statement.type === "StructDeclaration") {
 				this.registerStruct(statement);
+			} else if (statement.type === "TraitDeclaration") {
+				this.registerTrait(statement);
 			} else if (statement.type === "CompTimeFunctionDeclaration") {
 				this.registerCompTimeFunction(statement);
 			}
 		}
 
-		// Second pass: check all statements
+		// Register traits from imported modules
+		for (const [, moduleInfo] of this.moduleTypes) {
+			if (moduleInfo.traits) {
+				for (const [name, traitInfo] of moduleInfo.traits) {
+					if (!this.traits.has(name)) {
+						const methodMap = new Map<string, MethodInfo>();
+						for (const method of traitInfo.methods) {
+							methodMap.set(method.name, {
+								parameters: method.parameters,
+								returnType: method.returnType,
+							});
+						}
+						this.traits.set(name, { methods: methodMap, line: 0 });
+					}
+				}
+			}
+		}
+
+		// Second pass: check all statements (including trait implementation validation)
 		for (const statement of program.statements) {
 			this.checkStatement(statement);
+		}
+
+		// Third pass: validate struct trait implementations (after all methods are registered)
+		for (const statement of program.statements) {
+			if (statement.type === "StructDeclaration" && statement.traitImplements && statement.traitImplements.length > 0) {
+				this.checkStructTraitImplementation(statement);
+			}
 		}
 
 		return this.errors;
@@ -204,7 +243,114 @@ export class TypeChecker {
 			methods: methodMap,
 			line: decl.line,
 			typeParameters: decl.typeParameters,
+			traitImplements: decl.traitImplements,
 		});
+	}
+
+	private registerTrait(decl: TraitDeclaration): void {
+		if (this.traits.has(decl.name)) {
+			this.pushError(`Duplicate trait declaration '${decl.name}'`, decl.line);
+			return;
+		}
+
+		// Check for duplicate method names
+		const methodMap = new Map<string, MethodInfo>();
+		const methodSet = new Set<string>();
+		for (const method of decl.methods) {
+			if (methodSet.has(method.name)) {
+				this.pushError(`Duplicate method '${method.name}' in trait '${decl.name}'`, decl.line);
+			}
+			methodSet.add(method.name);
+			methodMap.set(method.name, {
+				parameters: method.parameters,
+				returnType: method.returnType,
+			});
+		}
+
+		this.traits.set(decl.name, {
+			methods: methodMap,
+			line: decl.line,
+		});
+	}
+
+	private checkStructTraitImplementation(decl: StructDeclaration): void {
+		const structInfo = this.structs.get(decl.name);
+		if (!structInfo) return;
+
+		for (const traitName of decl.traitImplements!) {
+			const traitInfo = this.traits.get(traitName);
+			if (!traitInfo) {
+				this.pushError(`Unknown trait '${traitName}' in struct '${decl.name}'`, decl.line);
+				continue;
+			}
+
+			// Check each trait method is implemented by the struct
+			for (const [methodName, traitMethod] of traitInfo.methods) {
+				const structMethod = structInfo.methods.get(methodName);
+				if (!structMethod) {
+					this.pushError(
+						`Struct '${decl.name}' claims to implement trait '${traitName}' but is missing method '${methodName}'`,
+						decl.line
+					);
+					continue;
+				}
+
+				// Check parameter count matches
+				if (structMethod.parameters.length !== traitMethod.parameters.length) {
+					this.pushError(
+						`Method '${methodName}' in struct '${decl.name}' has ${structMethod.parameters.length} parameter(s), but trait '${traitName}' requires ${traitMethod.parameters.length}`,
+						decl.line
+					);
+					continue;
+				}
+
+				// Check parameter types match (with Self substitution)
+				const selfType: StructType = { kind: "struct", name: decl.name };
+				for (let i = 0; i < traitMethod.parameters.length; i++) {
+					const expectedType = this.substituteSelf(traitMethod.parameters[i].dataType, selfType);
+					const actualType = structMethod.parameters[i].dataType;
+					if (!this.typesCompatible(actualType, expectedType)) {
+						this.pushError(
+							`Method '${methodName}' parameter ${i + 1} in struct '${decl.name}' has type ${this.typeToString(actualType)}, but trait '${traitName}' expects ${this.typeToString(expectedType)}`,
+							decl.line
+						);
+					}
+				}
+
+				// Check return type matches (with Self substitution)
+				const expectedReturn = traitMethod.returnType === "void" ? "void" : this.substituteSelf(traitMethod.returnType as DataType, selfType);
+				if (expectedReturn === "void" && structMethod.returnType !== "void") {
+					// Struct method returns something when trait expects void — that's OK (more specific)
+				} else if (expectedReturn !== "void" && structMethod.returnType === "void") {
+					this.pushError(
+						`Method '${methodName}' in struct '${decl.name}' returns void, but trait '${traitName}' expects ${this.typeToString(expectedReturn as DataType)}`,
+						decl.line
+					);
+				} else if (expectedReturn !== "void" && structMethod.returnType !== "void") {
+					if (!this.typesCompatible(structMethod.returnType as DataType, expectedReturn as DataType)) {
+						this.pushError(
+							`Method '${methodName}' in struct '${decl.name}' returns ${this.typeToString(structMethod.returnType)}, but trait '${traitName}' expects ${this.typeToString(expectedReturn as DataType)}`,
+							decl.line
+						);
+					}
+				}
+			}
+		}
+	}
+
+	// Substitute Self type parameter with the concrete struct type
+	private substituteSelf(type: DataType, selfType: StructType): DataType {
+		if (isTypeParameterType(type) && type.name === "Self") {
+			return selfType;
+		}
+		if (isArrayType(type)) {
+			return {
+				kind: "array",
+				elementType: this.substituteSelf(type.elementType, selfType) as any,
+				size: type.size,
+			};
+		}
+		return type;
 	}
 
 	private registerCompTimeFunction(decl: CompTimeFunctionDeclaration): void {
@@ -282,6 +428,12 @@ export class TypeChecker {
 			// Allow self-reference or forward-reference (will be validated later)
 			return;
 		}
+		if (isTraitType(dataType)) {
+			if (!this.traits.has(dataType.name)) {
+				this.errors.push(`Unknown trait type '${dataType.name}' in struct '${structName}' at line ${line}.`);
+			}
+			return;
+		}
 	}
 
 	private checkStatement(statement: Statement): void {
@@ -353,6 +505,9 @@ export class TypeChecker {
 			case "StructDeclaration":
 				// Check struct methods (struct is already registered in first pass)
 				this.checkStructDeclaration(statement);
+				break;
+			case "TraitDeclaration":
+				// Already registered in first pass, nothing more to check
 				break;
 			case "MatchExpression":
 				this.checkMatchExpression(statement);
@@ -1616,6 +1771,37 @@ export class TypeChecker {
 				}
 			}
 
+			// Trait type methods: resolve from trait definition
+			else if (objectType && isTraitType(objectType)) {
+				const traitInfo = this.traits.get(objectType.name);
+				if (traitInfo) {
+					const methodInfo = traitInfo.methods.get(expr.method);
+					if (methodInfo) {
+						// Validate arguments
+						if (expr.arguments.length !== methodInfo.parameters.length) {
+							this.errors.push(
+								`Method '${expr.method}' on trait '${objectType.name}' expects ${methodInfo.parameters.length} arguments, got ${expr.arguments.length} at line ${line}.`,
+							);
+						} else {
+							for (let i = 0; i < expr.arguments.length; i++) {
+								const argType = this.inferExpressionType(expr.arguments[i]);
+								if (argType && !this.typesCompatible(argType, methodInfo.parameters[i].dataType)) {
+									this.errors.push(
+										`Type mismatch at line ${line}: argument ${i + 1} to method '${expr.method}' should be ${this.typeToString(methodInfo.parameters[i].dataType)}, got ${this.typeToString(argType)}.`,
+									);
+								}
+							}
+						}
+					} else {
+						// Check UFCS as fallback
+						const funcInfo = this.functions.get(expr.method);
+						if (!funcInfo) {
+							this.errors.push(`Unknown method '${expr.method}' on trait '${objectType.name}' at line ${line}.`);
+						}
+					}
+				}
+			}
+
 			// UFCS for other types: check if there's a function with this name
 			else if (objectType) {
 				const funcInfo = this.functions.get(expr.method);
@@ -1940,6 +2126,10 @@ export class TypeChecker {
 		if (isJType(a) && isJType(b)) {
 			return true;
 		}
+		// Both trait types
+		if (isTraitType(a) && isTraitType(b)) {
+			return a.name === b.name;
+		}
 		// Mismatched types
 		return false;
 	}
@@ -1952,6 +2142,14 @@ export class TypeChecker {
 		// Allow empty arrays to match any array type
 		if (source && isArrayType(source) && source.isEmpty && target && target !== "void" && isArrayType(target)) {
 			return true;
+		}
+		// Allow struct → trait if struct implements the trait
+		if (source && target && target !== "void" && isStructType(source) && isTraitType(target)) {
+			const structInfo = this.structs.get(source.name);
+			if (structInfo && structInfo.traitImplements) {
+				return structInfo.traitImplements.includes(target.name);
+			}
+			return false;
 		}
 		return false;
 	}
@@ -1981,6 +2179,9 @@ export class TypeChecker {
 		}
 		if (isJType(type)) {
 			return "J";
+		}
+		if (isTraitType(type)) {
+			return type.name;
 		}
 		return "unknown";
 	}
@@ -2241,6 +2442,17 @@ export class TypeChecker {
 								}
 								return this.substituteTypeParams(methodInfo.returnType, bindings);
 							}
+							return methodInfo.returnType;
+						}
+					}
+				}
+
+				// Trait type methods
+				if (objectType && isTraitType(objectType)) {
+					const traitInfo = this.traits.get(objectType.name);
+					if (traitInfo) {
+						const methodInfo = traitInfo.methods.get(expr.method);
+						if (methodInfo && methodInfo.returnType !== "void") {
 							return methodInfo.returnType;
 						}
 					}

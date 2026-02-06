@@ -82,6 +82,9 @@ import {
 	CompTimeFunctionDeclaration,
 	TypeParameterType,
 	isTypeParameterType,
+	TraitType,
+	TraitDeclaration,
+	TraitMethodSignature,
 } from "./ast.js";
 
 // Parser security limits
@@ -92,16 +95,20 @@ export class Parser {
 	private pos: number = 0;
 	private enumNames: Set<string> = new Set(); // Track known enum names for type resolution
 	private structNames: Set<string> = new Set(); // Track known struct names for type resolution
+	private traitNames: Set<string> = new Set(); // Track known trait names for type resolution
 	private typeParamNames: Set<string> = new Set(); // Track active type parameters for generic structs/functions
 	private parseDepth: number = 0; // Track recursion depth to prevent stack overflow
 
-	constructor(tokens: Token[], externalTypes?: { structNames?: Set<string>; enumNames?: Set<string> }) {
+	constructor(tokens: Token[], externalTypes?: { structNames?: Set<string>; enumNames?: Set<string>; traitNames?: Set<string> }) {
 		this.tokens = tokens;
 		if (externalTypes?.structNames) {
 			externalTypes.structNames.forEach((n) => this.structNames.add(n));
 		}
 		if (externalTypes?.enumNames) {
 			externalTypes.enumNames.forEach((n) => this.enumNames.add(n));
+		}
+		if (externalTypes?.traitNames) {
+			externalTypes.traitNames.forEach((n) => this.traitNames.add(n));
 		}
 		// Pre-register Spawn as a known struct so Spawn#s = ~> func() works
 		this.structNames.add("Spawn");
@@ -161,6 +168,12 @@ export class Parser {
 				const nameToken = this.peek();
 				if (nameToken.type === TokenType.IDENTIFIER) {
 					this.structNames.add(nameToken.value);
+				}
+			} else if (token.type === TokenType.TRAIT) {
+				this.advance(); // consume ZZ
+				const nameToken = this.peek();
+				if (nameToken.type === TokenType.IDENTIFIER) {
+					this.traitNames.add(nameToken.value);
 				}
 			}
 			this.advance();
@@ -230,6 +243,11 @@ export class Parser {
 		// Struct declaration: S StructName ... ;
 		if (token.type === TokenType.STRUCT) {
 			return this.parseStructDeclaration();
+		}
+
+		// Trait declaration: ZZ TraitName ... ;
+		if (token.type === TokenType.TRAIT) {
+			return this.parseTraitDeclaration();
 		}
 
 		// Generic function declaration: <T> ReturnType Z funcName(...) or <T> Z funcName(...)
@@ -343,6 +361,34 @@ export class Parser {
 				return this.parseStructVariableDeclaration();
 			}
 			// Could be struct return type for function: Person Z createPerson()
+			if (nextToken?.type === TokenType.FUNC) {
+				return this.parseFunctionDeclaration();
+			}
+		}
+
+		// Trait type variable declaration: Printable#p = ... or Printable[]#items = [...]
+		// Or trait return type for function: Printable Z getItem() or Printable[] Z getItems()
+		if (token.type === TokenType.IDENTIFIER && this.traitNames.has(token.value)) {
+			const nextToken = this.peekNext();
+			if (nextToken?.type === TokenType.IMMUTABLE || nextToken?.type === TokenType.MUTABLE) {
+				return this.parseTraitVariableDeclaration();
+			}
+			// Check for array of trait: Printable[]#items vs Printable[] Z getItems()
+			if (nextToken?.type === TokenType.LBRACKET) {
+				let lookAhead = 2;
+				if (this.tokens[this.pos + lookAhead]?.type === TokenType.NUMBER_LITERAL) {
+					lookAhead++;
+				}
+				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
+					lookAhead++;
+					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
+					if (afterBracket === TokenType.FUNC) {
+						return this.parseFunctionDeclaration();
+					}
+				}
+				return this.parseTraitVariableDeclaration();
+			}
+			// Could be trait return type for function: Printable Z getItem()
 			if (nextToken?.type === TokenType.FUNC) {
 				return this.parseFunctionDeclaration();
 			}
@@ -574,7 +620,7 @@ export class Parser {
 	}
 
 	// Parse exported declaration: -> before function, variable, enum, or struct
-	private parseExportedDeclaration(): VariableDeclaration | FunctionDeclaration | EnumDeclaration | StructDeclaration {
+	private parseExportedDeclaration(): VariableDeclaration | FunctionDeclaration | EnumDeclaration | StructDeclaration | TraitDeclaration {
 		const exportToken = this.advance(); // consume ->
 
 		// Next must be a type token (for variable or function with return type), Z (for void function),
@@ -589,6 +635,36 @@ export class Parser {
 		// Struct declaration: ->S StructName ...
 		if (nextToken.type === TokenType.STRUCT) {
 			return this.parseStructDeclaration(true);
+		}
+
+		// Trait declaration: ->ZZ TraitName ...
+		if (nextToken.type === TokenType.TRAIT) {
+			return this.parseTraitDeclaration(true);
+		}
+
+		// Trait type variable or function: ->Printable#p or ->Printable Z getItem()
+		if (nextToken.type === TokenType.IDENTIFIER && this.traitNames.has(nextToken.value)) {
+			const peekNextToken = this.peekNext();
+			if (peekNextToken?.type === TokenType.IMMUTABLE || peekNextToken?.type === TokenType.MUTABLE) {
+				return this.parseTraitVariableDeclaration(true);
+			}
+			if (peekNextToken?.type === TokenType.LBRACKET) {
+				let lookAhead = 2;
+				if (this.tokens[this.pos + lookAhead]?.type === TokenType.NUMBER_LITERAL) {
+					lookAhead++;
+				}
+				if (this.tokens[this.pos + lookAhead]?.type === TokenType.RBRACKET) {
+					lookAhead++;
+					const afterBracket = this.tokens[this.pos + lookAhead]?.type;
+					if (afterBracket === TokenType.FUNC) {
+						return this.parseFunctionDeclaration(true);
+					}
+				}
+				return this.parseTraitVariableDeclaration(true);
+			}
+			if (peekNextToken?.type === TokenType.FUNC) {
+				return this.parseFunctionDeclaration(true);
+			}
 		}
 
 		// Enum type variable or function: ->Color#c or ->Color Z getColor() or ->Color[]#colors or ->Color[] Z getColors()
@@ -1209,7 +1285,8 @@ export class Parser {
 					(nextType === TokenType.PLUS_PLUS || nextType === TokenType.MINUS_MINUS)) ||
 				(token.type === TokenType.IDENTIFIER && this.isCompoundAssignmentToken(nextType)) ||
 				(token.type === TokenType.IDENTIFIER && this.enumNames.has(token.value) && nextType === TokenType.IMMUTABLE) ||
-				(token.type === TokenType.IDENTIFIER && this.structNames.has(token.value) && nextType === TokenType.IMMUTABLE);
+				(token.type === TokenType.IDENTIFIER && this.structNames.has(token.value) && nextType === TokenType.IMMUTABLE) ||
+				(token.type === TokenType.IDENTIFIER && this.traitNames.has(token.value) && nextType === TokenType.IMMUTABLE);
 
 			if (isStatement) {
 				body.push(this.parseStatement());
@@ -1546,6 +1623,302 @@ export class Parser {
 		};
 	}
 
+	// Parse trait declaration: ZZ TraitName [ReturnType] Z methodName(params) ... ;
+	private parseTraitDeclaration(exported: boolean = false): TraitDeclaration {
+		const traitToken = this.advance(); // consume ZZ
+		const nameToken = this.expect([TokenType.IDENTIFIER]);
+		this.skipNewlines();
+
+		const methods: TraitMethodSignature[] = [];
+
+		// Add "Self" as a type parameter in scope during trait parsing
+		this.typeParamNames.add("Self");
+
+		while (this.peek().type !== TokenType.SEMICOLON) {
+			methods.push(this.parseTraitMethodSignature());
+			this.skipNewlines();
+		}
+		this.expect([TokenType.SEMICOLON]);
+
+		// Remove "Self" from scope
+		this.typeParamNames.delete("Self");
+
+		return {
+			type: "TraitDeclaration",
+			name: nameToken.value,
+			methods,
+			exported,
+			line: traitToken.line,
+			column: traitToken.column,
+		};
+	}
+
+	// Parse trait method signature: [ReturnType] Z methodName(params)
+	private parseTraitMethodSignature(): TraitMethodSignature {
+		let returnType: DataType | "void" = "void";
+
+		// Check for return type before Z
+		if (this.peek().type !== TokenType.FUNC) {
+			returnType = this.parseReturnType();
+		}
+
+		this.expect([TokenType.FUNC]); // consume Z
+		const nameToken = this.expect([TokenType.IDENTIFIER]);
+		this.expect([TokenType.LPAREN]);
+
+		const parameters: Parameter[] = [];
+		while (this.peek().type !== TokenType.RPAREN) {
+			parameters.push(this.parseTraitParameter());
+			if (this.peek().type === TokenType.COMMA) {
+				this.advance();
+			}
+			this.skipNewlines();
+		}
+		this.expect([TokenType.RPAREN]);
+
+		return {
+			name: nameToken.value,
+			parameters,
+			returnType,
+		};
+	}
+
+	// Parse a return type for trait method signatures
+	private parseReturnType(): DataType {
+		const token = this.peek();
+
+		if (this.isTypeToken(token.type)) {
+			this.advance();
+			const typeMap: Record<string, DataType> = {
+				[TokenType.TYPE_STRING]: "string",
+				[TokenType.TYPE_INT]: "int",
+				[TokenType.TYPE_FLOAT]: "float",
+				[TokenType.TYPE_BOOL]: "bool",
+			};
+			let dataType: DataType = typeMap[token.type] || "int";
+
+			// Check for array return type
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance(); // consume [
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				dataType = { kind: "array", elementType: dataType as any, size };
+			}
+			return dataType;
+		}
+
+		if (token.type === TokenType.IDENTIFIER && this.structNames.has(token.value)) {
+			this.advance();
+			let dataType: DataType = { kind: "struct", name: token.value };
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				dataType = { kind: "array", elementType: { kind: "struct", name: token.value }, size };
+			}
+			return dataType;
+		}
+
+		if (token.type === TokenType.IDENTIFIER && this.enumNames.has(token.value)) {
+			this.advance();
+			let dataType: DataType = { kind: "enum", name: token.value };
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				dataType = { kind: "array", elementType: { kind: "enum", name: token.value }, size };
+			}
+			return dataType;
+		}
+
+		if (token.type === TokenType.IDENTIFIER && this.traitNames.has(token.value)) {
+			this.advance();
+			let dataType: DataType = { kind: "trait", name: token.value };
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				dataType = { kind: "array", elementType: { kind: "trait", name: token.value }, size };
+			}
+			return dataType;
+		}
+
+		if (token.type === TokenType.IDENTIFIER && this.typeParamNames.has(token.value)) {
+			this.advance();
+			return { kind: "typeParameter", name: token.value };
+		}
+
+		if (token.type === TokenType.TYPE_J) {
+			this.advance();
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				return { kind: "array", elementType: { kind: "j" }, size };
+			}
+			return { kind: "j" };
+		}
+
+		throw new Error(`Expected return type at line ${token.line}`);
+	}
+
+	// Parse a parameter in a trait method signature
+	private parseTraitParameter(): Parameter {
+		const paramTypeToken = this.peek();
+		let paramType: DataType;
+
+		if (this.isTypeToken(paramTypeToken.type)) {
+			this.advance();
+			const typeMap: Record<string, DataType> = {
+				[TokenType.TYPE_STRING]: "string",
+				[TokenType.TYPE_INT]: "int",
+				[TokenType.TYPE_FLOAT]: "float",
+				[TokenType.TYPE_BOOL]: "bool",
+			};
+			paramType = typeMap[paramTypeToken.type] || "int";
+			// Check for array
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				paramType = { kind: "array", elementType: paramType as any, size };
+			}
+		} else if (paramTypeToken.type === TokenType.IDENTIFIER && this.structNames.has(paramTypeToken.value)) {
+			this.advance();
+			const structType: StructType = { kind: "struct", name: paramTypeToken.value };
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				paramType = { kind: "array", elementType: structType, size };
+			} else {
+				paramType = structType;
+			}
+		} else if (paramTypeToken.type === TokenType.IDENTIFIER && this.enumNames.has(paramTypeToken.value)) {
+			this.advance();
+			const enumType: EnumType = { kind: "enum", name: paramTypeToken.value };
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				paramType = { kind: "array", elementType: enumType, size };
+			} else {
+				paramType = enumType;
+			}
+		} else if (paramTypeToken.type === TokenType.IDENTIFIER && this.traitNames.has(paramTypeToken.value)) {
+			this.advance();
+			const traitType: TraitType = { kind: "trait", name: paramTypeToken.value };
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				paramType = { kind: "array", elementType: traitType, size };
+			} else {
+				paramType = traitType;
+			}
+		} else if (paramTypeToken.type === TokenType.IDENTIFIER && this.typeParamNames.has(paramTypeToken.value)) {
+			this.advance();
+			paramType = { kind: "typeParameter", name: paramTypeToken.value };
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				paramType = { kind: "array", elementType: paramType as any, size };
+			}
+		} else if (paramTypeToken.type === TokenType.TYPE_J) {
+			this.advance();
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				paramType = { kind: "array", elementType: { kind: "j" }, size };
+			} else {
+				paramType = { kind: "j" };
+			}
+		} else {
+			throw new Error(`Expected parameter type at line ${paramTypeToken.line}`);
+		}
+
+		this.expect([TokenType.IMMUTABLE]); // trait params always immutable
+		const nameToken = this.expect([TokenType.IDENTIFIER]);
+		return { dataType: paramType, name: nameToken.value };
+	}
+
+	// Parse trait-typed variable declaration: Printable#item = expr
+	private parseTraitVariableDeclaration(exported: boolean = false): VariableDeclaration {
+		const typeToken = this.advance(); // consume trait name
+		const traitName = typeToken.value;
+
+		// Check for array of trait: Printable[]#items
+		let dataType: DataType;
+		if (this.peek().type === TokenType.LBRACKET) {
+			this.advance(); // consume [
+			let size: number | undefined;
+			if (this.peek().type === TokenType.NUMBER_LITERAL) {
+				const sizeToken = this.advance();
+				size = parseInt(sizeToken.value, 10);
+			}
+			this.expect([TokenType.RBRACKET]);
+			dataType = { kind: "array", elementType: { kind: "trait", name: traitName }, size };
+		} else {
+			dataType = { kind: "trait", name: traitName };
+		}
+
+		const mutabilityToken = this.expect([TokenType.IMMUTABLE, TokenType.MUTABLE]);
+		const mutability: Mutability = mutabilityToken.type === TokenType.IMMUTABLE ? "immutable" : "mutable";
+
+		const nameToken = this.expect([TokenType.IDENTIFIER]);
+		const name = nameToken.value;
+
+		this.expect([TokenType.EQUALS]);
+		const value = this.parseExpression();
+		this.expectEndOfStatement();
+
+		return {
+			type: "VariableDeclaration",
+			dataType,
+			mutability,
+			name,
+			value,
+			exported,
+			line: typeToken.line,
+			column: typeToken.column,
+		};
+	}
+
 	private parseEnumVariableDeclaration(exported: boolean = false): VariableDeclaration {
 		const typeToken = this.advance(); // consume enum name (e.g., Color)
 		const enumName = typeToken.value;
@@ -1603,6 +1976,24 @@ export class Parser {
 			typeParameters.forEach((tp) => this.typeParamNames.add(tp));
 		}
 
+		// Parse trait implementations: S Point : Printable, Comparable
+		let traitImplements: string[] = [];
+		if (this.peek().type === TokenType.ELSE) {
+			this.advance(); // consume :
+			this.skipNewlines();
+			while (true) {
+				const traitNameToken = this.expect([TokenType.IDENTIFIER]);
+				traitImplements.push(traitNameToken.value);
+				this.skipNewlines();
+				if (this.peek().type === TokenType.COMMA) {
+					this.advance();
+					this.skipNewlines();
+				} else {
+					break;
+				}
+			}
+		}
+
 		const fields: StructField[] = [];
 		const methods: StructMethod[] = [];
 
@@ -1634,6 +2025,7 @@ export class Parser {
 			fields,
 			methods,
 			exported,
+			traitImplements,
 			line: structToken.line,
 			column: structToken.column,
 		};
@@ -1669,7 +2061,7 @@ export class Parser {
 
 	private isStructOrEnumType(token: Token): boolean {
 		return (
-			token.type === TokenType.IDENTIFIER && (this.structNames.has(token.value) || this.enumNames.has(token.value))
+			token.type === TokenType.IDENTIFIER && (this.structNames.has(token.value) || this.enumNames.has(token.value) || this.traitNames.has(token.value))
 		);
 	}
 
@@ -1708,6 +2100,8 @@ export class Parser {
 				dataType = structType;
 			} else if (this.enumNames.has(typeToken.value)) {
 				dataType = { kind: "enum", name: typeToken.value };
+			} else if (this.traitNames.has(typeToken.value)) {
+				dataType = { kind: "trait", name: typeToken.value };
 			} else {
 				throw new Error(`Unknown type '${typeToken.value}' at line ${typeToken.line}`);
 			}
@@ -1864,6 +2258,22 @@ export class Parser {
 					paramType = { kind: "array", elementType: enumType, size };
 				} else {
 					paramType = enumType;
+				}
+			}
+			// Check for trait parameter type: Printable#p or Printable[]#items
+			else if (paramTypeToken.type === TokenType.IDENTIFIER && this.traitNames.has(paramTypeToken.value)) {
+				this.advance();
+				const traitType: TraitType = { kind: "trait", name: paramTypeToken.value };
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance();
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					paramType = { kind: "array", elementType: traitType, size };
+				} else {
+					paramType = traitType;
 				}
 			}
 			// Check for J parameter type: J#config or J[]#configs
@@ -2174,6 +2584,23 @@ export class Parser {
 				returnType = structType;
 			}
 		}
+		// Check for trait return type: Printable Z or Printable[] Z
+		else if (this.peek().type === TokenType.IDENTIFIER && this.traitNames.has(this.peek().value)) {
+			const typeToken = this.advance();
+			startToken = typeToken;
+			const traitType: TraitType = { kind: "trait", name: typeToken.value };
+			if (this.peek().type === TokenType.LBRACKET) {
+				this.advance();
+				let size: number | undefined;
+				if (this.peek().type === TokenType.NUMBER_LITERAL) {
+					size = parseInt(this.advance().value, 10);
+				}
+				this.expect([TokenType.RBRACKET]);
+				returnType = { kind: "array", elementType: traitType, size };
+			} else {
+				returnType = traitType;
+			}
+		}
 
 		// Consume Z
 		this.expect([TokenType.FUNC]);
@@ -2240,6 +2667,22 @@ export class Parser {
 					paramType = { kind: "array", elementType: enumType, size };
 				} else {
 					paramType = enumType;
+				}
+			}
+			// Check for trait parameter type: Printable#p or Printable[]#items
+			else if (paramTypeToken.type === TokenType.IDENTIFIER && this.traitNames.has(paramTypeToken.value)) {
+				this.advance();
+				const traitType: TraitType = { kind: "trait", name: paramTypeToken.value };
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance();
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					paramType = { kind: "array", elementType: traitType, size };
+				} else {
+					paramType = traitType;
 				}
 			}
 			// Check for J parameter type: J#config or J[]#configs
@@ -2339,6 +2782,11 @@ export class Parser {
 				this.enumNames.has(token.value) &&
 				nextType === TokenType.LBRACKET &&
 				this.isArrayVariableDeclaration();
+			const isTraitArrayDecl =
+				token.type === TokenType.IDENTIFIER &&
+				this.traitNames.has(token.value) &&
+				nextType === TokenType.LBRACKET &&
+				this.isArrayVariableDeclaration();
 			const isStatement =
 				(this.isTypeToken(token.type) && nextType !== TokenType.FUNC) ||
 				token.type === TokenType.PRINT ||
@@ -2361,8 +2809,12 @@ export class Parser {
 				(token.type === TokenType.IDENTIFIER &&
 					this.enumNames.has(token.value) &&
 					(nextType === TokenType.IMMUTABLE || nextType === TokenType.MUTABLE)) ||
+				(token.type === TokenType.IDENTIFIER &&
+					this.traitNames.has(token.value) &&
+					(nextType === TokenType.IMMUTABLE || nextType === TokenType.MUTABLE)) ||
 				isStructArrayDecl ||
-				isEnumArrayDecl;
+				isEnumArrayDecl ||
+				isTraitArrayDecl;
 
 			if (isStatement) {
 				body.push(this.parseStatement());
@@ -3501,6 +3953,20 @@ export class Parser {
 				}
 
 				return enumType;
+			} else if (this.traitNames.has(token.value)) {
+				const traitType: TraitType = { kind: "trait", name: token.value };
+
+				if (this.peek().type === TokenType.LBRACKET) {
+					this.advance();
+					let size: number | undefined;
+					if (this.peek().type === TokenType.NUMBER_LITERAL) {
+						size = parseInt(this.advance().value, 10);
+					}
+					this.expect([TokenType.RBRACKET]);
+					return { kind: "array", elementType: traitType, size };
+				}
+
+				return traitType;
 			} else {
 				throw new Error(`Unknown type '${token.value}' at line ${token.line}`);
 			}
@@ -3638,6 +4104,8 @@ export class Parser {
 			returnType = { kind: "enum", name: this.advance().value };
 		} else if (this.peek().type === TokenType.IDENTIFIER && this.structNames.has(this.peek().value)) {
 			returnType = { kind: "struct", name: this.advance().value };
+		} else if (this.peek().type === TokenType.IDENTIFIER && this.traitNames.has(this.peek().value)) {
+			returnType = { kind: "trait", name: this.advance().value };
 		} else if (this.peek().type === TokenType.IDENTIFIER) {
 			// Handle case where single-letter type (i, s, f, b) is tokenized as IDENTIFIER
 			// This happens because the lexer doesn't know it's followed by a function name

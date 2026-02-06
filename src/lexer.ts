@@ -70,6 +70,7 @@ export enum TokenType {
 
 	// Functions
 	FUNC = "FUNC", // Z
+	TRAIT = "TRAIT", // ZZ
 	ENUM = "ENUM", // E
 	STRUCT = "STRUCT", // S
 	COMMA = "COMMA", // ,
@@ -756,6 +757,9 @@ export class Lexer {
 		}
 		if (value === "false") {
 			return { type: TokenType.BOOL_LITERAL, value, line: this.line, column: startColumn };
+		}
+		if (value === "ZZ") {
+			return { type: TokenType.TRAIT, value, line: this.line, column: startColumn };
 		}
 		if (value === "Z") {
 			return { type: TokenType.FUNC, value, line: this.line, column: startColumn };

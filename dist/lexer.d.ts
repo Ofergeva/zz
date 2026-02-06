@@ -47,6 +47,7 @@ export declare enum TokenType {
     FAT_ARROW = "FAT_ARROW",// => (match result)
     AMPERSAND = "AMPERSAND",// & (match guard)
     FUNC = "FUNC",// Z
+    TRAIT = "TRAIT",// ZZ
     ENUM = "ENUM",// E
     STRUCT = "STRUCT",// S
     COMMA = "COMMA",// ,
