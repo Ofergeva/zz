@@ -19,6 +19,7 @@ node dist/index.js <file.zz>     # Compile .zz file to compiled/<name>.js
 node dist/index.js <file.zz> --run    # Compile and execute
 node dist/index.js <file.zz> --stdout # Output to console
 node dist/index.js <file.zz> --ast    # Debug: show tokens and AST
+node dist/index.js --repl             # Start interactive REPL
 ```
 
 ## Project Structure
@@ -32,6 +33,7 @@ src/
 ├── typechecker.ts # Static type validation
 ├── evaluator.ts   # Compile-time expression evaluator
 ├── codegen.ts     # JavaScript code generator
+├── repl.ts        # Interactive REPL
 └── errors.ts      # Error formatting with source context
 
 std/               # Standard library modules
@@ -42,7 +44,8 @@ std/               # Standard library modules
 ├── spawn.zz       # Async spawn utilities
 ├── fs.zz          # File system operations
 ├── math.zz        # Math utilities
-└── time.zz        # Time and sleep utilities
+├── time.zz        # Time and sleep utilities
+└── server.zz      # HTTP server (createServer, routing, respond)
 
 examples/          # Example .zz files with compiled/ output
 editors/           # Editor support
@@ -307,15 +310,52 @@ Multi-parameter:
   - `T[]#param` matches array element type
   - Multiple occurrences of `T` must match the same type
 
+#### Generic Constraints
+
+Type parameters can require trait implementations using `<T: TraitName>` syntax:
+
+```zz
+// Constrained generic function — only types implementing Printable accepted
+<T: Printable> Z display(T#item)
+  print(item.toString())
+;
+
+// Constrained generic with return type
+<T: Printable> s Z describe(T#item)
+  s"Item: {item.toString()}"
+;
+
+// Constrained generic struct
+S Container<T: Printable>
+  T#value
+
+  Z show()
+    print(value.toString())
+  ;
+;
+
+// Mixed constrained and unconstrained type params
+<T: Printable, U> Z showFirst(T#first U#second)
+  print(first.toString())
+;
+```
+
+- Single constraint per type parameter (e.g., `<T: Printable>`)
+- Constraint validates that the type argument implements the required trait at compile time
+- Methods from the constraint trait can be called on constrained type parameters
+- Constraints propagate across module imports
+- Multiple constraints on different type params: `<T: Printable, U: Comparable>`
+
 #### Semantics
 
 - **Erasure-based**: Type parameters are compile-time only, stripped in JS output (no monomorphization)
-- **No constraints**: Any type can be used for type parameters (constraints are future work)
+- **Constraints**: Type parameters can require trait implementations via `<T: TraitName>` syntax
 - **Type safety**: Full compile-time type checking with substitution
 
 #### Limitations (v1)
 
 - No higher-kinded types
+- No multiple constraints on a single type parameter (e.g., `<T: Printable + Comparable>`)
 - Type parameters cannot be used in comptime expressions
 - Struct methods should avoid names like `len`, `push`, `pop` that conflict with built-in array methods
 
@@ -551,6 +591,22 @@ Import with `<- { funcName } = std/module`:
 - `assertNull(val, msg)`, `assertNotNull(val, msg)`
 - `fail(msg)`, `skip(reason)` - test control
 
+**std/server** - HTTP server
+
+- `createServer(port)` - create and start HTTP server, blocks until listening
+- `nextRequest(server)` - block until next request arrives, returns Request
+- `respond(req, status, body)` - send plain text response
+- `respondJson(req, status, data)` - send JSON response
+- `respondWithHeaders(req, status, body, headers)` - send response with custom headers
+- `closeServer(server)` - graceful shutdown
+- `getQuery(req, key)` - get query parameter by key
+- `getQueryAll(req)` - get all query parameters as J object
+- `parseBody(req)` - parse JSON request body
+- Returns `Server` struct with `port` and `Request` struct with `method`, `path`, `body`, `headers`, `query`, `url`
+- Uses blocking request loop: `@(true) Request#req = nextRequest(server) ... ;`
+- Route with pattern matching: `??(req.method + " " + req.path) | "GET /path" => ... ;`
+- Concurrent handling via spawn: `~> handleRequest(req)`
+
 ## Error Messages
 
 Compiler errors include source context for easy debugging:
@@ -571,6 +627,10 @@ Full IDE support available in `editors/vscode/`:
 - **Autocomplete** - keywords, functions, variables, struct members
 - **Go-to-definition** - jump to declarations
 - **Hover information** - type hints
+- **Document Symbols** - outline view with structs, enums, traits, functions
+- **Signature Help** - parameter hints when typing function calls
+- **Find References** - find all usages of a symbol
+- **Rename** - rename symbols across the document
 
 Install: See `editors/vscode/README.md` for setup instructions.
 

@@ -1,0 +1,25 @@
+// HTTP Server Example
+// Run: node dist/index.js examples/26_server.zz --run
+// Test: curl http://localhost:3000/health
+
+<- { createServer, nextRequest, respond, respondJson, getQuery, parseBody, closeServer, Request, Server } = std/server
+
+Server#server = createServer(3000)
+print("Server listening on port 3000")
+
+@(true)
+  Request#req = nextRequest(server)
+  print(s"{req.method} {req.path}")
+
+  ??(req.method + " " + req.path)
+    | "GET /health" => respond(req, 200, "ok")
+    | "GET /users"  => respondJson(req, 200, { users: ["alice", "bob", "charlie"] })
+    | "POST /users" =>
+      J#body = parseBody(req)
+      respondJson(req, 201, { created: true, data: body })
+    | "GET /search" =>
+      s#q = getQuery(req, "q")
+      respondJson(req, 200, { query: q, results: [] })
+    | _ => respond(req, 404, "not found")
+  ;
+;

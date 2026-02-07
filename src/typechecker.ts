@@ -55,6 +55,7 @@ import {
 	CompTimeExpression,
 	CompTimeFunctionDeclaration,
 	TypeParameterType,
+	TypeParameterDecl,
 	isTypeParameterType,
 	isTraitType,
 	TraitType,
@@ -74,14 +75,14 @@ interface FunctionInfo {
 	returnType: DataType | "void";
 	line: number;
 	imported?: boolean; // True for imported functions (skip validation)
-	typeParameters?: string[];  // Type parameters for generic functions
+	typeParameters?: TypeParameterDecl[];  // Type parameters for generic functions
 }
 
 interface StructInfo {
 	fields: StructField[];
 	methods: Map<string, MethodInfo>;
 	line: number;
-	typeParameters?: string[];  // Type parameters for generic structs
+	typeParameters?: TypeParameterDecl[];  // Type parameters for generic structs
 	traitImplements?: string[];  // Traits this struct claims to implement
 }
 
@@ -104,6 +105,7 @@ export class TypeChecker {
 	private errors: string[] = [];
 	private loopDepth: number = 0; // Track if we're inside a loop
 	private currentStructName: string | null = null; // Track current struct for method body checking
+	private typeParamConstraints: Map<string, string> = new Map(); // Type param name -> constraint trait name
 	private moduleTypes: Map<string, ImportedModuleInfo>;
 	// Compile-time execution tracking
 	private comptimeContext: boolean = false; // True when inside ${} or $Z body
@@ -339,6 +341,15 @@ export class TypeChecker {
 	}
 
 	// Substitute Self type parameter with the concrete struct type
+	// Check if a type implements a trait (for generic constraints)
+	private typeImplementsTrait(type: DataType, traitName: string): boolean {
+		if (isStructType(type)) {
+			const structInfo = this.structs.get(type.name);
+			return structInfo?.traitImplements?.includes(traitName) ?? false;
+		}
+		return false;
+	}
+
 	private substituteSelf(type: DataType, selfType: StructType): DataType {
 		if (isTypeParameterType(type) && type.name === "Self") {
 			return selfType;
@@ -523,8 +534,16 @@ export class TypeChecker {
 	}
 
 	private checkStructDeclaration(decl: StructDeclaration): void {
-		// Save current struct name for field access in method bodies
+		// Save current struct name and type param constraints
 		this.currentStructName = decl.name;
+		const savedConstraints = new Map(this.typeParamConstraints);
+
+		// Register type parameter constraints for method body checking
+		for (const tp of decl.typeParameters) {
+			if (tp.constraint) {
+				this.typeParamConstraints.set(tp.name, tp.constraint);
+			}
+		}
 
 		// Check each method
 		for (const method of decl.methods) {
@@ -532,6 +551,7 @@ export class TypeChecker {
 		}
 
 		this.currentStructName = null;
+		this.typeParamConstraints = savedConstraints;
 	}
 
 	private checkStructMethod(method: StructMethod, structDecl: StructDeclaration): void {
@@ -1126,6 +1146,7 @@ export class TypeChecker {
 						parameters: funcType.parameters,
 						returnType: funcType.returnType,
 						line: stmt.line,
+						typeParameters: funcType.typeParameters,
 					});
 					resolved = true;
 				}
@@ -1149,6 +1170,7 @@ export class TypeChecker {
 						fields: structType.fields,
 						methods,
 						line: stmt.line,
+						typeParameters: structType.typeParameters,
 					});
 					resolved = true;
 				}
@@ -1222,8 +1244,16 @@ export class TypeChecker {
 			typeParameters: decl.typeParameters,
 		});
 
-		// Save current variables (for scope)
+		// Save current variables and type param constraints (for scope)
 		const savedVariables = new Map(this.variables);
+		const savedConstraints = new Map(this.typeParamConstraints);
+
+		// Register type parameter constraints for body checking
+		for (const tp of decl.typeParameters) {
+			if (tp.constraint) {
+				this.typeParamConstraints.set(tp.name, tp.constraint);
+			}
+		}
 
 		// Add parameters to local scope
 		for (const param of decl.parameters) {
@@ -1258,8 +1288,9 @@ export class TypeChecker {
 			}
 		}
 
-		// Restore variables (exit scope)
+		// Restore variables and constraints (exit scope)
 		this.variables = savedVariables;
+		this.typeParamConstraints = savedConstraints;
 	}
 
 	private checkFunctionCall(call: FunctionCall, line: number): void {
@@ -1317,7 +1348,7 @@ export class TypeChecker {
 
 				// Use explicit type arguments
 				for (let i = 0; i < funcInfo.typeParameters.length; i++) {
-					bindings.set(funcInfo.typeParameters[i], call.typeArguments[i]);
+					bindings.set(funcInfo.typeParameters[i].name, call.typeArguments[i]);
 				}
 			} else {
 				// Infer type arguments from call arguments
@@ -1355,11 +1386,23 @@ export class TypeChecker {
 
 				// Check all type params are bound
 				for (const tp of funcInfo.typeParameters) {
-					if (!bindings.has(tp)) {
+					if (!bindings.has(tp.name)) {
 						this.errors.push(
-							`Cannot infer type argument for '${tp}' in call to '${call.name}' at line ${line}. Specify type arguments explicitly.`,
+							`Cannot infer type argument for '${tp.name}' in call to '${call.name}' at line ${line}. Specify type arguments explicitly.`,
 						);
 						return;
+					}
+				}
+			}
+
+			// Check generic constraints
+			for (const tp of funcInfo.typeParameters) {
+				if (tp.constraint) {
+					const boundType = bindings.get(tp.name);
+					if (boundType && !this.typeImplementsTrait(boundType, tp.constraint)) {
+						this.errors.push(
+							`Type '${this.typeToString(boundType)}' does not satisfy constraint '${tp.constraint}' — it does not implement trait '${tp.constraint}' at line ${line}.`,
+						);
 					}
 				}
 			}
@@ -1737,7 +1780,7 @@ export class TypeChecker {
 						const bindings = new Map<string, DataType>();
 						if (structInfo.typeParameters && structInfo.typeParameters.length > 0 && objectType.typeArguments) {
 							for (let i = 0; i < structInfo.typeParameters.length; i++) {
-								bindings.set(structInfo.typeParameters[i], objectType.typeArguments[i]);
+								bindings.set(structInfo.typeParameters[i].name, objectType.typeArguments[i]);
 							}
 						}
 
@@ -1798,6 +1841,37 @@ export class TypeChecker {
 						if (!funcInfo) {
 							this.errors.push(`Unknown method '${expr.method}' on trait '${objectType.name}' at line ${line}.`);
 						}
+					}
+				}
+			}
+
+			// Constrained type parameter methods: resolve from constraint trait
+			else if (objectType && isTypeParameterType(objectType)) {
+				const constraint = this.typeParamConstraints.get(objectType.name);
+				if (constraint) {
+					const traitInfo = this.traits.get(constraint);
+					if (traitInfo) {
+						const methodInfo = traitInfo.methods.get(expr.method);
+						if (methodInfo) {
+							// Validate arguments
+							if (expr.arguments.length !== methodInfo.parameters.length) {
+								this.errors.push(
+									`Method '${expr.method}' on trait '${constraint}' expects ${methodInfo.parameters.length} arguments, got ${expr.arguments.length} at line ${line}.`,
+								);
+							}
+						} else {
+							// Check UFCS as fallback
+							const funcInfo = this.functions.get(expr.method);
+							if (!funcInfo) {
+								this.errors.push(`Unknown method '${expr.method}' on type parameter '${objectType.name}' (constrained by '${constraint}') at line ${line}.`);
+							}
+						}
+					}
+				} else {
+					// Unconstrained type parameter — UFCS only
+					const funcInfo = this.functions.get(expr.method);
+					if (!funcInfo) {
+						this.errors.push(`Unknown method '${expr.method}' on type parameter '${objectType.name}' at line ${line}. Add a constraint to use trait methods.`);
 					}
 				}
 			}
@@ -1948,9 +2022,21 @@ export class TypeChecker {
 
 			// Create substitution bindings
 			for (let i = 0; i < structInfo.typeParameters.length; i++) {
-				const paramName = structInfo.typeParameters[i];
+				const paramName = structInfo.typeParameters[i].name;
 				const argType = expr.typeArguments[i];
 				bindings.set(paramName, argType);
+			}
+
+			// Check generic constraints
+			for (const tp of structInfo.typeParameters) {
+				if (tp.constraint) {
+					const boundType = bindings.get(tp.name);
+					if (boundType && !this.typeImplementsTrait(boundType, tp.constraint)) {
+						this.errors.push(
+							`Type '${this.typeToString(boundType)}' does not satisfy constraint '${tp.constraint}' — it does not implement trait '${tp.constraint}' at line ${line}.`,
+						);
+					}
+				}
 			}
 		}
 
@@ -2242,7 +2328,7 @@ export class TypeChecker {
 						// If explicit type arguments provided, use them
 						if (expr.typeArguments && expr.typeArguments.length > 0) {
 							for (let i = 0; i < funcInfo.typeParameters.length; i++) {
-								bindings.set(funcInfo.typeParameters[i], expr.typeArguments[i]);
+								bindings.set(funcInfo.typeParameters[i].name, expr.typeArguments[i]);
 							}
 						} else {
 							// Infer type arguments from call arguments
@@ -2439,7 +2525,7 @@ export class TypeChecker {
 							if (structInfo.typeParameters && structInfo.typeParameters.length > 0 && objectType.typeArguments) {
 								const bindings = new Map<string, DataType>();
 								for (let i = 0; i < structInfo.typeParameters.length; i++) {
-									bindings.set(structInfo.typeParameters[i], objectType.typeArguments[i]);
+									bindings.set(structInfo.typeParameters[i].name, objectType.typeArguments[i]);
 								}
 								return this.substituteTypeParams(methodInfo.returnType, bindings);
 							}
@@ -2455,6 +2541,20 @@ export class TypeChecker {
 						const methodInfo = traitInfo.methods.get(expr.method);
 						if (methodInfo && methodInfo.returnType !== "void") {
 							return methodInfo.returnType;
+						}
+					}
+				}
+
+				// Constrained type parameter methods
+				if (objectType && isTypeParameterType(objectType)) {
+					const constraint = this.typeParamConstraints.get(objectType.name);
+					if (constraint) {
+						const traitInfo = this.traits.get(constraint);
+						if (traitInfo) {
+							const methodInfo = traitInfo.methods.get(expr.method);
+							if (methodInfo && methodInfo.returnType !== "void") {
+								return methodInfo.returnType;
+							}
 						}
 					}
 				}
@@ -2517,7 +2617,7 @@ export class TypeChecker {
 							if (structInfo.typeParameters && structInfo.typeParameters.length > 0 && objectType.typeArguments) {
 								const bindings = new Map<string, DataType>();
 								for (let i = 0; i < structInfo.typeParameters.length; i++) {
-									bindings.set(structInfo.typeParameters[i], objectType.typeArguments[i]);
+									bindings.set(structInfo.typeParameters[i].name, objectType.typeArguments[i]);
 								}
 								return this.substituteTypeParams(field.dataType, bindings);
 							}

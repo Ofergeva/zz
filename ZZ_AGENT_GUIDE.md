@@ -326,7 +326,37 @@ s#y = first(["a", "b"])         // T inferred as s
 i#z = first<i>([1, 2, 3])      // explicit type arg
 ```
 
-Erasure-based: type parameters are compile-time only, stripped in JS output. No constraints on type parameters.
+Erasure-based: type parameters are compile-time only, stripped in JS output.
+
+### Generic Constraints
+
+Type parameters can require trait implementations:
+
+```
+// Constrained generic function
+<T: Printable> Z display(T#item)
+  print(item.toString())
+;
+
+// Constrained generic struct
+S Container<T: Printable>
+  T#value
+
+  Z show()
+    print(value.toString())
+  ;
+;
+
+// Mixed constrained and unconstrained
+<T: Printable, U> Z showFirst(T#first U#second)
+  print(first.toString())
+;
+```
+
+- `<T: TraitName>` — T must implement TraitName
+- Single constraint per type parameter
+- Methods from constraint trait callable on constrained type params
+- Constraints validated at compile time, erased in JS output
 
 ## J Objects (JSON-like)
 
@@ -650,6 +680,34 @@ fail(s#msg)                         skip(s#reason)
 
 Available but less commonly used. Import with `<- { func } = std/fs` etc.
 
+### std/server
+
+```
+createServer(i#port) -> Server          nextRequest(Server#server) -> Request
+respond(Request#req, i#status, s#body)  respondJson(Request#req, i#status, J#data)
+respondWithHeaders(Request#req, i#status, s#body, J#headers)
+closeServer(Server#server)              getQuery(Request#req, s#key) -> s
+getQueryAll(Request#req) -> J           parseBody(Request#req) -> J
+```
+
+`Server` struct: `i#port`. `Request` struct: `s#method`, `s#path`, `s#body`, `J#headers`, `s#query`, `s#url`.
+
+Blocking request loop — no callbacks. Route with pattern matching:
+
+```
+<- { createServer, nextRequest, respond, Request, Server } = std/server
+Server#server = createServer(3000)
+@(true)
+  Request#req = nextRequest(server)
+  ??(req.method + " " + req.path)
+    | "GET /health" => respond(req, 200, "ok")
+    | _ => respond(req, 404, "not found")
+  ;
+;
+```
+
+Concurrent handling: `~> handleRequest(req)` inside the loop.
+
 ## UFCS (Universal Function Call Syntax)
 
 Any function `f(x, ...)` can be called as `x.f(...)`:
@@ -735,7 +793,7 @@ s(x) i(x) f(x) b(x)  // type casting functions
 - No string methods beyond `.len()` and `.at()` (use std/string imports)
 - No type unions / sum types
 - No interfaces (use traits with `ZZ`)
-- No generics constraints / bounds
+- No multiple constraints per type parameter (e.g., `<T: A + B>`)
 - No default parameter values
 
 ## Compilation & Execution
@@ -744,4 +802,9 @@ s(x) i(x) f(x) b(x)  // type casting functions
 node dist/index.js file.zz            # compile to compiled/file.js
 node dist/index.js file.zz --run      # compile and execute
 node dist/index.js file.zz --stdout   # output JS to console
+node dist/index.js --repl             # interactive REPL
 ```
+
+### REPL
+
+Interactive session with persistent state. Commands: `.help`, `.clear`, `.source`, `.exit`.

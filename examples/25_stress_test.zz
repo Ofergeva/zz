@@ -674,6 +674,42 @@ print(s"Array isArray: {isArray(jsonArr)}")
 
 print("JSON array parsing passed!")
 
+// === Generic Constraints Test ===
+print("")
+print("=== Generic Constraints Test ===")
+
+// Constrained generic function — only Printable types allowed
+<T: Printable> s Z constDescribe(T#item)
+  s"desc: {item.toString()}"
+;
+
+// Test with Point2D (implements Printable from Traits Test above)
+Point2D#constPt = Point2D(5.0, 10.0)
+s#cdesc = constDescribe(constPt)
+print(s"Constrained describe: {cdesc}")
+
+// Constrained generic struct
+S Wrapper<T: Printable>
+  T#inner
+
+  s Z show()
+    inner.toString()
+  ;
+;
+
+Wrapper<Point2D>#wrp = Wrapper<Point2D>(Point2D(1.0, 2.0))
+print(s"Wrapper show: {wrp.show()}")
+
+// Mixed constrained and unconstrained type params
+<T: Printable, U> s Z showWithExtra(T#item U#extra)
+  s"shown: {item.toString()}"
+;
+
+s#mixed = showWithExtra(constPt, 99)
+print(s"Mixed params: {mixed}")
+
+print("Generic constraints passed!")
+
 // === Test Complete ===
 print("")
 print("=== All Stress Tests Completed Successfully ===")

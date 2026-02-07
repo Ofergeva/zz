@@ -46,6 +46,12 @@ export interface TypeParameterType {
 	name: string;
 }
 
+// Type parameter declaration with optional constraint: T or T: Printable
+export interface TypeParameterDecl {
+	name: string;
+	constraint?: string;  // Trait name for constraint (e.g., "Printable")
+}
+
 // Trait type: named trait for polymorphic typing
 export interface TraitType {
 	kind: "trait";
@@ -340,7 +346,7 @@ export interface Parameter {
 export interface FunctionDeclaration extends ASTNode {
 	type: "FunctionDeclaration";
 	name: string;
-	typeParameters: string[];  // Type parameters (e.g., ["T"])
+	typeParameters: TypeParameterDecl[];  // Type parameters (e.g., [{name: "T", constraint: "Printable"}])
 	parameters: Parameter[];
 	returnType: DataType | "void";
 	body: Statement[];
@@ -493,7 +499,7 @@ export interface StructMethod {
 export interface StructDeclaration extends ASTNode {
 	type: "StructDeclaration";
 	name: string;
-	typeParameters: string[];  // Type parameters (e.g., ["T", "U"])
+	typeParameters: TypeParameterDecl[];  // Type parameters (e.g., [{name: "T", constraint: "Printable"}])
 	fields: StructField[];
 	methods: StructMethod[];
 	exported: boolean;
@@ -643,7 +649,7 @@ export interface ImportedModuleInfo {
 		{
 			parameters: Parameter[];
 			returnType: DataType | "void";
-			typeParameters?: string[];  // Type parameters for generic functions
+			typeParameters?: TypeParameterDecl[];  // Type parameters for generic functions
 		}
 	>;
 	variables: Map<
@@ -657,7 +663,7 @@ export interface ImportedModuleInfo {
 		string,
 		{
 			fields: StructField[];
-			typeParameters?: string[];  // Type parameters for generic structs
+			typeParameters?: TypeParameterDecl[];  // Type parameters for generic structs
 		}
 	>;
 	enums: Map<string, string[]>;

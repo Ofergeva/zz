@@ -15,6 +15,14 @@ import {
   TextDocumentPositionParams,
   Definition,
   Location,
+  DocumentSymbol,
+  SymbolKind,
+  Range,
+  SignatureHelp,
+  SignatureInformation,
+  ParameterInformation,
+  WorkspaceEdit,
+  TextEdit,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -51,14 +59,24 @@ async function loadCompiler(): Promise<boolean> {
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-// Track collected symbols for completion and go-to-definition
+// Track collected symbols for completion, go-to-definition, references, rename
+interface ParameterInfo {
+  name: string;
+  type: string;
+}
+
 interface SymbolInfo {
   name: string;
-  kind: 'variable' | 'function' | 'struct' | 'enum' | 'field' | 'method' | 'variant';
+  kind: 'variable' | 'function' | 'struct' | 'enum' | 'field' | 'method' | 'variant' | 'trait';
   type?: string;
   line: number;
   column: number;
+  endLine?: number;
+  endColumn?: number;
   uri: string;
+  parameters?: ParameterInfo[];
+  references: Location[];
+  children?: SymbolInfo[];
 }
 
 const documentSymbols: Map<string, SymbolInfo[]> = new Map();
@@ -87,6 +105,14 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
       },
       definitionProvider: true,
       hoverProvider: true,
+      documentSymbolProvider: true,
+      signatureHelpProvider: {
+        triggerCharacters: ['(', ','],
+      },
+      referencesProvider: true,
+      renameProvider: {
+        prepareProvider: true,
+      },
     },
   };
 });
@@ -111,33 +137,22 @@ async function validateDocument(textDocument: TextDocument): Promise<void> {
     // Collect type names from tokens
     const structNames = new Set<string>();
     const enumNames = new Set<string>();
+    const traitNames = new Set<string>();
     for (let i = 0; i < tokens.length - 1; i++) {
       if (tokens[i].type === TokenType.ENUM && tokens[i + 1].type === TokenType.IDENTIFIER) {
         enumNames.add(tokens[i + 1].value);
-        symbols.push({
-          name: tokens[i + 1].value,
-          kind: 'enum',
-          line: tokens[i + 1].line,
-          column: tokens[i + 1].column,
-          uri,
-        });
       } else if (tokens[i].type === TokenType.STRUCT && tokens[i + 1].type === TokenType.IDENTIFIER) {
         structNames.add(tokens[i + 1].value);
-        symbols.push({
-          name: tokens[i + 1].value,
-          kind: 'struct',
-          line: tokens[i + 1].line,
-          column: tokens[i + 1].column,
-          uri,
-        });
+      } else if (tokens[i].type === TokenType.TRAIT && tokens[i + 1].type === TokenType.IDENTIFIER) {
+        traitNames.add(tokens[i + 1].value);
       }
     }
 
     // Parse
-    const parser = new Parser(tokens, { structNames, enumNames });
+    const parser = new Parser(tokens, { structNames, enumNames, traitNames });
     const ast = parser.parse();
 
-    // Collect symbols from AST
+    // Collect symbols from AST with enhanced info
     for (const stmt of ast.statements) {
       if (stmt.type === 'VariableDeclaration') {
         symbols.push({
@@ -147,49 +162,118 @@ async function validateDocument(textDocument: TextDocument): Promise<void> {
           line: stmt.line,
           column: 1,
           uri,
+          references: [],
         });
       } else if (stmt.type === 'FunctionDeclaration') {
+        const params: ParameterInfo[] = stmt.parameters.map((p: any) => ({
+          name: p.name,
+          type: typeToString(p.dataType),
+        }));
         symbols.push({
           name: stmt.name,
           kind: 'function',
           type: stmt.returnType === 'void' ? 'void' : typeToString(stmt.returnType),
           line: stmt.line,
           column: 1,
+          endLine: stmt.endLine,
           uri,
+          parameters: params,
+          references: [],
         });
       } else if (stmt.type === 'StructDeclaration') {
+        const children: SymbolInfo[] = [];
         for (const field of stmt.fields) {
-          symbols.push({
+          children.push({
             name: `${stmt.name}.${field.name}`,
             kind: 'field',
             type: typeToString(field.dataType),
-            line: stmt.line,
+            line: field.line || stmt.line,
             column: 1,
             uri,
+            references: [],
           });
         }
         for (const method of stmt.methods) {
-          symbols.push({
+          const methodParams: ParameterInfo[] = method.parameters.map((p: any) => ({
+            name: p.name,
+            type: typeToString(p.dataType),
+          }));
+          children.push({
             name: `${stmt.name}.${method.name}`,
             kind: 'method',
             type: method.returnType === 'void' ? 'void' : typeToString(method.returnType),
             line: method.line,
             column: 1,
+            endLine: method.endLine,
             uri,
+            parameters: methodParams,
+            references: [],
           });
         }
+        symbols.push({
+          name: stmt.name,
+          kind: 'struct',
+          line: stmt.line,
+          column: 1,
+          endLine: stmt.endLine,
+          uri,
+          references: [],
+          children,
+        });
+        // Also push children as flat symbols for search
+        symbols.push(...children);
       } else if (stmt.type === 'EnumDeclaration') {
+        const children: SymbolInfo[] = [];
         for (const variant of stmt.variants) {
-          symbols.push({
+          children.push({
             name: `${stmt.name}.${variant}`,
             kind: 'variant',
             line: stmt.line,
             column: 1,
             uri,
+            references: [],
           });
         }
+        symbols.push({
+          name: stmt.name,
+          kind: 'enum',
+          line: stmt.line,
+          column: 1,
+          endLine: stmt.endLine,
+          uri,
+          references: [],
+          children,
+        });
+        symbols.push(...children);
+      } else if (stmt.type === 'TraitDeclaration') {
+        const children: SymbolInfo[] = [];
+        for (const method of stmt.methods) {
+          children.push({
+            name: `${stmt.name}.${method.name}`,
+            kind: 'method',
+            type: method.returnType === 'void' ? 'void' : typeToString(method.returnType),
+            line: method.line || stmt.line,
+            column: 1,
+            uri,
+            references: [],
+          });
+        }
+        symbols.push({
+          name: stmt.name,
+          kind: 'trait',
+          line: stmt.line,
+          column: 1,
+          endLine: stmt.endLine,
+          uri,
+          references: [],
+          children,
+        });
+        symbols.push(...children);
       }
     }
+
+    // Collect references by scanning all identifier tokens
+    collectReferences(tokens, symbols, uri);
 
     // Type check
     const typeChecker = new TypeChecker();
@@ -240,6 +324,46 @@ async function validateDocument(textDocument: TextDocument): Promise<void> {
 
   documentSymbols.set(uri, symbols);
   connection.sendDiagnostics({ uri, diagnostics });
+}
+
+// Collect references by scanning identifier tokens against known symbols
+function collectReferences(tokens: any[], symbols: SymbolInfo[], uri: string): void {
+  // Build a lookup of symbol names (without qualified prefix for fields/methods)
+  const symbolsByName = new Map<string, SymbolInfo[]>();
+  for (const s of symbols) {
+    const baseName = s.name.includes('.') ? s.name : s.name;
+    if (!symbolsByName.has(baseName)) {
+      symbolsByName.set(baseName, []);
+    }
+    symbolsByName.get(baseName)!.push(s);
+
+    // Also index by short name for qualified symbols
+    if (s.name.includes('.')) {
+      const shortName = s.name.split('.').pop()!;
+      if (!symbolsByName.has(shortName)) {
+        symbolsByName.set(shortName, []);
+      }
+      symbolsByName.get(shortName)!.push(s);
+    }
+  }
+
+  for (const token of tokens) {
+    if (token.type !== 'IDENTIFIER') continue;
+    const name = token.value;
+    const candidates = symbolsByName.get(name);
+    if (!candidates) continue;
+
+    for (const sym of candidates) {
+      // Skip if this token IS the definition
+      if (sym.line === token.line && !sym.name.includes('.')) continue;
+
+      const ref = Location.create(uri, {
+        start: { line: token.line - 1, character: (token.column || 1) - 1 },
+        end: { line: token.line - 1, character: (token.column || 1) - 1 + name.length },
+      });
+      sym.references.push(ref);
+    }
+  }
 }
 
 // Extract just the error message without source context
@@ -366,7 +490,22 @@ function symbolKindToCompletionKind(kind: string): CompletionItemKind {
     case 'field': return CompletionItemKind.Field;
     case 'method': return CompletionItemKind.Method;
     case 'variant': return CompletionItemKind.EnumMember;
+    case 'trait': return CompletionItemKind.Interface;
     default: return CompletionItemKind.Text;
+  }
+}
+
+function symbolKindToLspKind(kind: string): SymbolKind {
+  switch (kind) {
+    case 'variable': return SymbolKind.Variable;
+    case 'function': return SymbolKind.Function;
+    case 'struct': return SymbolKind.Class;
+    case 'enum': return SymbolKind.Enum;
+    case 'field': return SymbolKind.Field;
+    case 'method': return SymbolKind.Method;
+    case 'variant': return SymbolKind.EnumMember;
+    case 'trait': return SymbolKind.Interface;
+    default: return SymbolKind.Variable;
   }
 }
 
@@ -467,6 +606,238 @@ connection.onHover((params: TextDocumentPositionParams) => {
   }
 
   return null;
+});
+
+// Document Symbols provider — provides outline view
+connection.onDocumentSymbol((params) => {
+  const symbols = documentSymbols.get(params.textDocument.uri) || [];
+  const result: DocumentSymbol[] = [];
+
+  // Only process top-level symbols (not children that are also in the flat list)
+  const topLevel = symbols.filter(s =>
+    !s.name.includes('.') || s.children !== undefined
+  );
+
+  for (const s of topLevel) {
+    if (s.name.includes('.') && !s.children) continue;
+
+    const startLine = s.line - 1;
+    const endLine = (s.endLine || s.line) - 1;
+    const range = Range.create(startLine, 0, endLine, Number.MAX_VALUE);
+    const selectionRange = Range.create(startLine, (s.column || 1) - 1, startLine, (s.column || 1) - 1 + s.name.length);
+
+    const docSymbol = DocumentSymbol.create(
+      s.name,
+      s.type || '',
+      symbolKindToLspKind(s.kind),
+      range,
+      selectionRange,
+    );
+
+    // Add children for structs, enums, traits
+    if (s.children && s.children.length > 0) {
+      docSymbol.children = s.children.map(child => {
+        const childName = child.name.includes('.') ? child.name.split('.').pop()! : child.name;
+        const childLine = child.line - 1;
+        const childEndLine = (child.endLine || child.line) - 1;
+        return DocumentSymbol.create(
+          childName,
+          child.type || '',
+          symbolKindToLspKind(child.kind),
+          Range.create(childLine, 0, childEndLine, Number.MAX_VALUE),
+          Range.create(childLine, 0, childLine, childName.length),
+        );
+      });
+    }
+
+    result.push(docSymbol);
+  }
+
+  return result;
+});
+
+// Signature Help provider — shows function parameter hints
+connection.onSignatureHelp((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+
+  const text = document.getText();
+  const lines = text.split('\n');
+  const line = lines[params.position.line] || '';
+  const linePrefix = line.substring(0, params.position.character);
+
+  // Find the function name and count commas for active parameter
+  let parenDepth = 0;
+  let commaCount = 0;
+  let funcNameEnd = -1;
+
+  for (let i = linePrefix.length - 1; i >= 0; i--) {
+    const ch = linePrefix[i];
+    if (ch === ')') parenDepth++;
+    else if (ch === '(') {
+      if (parenDepth === 0) {
+        funcNameEnd = i;
+        break;
+      }
+      parenDepth--;
+    } else if (ch === ',' && parenDepth === 0) {
+      commaCount++;
+    }
+  }
+
+  if (funcNameEnd < 0) return null;
+
+  // Extract function name
+  const beforeParen = linePrefix.substring(0, funcNameEnd).trimEnd();
+  const funcNameMatch = beforeParen.match(/(\w+)\s*$/);
+  if (!funcNameMatch) return null;
+  const funcName = funcNameMatch[1];
+
+  // Look up function in symbols
+  const symbols = documentSymbols.get(params.textDocument.uri) || [];
+  const funcSymbol = symbols.find(s =>
+    (s.kind === 'function' || s.kind === 'method') &&
+    (s.name === funcName || s.name.endsWith('.' + funcName)) &&
+    s.parameters
+  );
+
+  if (!funcSymbol || !funcSymbol.parameters) return null;
+
+  // Build signature label
+  const paramLabels = funcSymbol.parameters.map(p => `${p.type}#${p.name}`);
+  const returnPart = funcSymbol.type && funcSymbol.type !== 'void' ? ` → ${funcSymbol.type}` : '';
+  const signatureLabel = `${funcName}(${paramLabels.join(', ')})${returnPart}`;
+
+  const sigInfo = SignatureInformation.create(signatureLabel);
+  sigInfo.parameters = funcSymbol.parameters.map(p => {
+    const label = `${p.type}#${p.name}`;
+    return ParameterInformation.create(label);
+  });
+
+  const result: SignatureHelp = {
+    signatures: [sigInfo],
+    activeSignature: 0,
+    activeParameter: Math.min(commaCount, funcSymbol.parameters.length - 1),
+  };
+
+  return result;
+});
+
+// Find References provider
+connection.onReferences((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+
+  const text = document.getText();
+  const lines = text.split('\n');
+  const line = lines[params.position.line] || '';
+
+  const wordStart = findWordStart(line, params.position.character);
+  const wordEnd = findWordEnd(line, params.position.character);
+  const word = line.substring(wordStart, wordEnd);
+
+  if (!word) return null;
+
+  const symbols = documentSymbols.get(params.textDocument.uri) || [];
+  const matchingSymbol = symbols.find(s =>
+    s.name === word || s.name.endsWith('.' + word)
+  );
+
+  if (!matchingSymbol) return null;
+
+  const result: Location[] = [...matchingSymbol.references];
+
+  // Include declaration if requested
+  if (params.context.includeDeclaration) {
+    result.unshift(Location.create(matchingSymbol.uri, {
+      start: { line: matchingSymbol.line - 1, character: (matchingSymbol.column || 1) - 1 },
+      end: { line: matchingSymbol.line - 1, character: (matchingSymbol.column || 1) - 1 + word.length },
+    }));
+  }
+
+  return result;
+});
+
+// Prepare Rename provider — validates rename is possible
+connection.onPrepareRename((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+
+  const text = document.getText();
+  const lines = text.split('\n');
+  const line = lines[params.position.line] || '';
+
+  const wordStart = findWordStart(line, params.position.character);
+  const wordEnd = findWordEnd(line, params.position.character);
+  const word = line.substring(wordStart, wordEnd);
+
+  if (!word) return null;
+
+  // Check if it's a renameable symbol (not a keyword or builtin)
+  const nonRenameable = ['print', 'error', 'true', 'false', 'S', 'E', 'Z', 'J', 'ZZ', 's', 'i', 'f', 'b', '_'];
+  if (nonRenameable.includes(word)) return null;
+
+  const symbols = documentSymbols.get(params.textDocument.uri) || [];
+  const matchingSymbol = symbols.find(s =>
+    s.name === word || s.name.endsWith('.' + word)
+  );
+
+  if (!matchingSymbol) return null;
+
+  return Range.create(
+    params.position.line,
+    wordStart,
+    params.position.line,
+    wordEnd,
+  );
+});
+
+// Rename provider — renames symbol and all references
+connection.onRenameRequest((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+
+  const text = document.getText();
+  const lines = text.split('\n');
+  const line = lines[params.position.line] || '';
+
+  const wordStart = findWordStart(line, params.position.character);
+  const wordEnd = findWordEnd(line, params.position.character);
+  const word = line.substring(wordStart, wordEnd);
+
+  if (!word) return null;
+
+  const symbols = documentSymbols.get(params.textDocument.uri) || [];
+  const matchingSymbol = symbols.find(s =>
+    s.name === word || s.name.endsWith('.' + word)
+  );
+
+  if (!matchingSymbol) return null;
+
+  const edits: TextEdit[] = [];
+  const uri = params.textDocument.uri;
+
+  // Edit at the definition
+  edits.push(TextEdit.replace(
+    Range.create(
+      matchingSymbol.line - 1,
+      (matchingSymbol.column || 1) - 1,
+      matchingSymbol.line - 1,
+      (matchingSymbol.column || 1) - 1 + word.length,
+    ),
+    params.newName,
+  ));
+
+  // Edit all references
+  for (const ref of matchingSymbol.references) {
+    edits.push(TextEdit.replace(ref.range, params.newName));
+  }
+
+  const workspaceEdit: WorkspaceEdit = {
+    changes: { [uri]: edits },
+  };
+
+  return workspaceEdit;
 });
 
 // Document events

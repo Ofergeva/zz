@@ -1,0 +1,94 @@
+// Generic Constraints — <T: Trait> syntax
+// Type parameters can require trait implementations
+
+// Define traits
+ZZ Printable
+  s Z toString()
+;
+
+ZZ Comparable
+  i Z compareTo(Self#other)
+;
+
+// Struct implementing both traits
+S Point : Printable, Comparable
+  f#x
+  f#y
+
+  s Z toString()
+    s"({x}, {y})"
+  ;
+
+  i Z compareTo(Point#other)
+    i(x + y) - i(other.x + other.y)
+  ;
+;
+
+// Struct implementing only Printable
+S Label : Printable
+  s#text
+
+  s Z toString()
+    text
+  ;
+;
+
+// Struct implementing no traits
+S Raw
+  i#value
+;
+
+// === Constrained generic function ===
+// Only types that implement Printable can be passed
+<T: Printable> Z display(T#item)
+  print(item.toString())
+;
+
+// Constrained function with return type
+<T: Printable> s Z describe(T#item)
+  s"Item: {item.toString()}"
+;
+
+// Constrained generic struct
+S Container<T: Printable>
+  T#value
+
+  Z show()
+    print(value.toString())
+  ;
+;
+
+// === Tests ===
+print("=== Generic Constraints Test ===")
+
+// Valid: Point implements Printable
+Point#p = Point(3.0, 4.0)
+display(p)
+
+// Valid: Label implements Printable
+Label#l = Label("hello")
+display(l)
+
+// Test constrained function with return
+s#desc = describe(p)
+print(desc)
+
+s#desc2 = describe(l)
+print(desc2)
+
+// Test constrained generic struct
+Container<Point>#cp = Container<Point>(Point(1.0, 2.0))
+cp.show()
+
+Container<Label>#cl = Container<Label>(Label("world"))
+cl.show()
+
+// Multiple type params, one constrained
+<T: Printable, U> Z showFirst(T#first U#second)
+  print(first.toString())
+;
+
+showFirst(p, 42)
+showFirst(l, "ignored")
+
+print("Generic constraints passed!")

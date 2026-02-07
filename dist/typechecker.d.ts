@@ -8,6 +8,7 @@ export declare class TypeChecker {
     private errors;
     private loopDepth;
     private currentStructName;
+    private typeParamConstraints;
     private moduleTypes;
     private comptimeContext;
     private comptimeFunctions;
@@ -20,6 +21,7 @@ export declare class TypeChecker {
     private registerStruct;
     private registerTrait;
     private checkStructTraitImplementation;
+    private typeImplementsTrait;
     private substituteSelf;
     private registerCompTimeFunction;
     private checkCompTimeFunctionDeclaration;

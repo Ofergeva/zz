@@ -13,6 +13,7 @@ import { CodeGenerator, CodeGenOptions } from "./codegen.js";
 import { CompTimeEvaluator } from "./evaluator.js";
 import { Program, ImportedModuleInfo } from "./ast.js";
 import { ZZError, formatError } from "./errors.js";
+import { ZZRepl } from "./repl.js";
 
 // Scan tokens for struct/enum/trait names (same logic as Parser.collectTypeNames)
 function collectTypeNamesFromTokens(tokens: Token[]): { structNames: Set<string>, enumNames: Set<string>, traitNames: Set<string> } {
@@ -48,6 +49,7 @@ function extractExportedTypes(ast: Program): ImportedModuleInfo {
 					info.functions.set(stmt.name, {
 						parameters: stmt.parameters,
 						returnType: stmt.returnType,
+						typeParameters: stmt.typeParameters.length > 0 ? stmt.typeParameters : undefined,
 					});
 				}
 				break;
@@ -63,6 +65,7 @@ function extractExportedTypes(ast: Program): ImportedModuleInfo {
 				if (stmt.exported) {
 					info.structs.set(stmt.name, {
 						fields: stmt.fields,
+						typeParameters: stmt.typeParameters.length > 0 ? stmt.typeParameters : undefined,
 					});
 				}
 				break;
@@ -241,8 +244,14 @@ function compile(source: string, filename: string, codeGenOptions?: CodeGenOptio
 	return { js, errors: [] };
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	const args = process.argv.slice(2);
+
+	if (args.includes("--repl")) {
+		const repl = new ZZRepl();
+		await repl.run();
+		process.exit(0);
+	}
 
 	if (args.length === 0) {
 		console.log("ZZ Language Compiler v0.1.0");
@@ -253,6 +262,7 @@ function main(): void {
 		console.log("  --output   Output compiled JS to specific file");
 		console.log("  --stdout   Print compiled JS to stdout (instead of file)");
 		console.log("  --ast      Print the AST (for debugging)");
+		console.log("  --repl     Start interactive REPL");
 		console.log("");
 		console.log("By default, compiles to ./compiled/<filename>.js");
 		process.exit(0);

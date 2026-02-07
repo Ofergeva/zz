@@ -29,6 +29,10 @@ export interface TypeParameterType {
     kind: "typeParameter";
     name: string;
 }
+export interface TypeParameterDecl {
+    name: string;
+    constraint?: string;
+}
 export interface TraitType {
     kind: "trait";
     name: string;
@@ -190,7 +194,7 @@ export interface Parameter {
 export interface FunctionDeclaration extends ASTNode {
     type: "FunctionDeclaration";
     name: string;
-    typeParameters: string[];
+    typeParameters: TypeParameterDecl[];
     parameters: Parameter[];
     returnType: DataType | "void";
     body: Statement[];
@@ -302,7 +306,7 @@ export interface StructMethod {
 export interface StructDeclaration extends ASTNode {
     type: "StructDeclaration";
     name: string;
-    typeParameters: string[];
+    typeParameters: TypeParameterDecl[];
     fields: StructField[];
     methods: StructMethod[];
     exported: boolean;
@@ -428,7 +432,7 @@ export interface ImportedModuleInfo {
     functions: Map<string, {
         parameters: Parameter[];
         returnType: DataType | "void";
-        typeParameters?: string[];
+        typeParameters?: TypeParameterDecl[];
     }>;
     variables: Map<string, {
         dataType: DataType;
@@ -436,7 +440,7 @@ export interface ImportedModuleInfo {
     }>;
     structs: Map<string, {
         fields: StructField[];
-        typeParameters?: string[];
+        typeParameters?: TypeParameterDecl[];
     }>;
     enums: Map<string, string[]>;
     traits: Map<string, {

@@ -490,17 +490,15 @@ ${methods}
                         }
                     }
                 }
-                // Check if this is a struct method (for Identifier objects that are not fields)
-                if (!isObjectMemberExpr && !isObjectFieldName) {
-                    for (const [, methods] of this.structMethods) {
-                        if (methods.has(expr.method)) {
-                            // Struct method: object.method(args)
-                            if (args) {
-                                return `await ${object}.${expr.method}(${args})`;
-                            }
-                            else {
-                                return `await ${object}.${expr.method}()`;
-                            }
+                // Check if this is a struct method
+                for (const [, methods] of this.structMethods) {
+                    if (methods.has(expr.method)) {
+                        // Struct method: object.method(args)
+                        if (args) {
+                            return `await ${object}.${expr.method}(${args})`;
+                        }
+                        else {
+                            return `await ${object}.${expr.method}()`;
                         }
                     }
                 }

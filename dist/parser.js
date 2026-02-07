@@ -1671,14 +1671,14 @@ export class Parser {
         const structToken = this.advance(); // consume S
         const nameToken = this.expect([TokenType.IDENTIFIER]);
         this.skipNewlines();
-        // Parse type parameters if present: S Stack<T> or S Pair<A, B>
+        // Parse type parameters if present: S Stack<T> or S Pair<A, B> or S Stack<T: Printable>
         let typeParameters = [];
         if (this.peek().type === TokenType.LT) {
             this.advance(); // consume <
             typeParameters = this.parseTypeParameterList();
             this.skipNewlines();
             // Add type params to scope for parsing fields/methods
-            typeParameters.forEach((tp) => this.typeParamNames.add(tp));
+            typeParameters.forEach((tp) => this.typeParamNames.add(tp.name));
         }
         // Parse trait implementations: S Point : Printable, Comparable
         let traitImplements = [];
@@ -1718,7 +1718,7 @@ export class Parser {
         }
         this.expect([TokenType.SEMICOLON]);
         // Remove type params from scope
-        typeParameters.forEach((tp) => this.typeParamNames.delete(tp));
+        typeParameters.forEach((tp) => this.typeParamNames.delete(tp.name));
         return {
             type: "StructDeclaration",
             name: nameToken.value,
@@ -2150,13 +2150,14 @@ export class Parser {
         let returnType = "void";
         let startToken = this.peek();
         // Check for type parameters at start: <T, U> ReturnType Z funcName(...)
+        // or with constraints: <T: Printable> ReturnType Z funcName(...)
         if (this.peek().type === TokenType.LT) {
             const ltToken = this.advance(); // consume <
             startToken = ltToken;
             typeParameters = this.parseTypeParameterList();
             this.skipNewlines();
             // Add to scope for parsing return type and parameters
-            typeParameters.forEach((tp) => this.typeParamNames.add(tp));
+            typeParameters.forEach((tp) => this.typeParamNames.add(tp.name));
         }
         // Check for return type before Z (can now reference type parameters)
         // Check for type parameter return type: T Z or T[] Z
@@ -2546,7 +2547,7 @@ export class Parser {
         this.expect([TokenType.SEMICOLON]);
         this.skipNewlines();
         // Remove type parameters from scope
-        typeParameters.forEach((tp) => this.typeParamNames.delete(tp));
+        typeParameters.forEach((tp) => this.typeParamNames.delete(tp.name));
         return {
             type: "FunctionDeclaration",
             name,
@@ -3388,13 +3389,20 @@ export class Parser {
                 throw new Error(`Invalid type token: ${type}`);
         }
     }
-    // Parse type parameter list: < T [, U]* >
+    // Parse type parameter list: < T [: Trait] [, U [: Trait]]* >
     // Assumes LT already consumed
     parseTypeParameterList() {
         const typeParams = [];
         while (this.peek().type !== TokenType.GT) {
             const nameToken = this.expect([TokenType.IDENTIFIER]);
-            typeParams.push(nameToken.value);
+            let constraint;
+            // Parse optional constraint: T: TraitName
+            if (this.peek().type === TokenType.ELSE) {
+                this.advance(); // consume :
+                const traitToken = this.expect([TokenType.IDENTIFIER]);
+                constraint = traitToken.value;
+            }
+            typeParams.push({ name: nameToken.value, constraint });
             if (this.peek().type === TokenType.COMMA) {
                 this.advance();
                 this.skipNewlines();

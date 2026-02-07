@@ -1,0 +1,175 @@
+// HTTP server using Node.js http module
+
+$js{
+import http from "http";
+
+const __serverData = new WeakMap();
+const __requestData = new WeakMap();
+}
+
+// Server handle
+->S Server
+  i#port
+;
+
+// Incoming HTTP request
+->S Request
+  s#method
+  s#path
+  s#body
+  J#headers
+  s#query
+  s#url
+;
+
+// Create and start an HTTP server on the given port
+->Server Z createServer(i#port)
+  $js{
+    const server = new Server(port);
+    const data = {
+      handle: null,
+      requestQueue: [],
+      waitingResolve: null
+    };
+    __serverData.set(server, data);
+
+    return new Promise((resolve, reject) => {
+      const httpServer = http.createServer((req, res) => {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+          const headers = {};
+          for (const [k, v] of Object.entries(req.headers)) {
+            headers[k] = Array.isArray(v) ? v.join(', ') : (v || '');
+          }
+          const urlObj = new URL(req.url || '/', `http://localhost:${port}`);
+          const request = new Request(
+            req.method || 'GET',
+            urlObj.pathname,
+            body,
+            headers,
+            urlObj.search ? urlObj.search.substring(1) : '',
+            req.url || '/'
+          );
+          __requestData.set(request, res);
+
+          if (data.waitingResolve) {
+            const r = data.waitingResolve;
+            data.waitingResolve = null;
+            r(request);
+          } else {
+            data.requestQueue.push(request);
+          }
+        });
+      });
+
+      data.handle = httpServer;
+
+      httpServer.listen(port, () => {
+        resolve(server);
+      });
+
+      httpServer.on('error', (err) => {
+        reject(err);
+      });
+    });
+  }
+;
+
+// Block until the next request arrives
+->Request Z nextRequest(Server#server)
+  $js{
+    const data = __serverData.get(server);
+    if (!data) throw new Error('Invalid server');
+
+    if (data.requestQueue.length > 0) {
+      return data.requestQueue.shift();
+    }
+
+    return new Promise((resolve) => {
+      data.waitingResolve = resolve;
+    });
+  }
+;
+
+// Send a plain text response
+->Z respond(Request#req i#status s#body)
+  $js{
+    const res = __requestData.get(req);
+    if (!res) throw new Error('Invalid request or already responded');
+    res.writeHead(status, { 'Content-Type': 'text/plain' });
+    res.end(body);
+    __requestData.delete(req);
+  }
+;
+
+// Send a JSON response
+->Z respondJson(Request#req i#status J#data)
+  $js{
+    const res = __requestData.get(req);
+    if (!res) throw new Error('Invalid request or already responded');
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
+    __requestData.delete(req);
+  }
+;
+
+// Send a response with custom headers
+->Z respondWithHeaders(Request#req i#status s#body J#headers)
+  $js{
+    const res = __requestData.get(req);
+    if (!res) throw new Error('Invalid request or already responded');
+    const headerObj = { ...headers };
+    if (!headerObj['Content-Type'] && !headerObj['content-type']) {
+      headerObj['Content-Type'] = 'text/plain';
+    }
+    res.writeHead(status, headerObj);
+    res.end(body);
+    __requestData.delete(req);
+  }
+;
+
+// Get a query parameter by key
+->s Z getQuery(Request#req s#key)
+  $js{
+    const params = new URLSearchParams(req.query);
+    return params.get(key) || '';
+  }
+;
+
+// Get all query parameters as a J object
+->J Z getQueryAll(Request#req)
+  $js{
+    const params = new URLSearchParams(req.query);
+    const result = {};
+    for (const [k, v] of params.entries()) {
+      result[k] = v;
+    }
+    return result;
+  }
+;
+
+// Parse request body as JSON
+->J Z parseBody(Request#req)
+  $js{
+    try {
+      return JSON.parse(req.body);
+    } catch (e) {
+      return null;
+    }
+  }
+;
+
+// Gracefully close the server
+->Z closeServer(Server#server)
+  $js{
+    const data = __serverData.get(server);
+    if (!data || !data.handle) return;
+    return new Promise((resolve) => {
+      data.handle.close(() => {
+        __serverData.delete(server);
+        resolve();
+      });
+    });
+  }
+;

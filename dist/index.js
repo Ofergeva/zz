@@ -10,6 +10,7 @@ import { TypeChecker } from "./typechecker.js";
 import { CodeGenerator } from "./codegen.js";
 import { CompTimeEvaluator } from "./evaluator.js";
 import { ZZError } from "./errors.js";
+import { ZZRepl } from "./repl.js";
 // Scan tokens for struct/enum/trait names (same logic as Parser.collectTypeNames)
 function collectTypeNamesFromTokens(tokens) {
     const structNames = new Set();
@@ -44,6 +45,7 @@ function extractExportedTypes(ast) {
                     info.functions.set(stmt.name, {
                         parameters: stmt.parameters,
                         returnType: stmt.returnType,
+                        typeParameters: stmt.typeParameters.length > 0 ? stmt.typeParameters : undefined,
                     });
                 }
                 break;
@@ -59,6 +61,7 @@ function extractExportedTypes(ast) {
                 if (stmt.exported) {
                     info.structs.set(stmt.name, {
                         fields: stmt.fields,
+                        typeParameters: stmt.typeParameters.length > 0 ? stmt.typeParameters : undefined,
                     });
                 }
                 break;
@@ -212,8 +215,13 @@ function compile(source, filename, codeGenOptions) {
     const js = codeGen.generate(ast);
     return { js, errors: [] };
 }
-function main() {
+async function main() {
     const args = process.argv.slice(2);
+    if (args.includes("--repl")) {
+        const repl = new ZZRepl();
+        await repl.run();
+        process.exit(0);
+    }
     if (args.length === 0) {
         console.log("ZZ Language Compiler v0.1.0");
         console.log("Usage: zz <file.zz> [options]");
@@ -223,6 +231,7 @@ function main() {
         console.log("  --output   Output compiled JS to specific file");
         console.log("  --stdout   Print compiled JS to stdout (instead of file)");
         console.log("  --ast      Print the AST (for debugging)");
+        console.log("  --repl     Start interactive REPL");
         console.log("");
         console.log("By default, compiles to ./compiled/<filename>.js");
         process.exit(0);

@@ -78,7 +78,7 @@ Every variable must be declared with its type. Typos become compile errors, not 
 ## Features
 
 - Strong static typing with type inference
-- **Generics** - Type-safe generic structs and functions with type inference
+- **Generics** - Type-safe generic structs and functions with type inference and trait constraints
 - **Traits** - Compile-time contracts for polymorphism without inheritance
 - Immutable by default with explicit mutability
 - Concise syntax using symbols instead of keywords
@@ -117,7 +117,46 @@ node dist/index.js yourfile.zz --output path/to/output.js
 
 # Show AST for debugging
 node dist/index.js yourfile.zz --ast
+
+# Start interactive REPL
+node dist/index.js --repl
 ```
+
+### Interactive REPL
+
+ZZ includes an interactive REPL (Read-Eval-Print Loop) for experimenting with the language:
+
+```bash
+node dist/index.js --repl
+```
+
+```
+ZZ REPL v0.1.0
+Type ZZ expressions. Commands: .help, .clear, .source, .exit
+
+zz> i#x = 42
+zz> print(x)
+42
+zz> S Point
+...   f#x
+...   f#y
+... ;
+zz> Point#p = Point(3.0, 4.0)
+zz> print(p.x)
+3
+```
+
+**Features:**
+- Multi-line input with automatic block detection
+- Persistent state across inputs (variables, structs, functions)
+- Error recovery — bad input is rolled back, previous state preserved
+- Full ZZ syntax support including structs, enums, traits, pattern matching
+
+**Commands:**
+- `.help` — show available commands
+- `.clear` — reset all state
+- `.source` — show accumulated source code
+- `.exit` — exit the REPL (also Ctrl+D)
 
 ---
 
@@ -1669,6 +1708,66 @@ print(nums.includes(5))     // true
 print(nums.reverse())       // [6, 2, 9, 5, 1, 4, 1, 3]
 ```
 
+### std/server
+
+HTTP server for building web applications. Uses ZZ's blocking model — no callbacks needed.
+
+```zz
+<- { createServer, nextRequest, respond, respondJson, getQuery, parseBody, closeServer, Request, Server } = std/server
+```
+
+| Function | Signature | Description |
+| --- | --- | --- |
+| `createServer(port)` | `i → Server` | Create and start HTTP server |
+| `nextRequest(server)` | `Server → Request` | Block until next request arrives |
+| `respond(req, status, body)` | `Request, i, s → void` | Send text response |
+| `respondJson(req, status, data)` | `Request, i, J → void` | Send JSON response |
+| `respondWithHeaders(req, status, body, headers)` | `Request, i, s, J → void` | Send response with custom headers |
+| `closeServer(server)` | `Server → void` | Graceful shutdown |
+| `getQuery(req, key)` | `Request, s → s` | Get query parameter |
+| `getQueryAll(req)` | `Request → J` | Get all query params as J object |
+| `parseBody(req)` | `Request → J` | Parse JSON body |
+
+**Structs:**
+- `Server` — `i#port`
+- `Request` — `s#method`, `s#path`, `s#body`, `J#headers`, `s#query`, `s#url`
+
+**Example:**
+
+```zz
+<- { createServer, nextRequest, respond, respondJson, Request, Server } = std/server
+
+Server#server = createServer(3000)
+print("Server listening on port 3000")
+
+@(true)
+  Request#req = nextRequest(server)
+
+  ??(req.method + " " + req.path)
+    | "GET /health" => respond(req, 200, "ok")
+    | "GET /users"  => respondJson(req, 200, { users: ["alice", "bob"] })
+    | _             => respond(req, 404, "not found")
+  ;
+;
+```
+
+**Concurrent handling with spawn:**
+
+```zz
+Z handleRequest(Request#req)
+  ??(req.method + " " + req.path)
+    | "GET /users" => respond(req, 200, "users")
+    | _            => respond(req, 404, "not found")
+  ;
+;
+
+Server#server = createServer(3000)
+@(true)
+  Request#req = nextRequest(server)
+  ~> handleRequest(req)
+;
+```
+
 ---
 
 ## Error Handling
@@ -1960,6 +2059,9 @@ fizzbuzz(15)
 | `Color#c = Color.Red` | `const c = Color.Red`                   | Enum variable                   |
 | `Color.Red`           | `Color.Red`                             | Enum access                     |
 | `S Name ... ;`        | `class Name { ... }`                    | Struct declaration              |
+| `S Box<T> ... ;`      | `class Box { ... }`                     | Generic struct (erased)         |
+| `<T> T Z fn(T#x)`    | `function fn(x)`                        | Generic function (erased)       |
+| `<T: Trait> Z fn()`   | `function fn()`                         | Constrained generic (erased)    |
 | `S Name : Trait`      | `class Name { ... }`                    | Struct implementing trait       |
 | `Name#x = Name(...)`  | `const x = new Name(...)`               | Immutable struct instance       |
 | `Name~x = Name(...)`  | `let x = new Name(...)`                 | Mutable struct instance         |
@@ -2000,23 +2102,145 @@ fizzbuzz(15)
 
 ---
 
-## Editor Support
+## Testing Framework
 
-Syntax highlighting is available for multiple editors.
+ZZ includes a built-in testing framework in `std/test`. Import the assertion functions you need and run your test file with `--run`.
 
-### VS Code
+### Writing Tests
+
+```zz
+<- { assert, assertEqual, assertEqualStr, assertApprox, assertFalse, assertContains, skip } = std/test
+
+// Basic assertions
+assert(true, "should be true")
+assertEqual(2 + 2, 4, "addition works")
+assertEqualStr("hello", "hello", "strings match")
+assertApprox(3.14159, 3.14, 0.01, "pi approximation")
+assertFalse(1 > 2, "1 is not greater than 2")
+assertContains("hello world", "world", "contains substring")
+
+// Skip a test
+skip("not implemented yet")
+```
+
+### Available Assertions
+
+| Function | Signature | Description |
+| --- | --- | --- |
+| `assert(cond, msg)` | `b, s → void` | Assert condition is true |
+| `assertFalse(cond, msg)` | `b, s → void` | Assert condition is false |
+| `assertEqual(actual, expected, msg)` | `i, i, s → void` | Compare two integers |
+| `assertEqualStr(actual, expected, msg)` | `s, s, s → void` | Compare two strings |
+| `assertEqualBool(actual, expected, msg)` | `b, b, s → void` | Compare two booleans |
+| `assertApprox(actual, expected, epsilon, msg)` | `f, f, f, s → void` | Compare floats within tolerance |
+| `assertContains(str, substr, msg)` | `s, s, s → void` | Assert string contains substring |
+| `assertNull(val, msg)` | `J, s → void` | Assert value is null |
+| `assertNotNull(val, msg)` | `J, s → void` | Assert value is not null |
+| `assertLen(arr, expected, msg)` | `i[], i, s → void` | Assert array has expected length |
+| `fail(msg)` | `s → void` | Immediately fail the test |
+| `skip(reason)` | `s → void` | Skip a test (prints skip message) |
+
+### Running Tests
 
 ```bash
-# Install the extension
-cp -r editors/vscode ~/.vscode/extensions/zz-language-0.1.0
+# Run a test file
+node dist/index.js tests/my_tests.zz --run
 
-# Restart VS Code
+# Or with the global install
+zz tests/my_tests.zz --run
 ```
+
+All assertions throw on failure with a descriptive error message including expected vs actual values. A non-zero exit code is returned when any assertion fails.
+
+---
+
+## VS Code Extension
+
+ZZ has a full-featured VS Code extension with Language Server Protocol (LSP) support, located in `editors/vscode/`.
+
+### Features
+
+- **Real-time diagnostics** — type errors, syntax errors, and immutability violations shown as you type
+- **Autocomplete** — keywords, functions, variables, struct fields, array methods
+- **Go-to-definition** — Cmd/Ctrl+click to jump to declarations
+- **Hover information** — type and kind information on hover
+- **Document Symbols** — outline view showing structs, enums, traits, functions with their members
+- **Signature Help** — parameter hints when typing function/method calls
+- **Find References** — find all usages of variables, functions, structs, and other symbols
+- **Rename** — rename symbols and all their references across the document
+- **Syntax highlighting** — full TextMate grammar for `.zz` files
+- **Bracket matching** — auto-closing pairs for `()`, `[]`, `{}`, `""`
+- **Code folding** — fold blocks terminated by `;`
+- **Comment toggling** — toggle `//` comments
+
+### Installation
+
+#### Prerequisites
+
+The ZZ compiler must be built first:
+
+```bash
+cd /path/to/zz
+npm install
+npm run build
+```
+
+#### Option 1: Development Mode (Recommended for contributors)
+
+1. Open the `editors/vscode` folder in VS Code
+2. Install dependencies and build:
+   ```bash
+   cd editors/vscode
+   npm install
+   npm run compile
+   ```
+3. Press **F5** to launch a new VS Code window with the extension loaded
+
+#### Option 2: Copy to Extensions Folder
+
+```bash
+cd editors/vscode
+npm install
+npm run compile
+```
+
+Then copy to your extensions directory:
+
+```bash
+# macOS / Linux
+cp -r . ~/.vscode/extensions/zz-language-0.2.0
+
+# Windows
+xcopy /E . %USERPROFILE%\.vscode\extensions\zz-language-0.2.0
+```
+
+Restart VS Code.
+
+#### Option 3: Package as VSIX
+
+```bash
+npm install -g @vscode/vsce
+cd editors/vscode
+npm install
+npm run compile
+vsce package
+code --install-extension zz-language-0.2.0.vsix
+```
+
+### Troubleshooting
+
+- **Language server not starting** — make sure the ZZ compiler is built (`npm run build` in the project root). Check the Output panel (View > Output > "ZZ Language Server") for errors.
+- **No autocomplete or diagnostics** — ensure the file has a `.zz` extension. Try reloading the window (Cmd/Ctrl+Shift+P > "Reload Window").
+
+---
+
+## Other Editor Support
+
+Syntax highlighting is available for multiple editors. See [editors/README.md](editors/README.md) for full details including Emacs support.
 
 ### Vim / Neovim
 
 ```bash
-# Copy syntax files
 mkdir -p ~/.vim/syntax ~/.vim/ftdetect
 cp editors/vim/syntax/zz.vim ~/.vim/syntax/
 cp editors/vim/ftdetect/zz.vim ~/.vim/ftdetect/
@@ -2034,13 +2258,11 @@ cp editors/sublime-text/* ~/Library/Application\ Support/Sublime\ Text/Packages/
 cp editors/sublime-text/* ~/.config/sublime-text/Packages/User/
 ```
 
-### JetBrains IDEs
+### JetBrains IDEs (IntelliJ, WebStorm, etc.)
 
 1. Go to **Settings → Editor → TextMate Bundles**
-2. Click **+** and select the `vscode-zz` folder
+2. Click **+** and select the `editors/vscode` folder (uses the TextMate grammar)
 3. Restart the IDE
-
-See [editors/README.md](editors/README.md) for more details and Emacs support.
 
 ---
 
@@ -2048,7 +2270,7 @@ See [editors/README.md](editors/README.md) for more details and Emacs support.
 
 If you're using AI coding agents (Claude Code, Cursor, GitHub Copilot, etc.) to write ZZ code, drop the [`ZZ_AGENT_GUIDE.md`](ZZ_AGENT_GUIDE.md) file into your project root or reference it in your agent's context.
 
-The agent guide is a compact (~500 line) reference optimized for LLM consumption — no design philosophy, no editor setup, no generated JS examples. Instead it focuses on:
+The agent guide is a compact (~800 line) reference optimized for LLM consumption — no design philosophy, no editor setup, no generated JS examples. Instead it focuses on:
 
 - **Critical rules** that cause compile errors (conditions must be boolean, every block ends with `;`, etc.)
 - **Complete syntax** in scannable table/list format
@@ -2073,19 +2295,35 @@ Copy `ZZ_AGENT_GUIDE.md` into any project that contains `.zz` files. Most AI age
 zz/
 ├── src/
 │   ├── index.ts       # CLI entry point
-│   ├── lexer.ts       # Tokenizer
+│   ├── lexer.ts       # Tokenizer (100+ token types)
 │   ├── parser.ts      # Recursive descent parser
-│   ├── ast.ts         # AST type definitions
+│   ├── ast.ts         # AST node type definitions
 │   ├── typechecker.ts # Static type validation
-│   └── codegen.ts     # JavaScript code generator
+│   ├── evaluator.ts   # Compile-time expression evaluator
+│   ├── codegen.ts     # JavaScript code generator
+│   ├── repl.ts        # Interactive REPL
+│   └── errors.ts      # Error formatting with source context
 ├── std/               # Standard library (.zz source, auto-compiled to .js)
-│   ├── string.zz      # String functions
+│   ├── string.zz      # String utilities
 │   ├── math.zz        # Math functions
-│   └── array.zz       # Array functions (+ time, rand, path, json, convert, http)
-├── editors/           # Editor syntax highlighting
-├── vscode-zz/         # VS Code extension
+│   ├── array.zz       # Array utilities
+│   ├── json.zz        # JSON parsing and manipulation
+│   ├── http.zz        # HTTP client
+│   ├── server.zz      # HTTP server
+│   ├── test.zz        # Testing framework
+│   ├── fs.zz          # File system operations
+│   ├── time.zz        # Time and sleep utilities
+│   ├── spawn.zz       # Async spawn utilities
+│   ├── rand.zz        # Random number generation
+│   ├── path.zz        # Path manipulation
+│   ├── os.zz          # OS utilities
+│   └── proc.zz        # Process utilities
+├── editors/           # Editor support
+│   ├── vscode/        # VS Code extension with LSP
+│   ├── vim/           # Vim/Neovim syntax highlighting
+│   └── sublime-text/  # Sublime Text syntax highlighting
 ├── examples/          # Example ZZ programs
-├── dist/              # Compiled JavaScript
+├── dist/              # Compiled TypeScript output
 └── package.json
 ```
 
