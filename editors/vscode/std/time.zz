@@ -1,0 +1,121 @@
+->S Instant
+  i#millis
+;
+
+->S Duration
+  i#millis
+;
+
+->Instant Z now()
+  $js{ return new Instant(Date.now()); }
+;
+
+->Duration Z millis(i#n)
+  $js{ return new Duration(n); }
+;
+
+->Duration Z seconds(i#n)
+  $js{ return new Duration(n * 1000); }
+;
+
+->Duration Z minutes(i#n)
+  $js{ return new Duration(n * 60000); }
+;
+
+->Duration Z hours(i#n)
+  $js{ return new Duration(n * 3600000); }
+;
+
+->Duration Z days(i#n)
+  $js{ return new Duration(n * 86400000); }
+;
+
+->Instant Z addInstant(Instant#inst Duration#dur)
+  $js{ return new Instant(inst.millis + dur.millis); }
+;
+
+->Duration Z diffInstant(Instant#a Instant#b)
+  $js{ return new Duration(a.millis - b.millis); }
+;
+
+->Duration Z addDuration(Duration#a Duration#b)
+  $js{ return new Duration(a.millis + b.millis); }
+;
+
+->Duration Z subDuration(Duration#a Duration#b)
+  $js{ return new Duration(a.millis - b.millis); }
+;
+
+->i Z instantMillis(Instant#inst)
+  $js{ return inst.millis; }
+;
+
+->i Z durationMillis(Duration#dur)
+  $js{ return dur.millis; }
+;
+
+->i Z durationSeconds(Duration#dur)
+  $js{ return Math.trunc(dur.millis / 1000); }
+;
+
+->i Z year(Instant#inst)
+  $js{ return new Date(inst.millis).getUTCFullYear(); }
+;
+
+->i Z month(Instant#inst)
+  $js{ return new Date(inst.millis).getUTCMonth() + 1; }
+;
+
+->i Z day(Instant#inst)
+  $js{ return new Date(inst.millis).getUTCDate(); }
+;
+
+->i Z weekday(Instant#inst)
+  $js{
+    const d = new Date(inst.millis).getUTCDay();
+    return d === 0 ? 7 : d;
+  }
+;
+
+->Z sleep(Duration#dur)
+  $js{ return new Promise((resolve) => setTimeout(resolve, dur.millis)); }
+;
+
+$js{
+export function format(inst, fmt) {
+  const d = new Date(inst.millis);
+  const map = {
+    YYYY: d.getUTCFullYear().toString().padStart(4, "0"),
+    MM: (d.getUTCMonth() + 1).toString().padStart(2, "0"),
+    DD: d.getUTCDate().toString().padStart(2, "0"),
+    HH: d.getUTCHours().toString().padStart(2, "0"),
+    mm: d.getUTCMinutes().toString().padStart(2, "0"),
+    ss: d.getUTCSeconds().toString().padStart(2, "0"),
+  };
+  return fmt.replace(/YYYY|MM|DD|HH|mm|ss/g, (t) => map[t]);
+}
+
+export function parse(fmt, value) {
+  const reTokens = /(YYYY|MM|DD|HH|mm|ss)/g;
+  const order = [];
+  const regex = new RegExp(
+    "^" + fmt.replace(reTokens, (t) => { order.push(t); return "(\\d+)"; }) + "$"
+  );
+  const match = value.match(regex);
+  if (!match) return null;
+  const parts = {};
+  for (let i = 0; i < order.length; i++) {
+    parts[order[i]] = Number(match[i + 1]);
+  }
+  const year = parts.YYYY ?? 1970;
+  const month = (parts.MM ?? 1) - 1;
+  const day = parts.DD ?? 1;
+  const hour = parts.HH ?? 0;
+  const min = parts.mm ?? 0;
+  const sec = parts.ss ?? 0;
+  const ms = Date.UTC(year, month, day, hour, min, sec);
+  if (Number.isNaN(ms)) return null;
+  return new Instant(ms);
+}
+}
+

@@ -1,0 +1,169 @@
+// Testing framework for ZZ
+
+// Test result counters (mutable globals managed via JS)
+// These are internal - use run() to get results
+
+// Assert that a condition is true
+->Z assert(b#condition s#message)
+  $js{
+    if (!condition) {
+      throw new Error(`Assertion failed: ${message}`);
+    }
+  }
+;
+
+// Assert that two values are equal
+->Z assertEqual(i#actual i#expected s#message)
+  $js{
+    if (actual !== expected) {
+      throw new Error(`Assertion failed: ${message}. Expected ${expected}, got ${actual}`);
+    }
+  }
+;
+
+// Assert that two strings are equal
+->Z assertEqualStr(s#actual s#expected s#message)
+  $js{
+    if (actual !== expected) {
+      throw new Error(`Assertion failed: ${message}. Expected "${expected}", got "${actual}"`);
+    }
+  }
+;
+
+// Assert that two floats are approximately equal (within epsilon)
+->Z assertApprox(f#actual f#expected f#epsilon s#message)
+  $js{
+    if (Math.abs(actual - expected) > epsilon) {
+      throw new Error(`Assertion failed: ${message}. Expected ${expected} (±${epsilon}), got ${actual}`);
+    }
+  }
+;
+
+// Assert that two bools are equal
+->Z assertEqualBool(b#actual b#expected s#message)
+  $js{
+    if (actual !== expected) {
+      throw new Error(`Assertion failed: ${message}. Expected ${expected}, got ${actual}`);
+    }
+  }
+;
+
+// Assert that a value is null
+->Z assertNull(J#value s#message)
+  $js{
+    if (value !== null) {
+      throw new Error(`Assertion failed: ${message}. Expected null, got ${JSON.stringify(value)}`);
+    }
+  }
+;
+
+// Assert that a value is not null
+->Z assertNotNull(J#value s#message)
+  $js{
+    if (value === null) {
+      throw new Error(`Assertion failed: ${message}. Expected non-null value`);
+    }
+  }
+;
+
+// Assert that an array has expected length
+->Z assertLen(i[]#arr i#expected s#message)
+  $js{
+    if (arr.length !== expected) {
+      throw new Error(`Assertion failed: ${message}. Expected length ${expected}, got ${arr.length}`);
+    }
+  }
+;
+
+// Assert that a string contains a substring
+->Z assertContains(s#str s#substr s#message)
+  $js{
+    if (!str.includes(substr)) {
+      throw new Error(`Assertion failed: ${message}. Expected "${str}" to contain "${substr}"`);
+    }
+  }
+;
+
+// Assert that a condition is false
+->Z assertFalse(b#condition s#message)
+  $js{
+    if (condition) {
+      throw new Error(`Assertion failed: ${message}. Expected false, got true`);
+    }
+  }
+;
+
+// Test result struct
+->S TestResult
+  s#name
+  b#passed
+  s#errorMsg
+;
+
+// Run a single test and return result
+->TestResult Z runTest(s#name J#testFn)
+  $js{
+    try {
+      await testFn();
+      return new TestResult(name, true, "");
+    } catch (e) {
+      return new TestResult(name, false, e.message || String(e));
+    }
+  }
+;
+
+// Print test results summary
+->Z printResults(TestResult[]#results)
+  $js{
+    let passed = 0;
+    let failed = 0;
+
+    console.log("\n=== Test Results ===\n");
+
+    for (const r of results) {
+      if (r.passed) {
+        console.log(`✓ ${r.name}`);
+        passed++;
+      } else {
+        console.log(`✗ ${r.name}`);
+        console.log(`  Error: ${r.errorMsg}`);
+        failed++;
+      }
+    }
+
+    console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);
+
+    if (failed > 0) {
+      process.exitCode = 1;
+    }
+  }
+;
+
+// Convenience: run a test and print result immediately
+->b Z test(s#name J#testFn)
+  $js{
+    try {
+      await testFn();
+      console.log(`✓ ${name}`);
+      return true;
+    } catch (e) {
+      console.log(`✗ ${name}`);
+      console.log(`  Error: ${e.message || String(e)}`);
+      return false;
+    }
+  }
+;
+
+// Fail a test with a message
+->Z fail(s#message)
+  $js{
+    throw new Error(message);
+  }
+;
+
+// Skip a test (just prints skip message, doesn't fail)
+->Z skip(s#reason)
+  $js{
+    console.log(`⊘ Skipped: ${reason}`);
+  }
+;

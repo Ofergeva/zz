@@ -1,0 +1,79 @@
+$js{ import os from "os"; }
+
+->s Z platform()
+  $js{ return os.platform(); }
+;
+
+->s Z arch()
+  $js{ return os.arch(); }
+;
+
+->s Z type()
+  $js{ return os.type(); }
+;
+
+->s Z release()
+  $js{ return os.release(); }
+;
+
+->s Z hostname()
+  $js{ return os.hostname(); }
+;
+
+->s Z homedir()
+  $js{ return os.homedir(); }
+;
+
+->s Z tmpdir()
+  $js{ return os.tmpdir(); }
+;
+
+->s Z endianness()
+  $js{ return os.endianness(); }
+;
+
+->s Z username()
+  $js{ return os.userInfo().username; }
+;
+
+->i Z uid()
+  $js{ return os.userInfo().uid; }
+;
+
+->i Z gid()
+  $js{ return os.userInfo().gid; }
+;
+
+->i Z cpuCount()
+  $js{ return os.cpus().length; }
+;
+
+->i Z availableParallelism()
+  $js{ return os.availableParallelism(); }
+;
+
+->i Z totalMemory()
+  $js{ return os.totalmem(); }
+;
+
+->i Z freeMemory()
+  $js{ return os.freemem(); }
+;
+
+->i Z usedMemory()
+  $js{ return os.totalmem() - os.freemem(); }
+;
+
+->i Z uptime()
+  $js{ return os.uptime(); }
+;
+
+$js{
+export function userInfo() { return os.userInfo(); }
+export function cpus() { return os.cpus(); }
+export function loadAverage() { return os.loadavg(); }
+export function networkInterfaces() { return os.networkInterfaces(); }
+export const EOL = os.EOL;
+export const PLATFORM = os.platform();
+export const ARCH = os.arch();
+}

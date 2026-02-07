@@ -217,8 +217,8 @@ async function validateDocument(textDocument) {
         try {
             const filePath = (0, url_1.fileURLToPath)(uri);
             const sourceDir = path.dirname(filePath);
-            const compilerDir = path.resolve(__dirname, '..', '..', 'compiler');
-            const stdLibDir = path.resolve(compilerDir, '..', '..', '..', 'std');
+            const extensionRoot = path.resolve(__dirname, '..', '..');
+            const stdLibDir = path.resolve(extensionRoot, 'std');
             connection.console.log(`Import resolution: sourceDir=${sourceDir}, stdLibDir=${stdLibDir}, exists=${fs.existsSync(stdLibDir)}`);
             collectImportedTypeNames(tokens, sourceDir, stdLibDir, structNames, enumNames, traitNames);
             connection.console.log(`Resolved types - structs: [${[...structNames].join(', ')}], enums: [${[...enumNames].join(', ')}], traits: [${[...traitNames].join(', ')}]`);
@@ -366,7 +366,7 @@ async function validateDocument(textDocument) {
                 severity: node_1.DiagnosticSeverity.Error,
                 range: {
                     start: { line, character: 0 },
-                    end: { line, character: Number.MAX_VALUE },
+                    end: { line, character: 9999 },
                 },
                 message: extractErrorMessage(error),
                 source: 'zz',
@@ -668,7 +668,7 @@ connection.onDocumentSymbol((params) => {
             continue;
         const startLine = s.line - 1;
         const endLine = (s.endLine || s.line) - 1;
-        const range = node_1.Range.create(startLine, 0, endLine, Number.MAX_VALUE);
+        const range = node_1.Range.create(startLine, 0, endLine, 9999);
         const selectionRange = node_1.Range.create(startLine, (s.column || 1) - 1, startLine, (s.column || 1) - 1 + s.name.length);
         const docSymbol = node_1.DocumentSymbol.create(s.name, s.type || '', symbolKindToLspKind(s.kind), range, selectionRange);
         // Add children for structs, enums, traits
@@ -677,7 +677,7 @@ connection.onDocumentSymbol((params) => {
                 const childName = child.name.includes('.') ? child.name.split('.').pop() : child.name;
                 const childLine = child.line - 1;
                 const childEndLine = (child.endLine || child.line) - 1;
-                return node_1.DocumentSymbol.create(childName, child.type || '', symbolKindToLspKind(child.kind), node_1.Range.create(childLine, 0, childEndLine, Number.MAX_VALUE), node_1.Range.create(childLine, 0, childLine, childName.length));
+                return node_1.DocumentSymbol.create(childName, child.type || '', symbolKindToLspKind(child.kind), node_1.Range.create(childLine, 0, childEndLine, 9999), node_1.Range.create(childLine, 0, childLine, childName.length));
             });
         }
         result.push(docSymbol);

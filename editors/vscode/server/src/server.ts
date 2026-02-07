@@ -241,8 +241,8 @@ async function validateDocument(textDocument: TextDocument): Promise<void> {
     try {
       const filePath = fileURLToPath(uri);
       const sourceDir = path.dirname(filePath);
-      const compilerDir = path.resolve(__dirname, '..', '..', 'compiler');
-      const stdLibDir = path.resolve(compilerDir, '..', '..', '..', 'std');
+      const extensionRoot = path.resolve(__dirname, '..', '..');
+      const stdLibDir = path.resolve(extensionRoot, 'std');
       connection.console.log(`Import resolution: sourceDir=${sourceDir}, stdLibDir=${stdLibDir}, exists=${fs.existsSync(stdLibDir)}`);
       collectImportedTypeNames(tokens, sourceDir, stdLibDir, structNames, enumNames, traitNames);
       connection.console.log(`Resolved types - structs: [${[...structNames].join(', ')}], enums: [${[...enumNames].join(', ')}], traits: [${[...traitNames].join(', ')}]`);
@@ -391,7 +391,7 @@ async function validateDocument(textDocument: TextDocument): Promise<void> {
         severity: DiagnosticSeverity.Error,
         range: {
           start: { line, character: 0 },
-          end: { line, character: Number.MAX_VALUE },
+          end: { line, character: 9999 },
         },
         message: extractErrorMessage(error),
         source: 'zz',
@@ -730,7 +730,7 @@ connection.onDocumentSymbol((params) => {
 
     const startLine = s.line - 1;
     const endLine = (s.endLine || s.line) - 1;
-    const range = Range.create(startLine, 0, endLine, Number.MAX_VALUE);
+    const range = Range.create(startLine, 0, endLine, 9999);
     const selectionRange = Range.create(startLine, (s.column || 1) - 1, startLine, (s.column || 1) - 1 + s.name.length);
 
     const docSymbol = DocumentSymbol.create(
@@ -751,7 +751,7 @@ connection.onDocumentSymbol((params) => {
           childName,
           child.type || '',
           symbolKindToLspKind(child.kind),
-          Range.create(childLine, 0, childEndLine, Number.MAX_VALUE),
+          Range.create(childLine, 0, childEndLine, 9999),
           Range.create(childLine, 0, childLine, childName.length),
         );
       });

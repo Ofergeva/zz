@@ -1,0 +1,157 @@
+// HTTP client utilities using native fetch API
+
+// HTTP Response struct (exported)
+->S Response
+  i#status
+  s#statusText
+  s#body
+  J#headers
+;
+
+// Perform a GET request
+->Response Z get(s#url)
+  $js{
+    const res = await fetch(url);
+    const body = await res.text();
+    const headers = {};
+    res.headers.forEach((v, k) => headers[k] = v);
+    return new Response(res.status, res.statusText, body, headers);
+  }
+;
+
+// Perform a GET request with custom headers
+->Response Z getWithHeaders(s#url J#headers)
+  $js{
+    const res = await fetch(url, { headers });
+    const body = await res.text();
+    const resHeaders = {};
+    res.headers.forEach((v, k) => resHeaders[k] = v);
+    return new Response(res.status, res.statusText, body, resHeaders);
+  }
+;
+
+// Perform a POST request with JSON body
+->Response Z post(s#url J#body)
+  $js{
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const responseBody = await res.text();
+    const headers = {};
+    res.headers.forEach((v, k) => headers[k] = v);
+    return new Response(res.status, res.statusText, responseBody, headers);
+  }
+;
+
+// Perform a POST request with custom headers and JSON body
+->Response Z postWithHeaders(s#url J#body J#headers)
+  $js{
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body)
+    });
+    const responseBody = await res.text();
+    const resHeaders = {};
+    res.headers.forEach((v, k) => resHeaders[k] = v);
+    return new Response(res.status, res.statusText, responseBody, resHeaders);
+  }
+;
+
+// Perform a PUT request with JSON body
+->Response Z put(s#url J#body)
+  $js{
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const responseBody = await res.text();
+    const headers = {};
+    res.headers.forEach((v, k) => headers[k] = v);
+    return new Response(res.status, res.statusText, responseBody, headers);
+  }
+;
+
+// Perform a DELETE request
+->Response Z del(s#url)
+  $js{
+    const res = await fetch(url, { method: 'DELETE' });
+    const body = await res.text();
+    const headers = {};
+    res.headers.forEach((v, k) => headers[k] = v);
+    return new Response(res.status, res.statusText, body, headers);
+  }
+;
+
+// Perform a PATCH request with JSON body
+->Response Z patch(s#url J#body)
+  $js{
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const responseBody = await res.text();
+    const headers = {};
+    res.headers.forEach((v, k) => headers[k] = v);
+    return new Response(res.status, res.statusText, responseBody, headers);
+  }
+;
+
+// Generic fetch with full request options
+->Response Z fetch(s#url J#options)
+  $js{
+    const fetchOptions = {
+      method: options.method || 'GET',
+      headers: options.headers || {}
+    };
+    if (options.body) {
+      fetchOptions.body = typeof options.body === 'string'
+        ? options.body
+        : JSON.stringify(options.body);
+    }
+    const res = await fetch(url, fetchOptions);
+    const body = await res.text();
+    const headers = {};
+    res.headers.forEach((v, k) => headers[k] = v);
+    return new Response(res.status, res.statusText, body, headers);
+  }
+;
+
+// Parse response body as JSON
+->J Z parseJson(Response#res)
+  $js{
+    try {
+      return JSON.parse(res.body);
+    } catch (e) {
+      return null;
+    }
+  }
+;
+
+// Check if response status indicates success (2xx)
+->b Z isOk(Response#res)
+  $js{ return res.status >= 200 && res.status < 300; }
+;
+
+// URL encode a string
+->s Z encodeUrl(s#str)
+  $js{ return encodeURIComponent(str); }
+;
+
+// URL decode a string
+->s Z decodeUrl(s#str)
+  $js{ return decodeURIComponent(str); }
+;
+
+// Build query string from J object
+->s Z buildQuery(J#params)
+  $js{
+    return Object.entries(params)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+      .join('&');
+  }
+;

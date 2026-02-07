@@ -1,0 +1,16 @@
+$js{
+export const nodeVersion = process.version;
+export const platform = process.platform;
+export const arch = process.arch;
+export const cwd = process.cwd();
+export const env = process.env;
+export const pid = process.pid;
+export const uptime = process.uptime();
+export const memoryUsage = process.memoryUsage();
+export const cpuUsage = process.cpuUsage();
+export const execPath = process.execPath;
+export const argv = process.argv;
+export const versions = process.versions;
+export const release = process.release;
+export const title = process.title;
+}
