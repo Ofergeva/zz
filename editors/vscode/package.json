@@ -46,7 +46,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -b",
+    "compile": "npm run copy-compiler && tsc -b",
+    "copy-compiler": "mkdir -p compiler && cp ../../dist/{lexer.js,parser.js,typechecker.js,errors.js,ast.js} compiler/",
     "watch": "tsc -b -w",
     "postinstall": "cd client && npm install && cd ../server && npm install"
   },

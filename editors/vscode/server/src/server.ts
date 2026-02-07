@@ -26,6 +26,8 @@ import {
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import * as path from 'path';
+import { pathToFileURL } from 'url';
 
 // ZZ compiler types (loaded dynamically)
 let Lexer: any;
@@ -37,10 +39,16 @@ let ZZError: any;
 // Load ZZ compiler modules dynamically (ESM)
 async function loadCompiler(): Promise<boolean> {
   try {
-    const lexerMod = await import('../../../../dist/lexer.js');
-    const parserMod = await import('../../../../dist/parser.js');
-    const typecheckerMod = await import('../../../../dist/typechecker.js');
-    const errorsMod = await import('../../../../dist/errors.js');
+    // Resolve absolute path to compiler/ directory (2 levels up from server/out/ to extension root)
+    const compilerDir = path.resolve(__dirname, '..', '..', 'compiler');
+    const toFileUrl = (name: string) => pathToFileURL(path.join(compilerDir, name)).href;
+
+    connection.console.log(`Loading ZZ compiler from: ${compilerDir}`);
+
+    const lexerMod = await import(toFileUrl('lexer.js'));
+    const parserMod = await import(toFileUrl('parser.js'));
+    const typecheckerMod = await import(toFileUrl('typechecker.js'));
+    const errorsMod = await import(toFileUrl('errors.js'));
 
     Lexer = lexerMod.Lexer;
     TokenType = lexerMod.TokenType;
@@ -48,6 +56,7 @@ async function loadCompiler(): Promise<boolean> {
     TypeChecker = typecheckerMod.TypeChecker;
     ZZError = errorsMod.ZZError;
 
+    connection.console.log('ZZ compiler loaded successfully');
     return true;
   } catch (e) {
     connection.console.error(`Failed to load ZZ compiler: ${e}`);
@@ -320,8 +329,11 @@ async function validateDocument(textDocument: TextDocument): Promise<void> {
       message: extractErrorMessage(message),
       source: 'zz',
     });
+
+    connection.console.log(`Parse/check error: ${message}`);
   }
 
+  connection.console.log(`Collected ${symbols.length} symbols for ${uri}`);
   documentSymbols.set(uri, symbols);
   connection.sendDiagnostics({ uri, diagnostics });
 }
@@ -527,6 +539,8 @@ connection.onDefinition((params: TextDocumentPositionParams): Definition | null 
 
   // Search symbols
   const symbols = documentSymbols.get(params.textDocument.uri) || [];
+  connection.console.log(`Go-to-def: word="${word}", symbols=${symbols.length}, names=[${symbols.map(s => s.name).join(', ')}]`);
+
   for (const s of symbols) {
     if (s.name === word || s.name.endsWith('.' + word)) {
       return Location.create(s.uri, {
