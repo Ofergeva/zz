@@ -89,7 +89,8 @@ function extractExportedTypes(ast: Program): ImportedModuleInfo {
 function resolveImportedTypes(
 	tokens: Token[],
 	sourceDir: string,
-	stdLibDir: string
+	stdLibDir: string,
+	outputDir: string
 ): { structNames: Set<string>, enumNames: Set<string>, traitNames: Set<string>, moduleTypes: Map<string, ImportedModuleInfo>, errors: string[] } {
 	const structNames = new Set<string>();
 	const enumNames = new Set<string>();
@@ -109,9 +110,9 @@ function resolveImportedTypes(
 
 		if (j >= tokens.length) continue;
 
-		// Extract path and determine if stdlib
+		// Extract path and determine import kind
 		let importSource: string;
-		let isStdLib = false;
+		let importKind: "relative" | "std" | "pkg" = "relative";
 
 		if (tokens[j].type === TokenType.STRING_LITERAL) {
 			importSource = tokens[j].value;
@@ -124,16 +125,25 @@ function resolveImportedTypes(
 				}
 			}
 			importSource = parts.join('/');
-			isStdLib = true;
+			if (importSource.startsWith("std/")) {
+				importKind = "std";
+			} else if (importSource.startsWith("pkg/")) {
+				importKind = "pkg";
+			} else {
+				continue; // Skip unknown prefixes (parser will error)
+			}
 		} else {
 			continue;
 		}
 
 		// Resolve to .zz file path
 		let zzFilePath: string;
-		if (isStdLib) {
+		if (importKind === "std") {
 			const moduleName = importSource.replace(/^std\//, '');
 			zzFilePath = path.join(stdLibDir, moduleName + '.zz');
+		} else if (importKind === "pkg") {
+			const moduleName = importSource.replace(/^pkg\//, '');
+			zzFilePath = path.join(sourceDir, 'pkg', moduleName + '.zz');
 		} else {
 			const cleanSource = importSource.replace(/\.(js|zz)$/, '');
 			zzFilePath = path.resolve(sourceDir, cleanSource + '.zz');
@@ -141,9 +151,15 @@ function resolveImportedTypes(
 
 		// Check if .zz file exists
 		if (!fs.existsSync(zzFilePath)) {
-			errors.push(
-				`Safe import (<-) requires a .zz module, but no .zz file found for "${importSource}". Use <-! for JavaScript module imports. At line ${importLine}.`
-			);
+			if (importKind === "pkg") {
+				errors.push(
+					`Package module not found: "${importSource}". Expected file at ${zzFilePath}. Make sure the pkg/ directory exists next to your source file. At line ${importLine}.`
+				);
+			} else {
+				errors.push(
+					`Safe import (<-) requires a .zz module, but no .zz file found for "${importSource}". Use <-! for JavaScript module imports. At line ${importLine}.`
+				);
+			}
 			continue;
 		}
 
@@ -174,7 +190,20 @@ function resolveImportedTypes(
 			moduleTypes.set(importSource, moduleInfo);
 
 			// Auto-compile: generate .js if missing or stale
-			const jsFilePath = zzFilePath.replace(/\.zz$/, '.js');
+			let jsFilePath: string;
+			let jsOutputDir: string;
+
+			if (importKind === "pkg") {
+				// pkg/ modules compile to outputDir/pkg/
+				const moduleName = importSource.replace(/^pkg\//, '');
+				jsOutputDir = path.join(outputDir, 'pkg');
+				jsFilePath = path.join(jsOutputDir, moduleName + '.js');
+			} else {
+				// std/ and relative imports compile next to source
+				jsOutputDir = path.dirname(zzFilePath);
+				jsFilePath = zzFilePath.replace(/\.zz$/, '.js');
+			}
+
 			let needsCompile = !fs.existsSync(jsFilePath);
 			if (!needsCompile) {
 				const zzStat = fs.statSync(zzFilePath);
@@ -182,10 +211,14 @@ function resolveImportedTypes(
 				needsCompile = zzStat.mtimeMs > jsStat.mtimeMs;
 			}
 			if (needsCompile) {
+				// Ensure output directory exists
+				if (!fs.existsSync(jsOutputDir)) {
+					fs.mkdirSync(jsOutputDir, { recursive: true });
+				}
 				const zzDir = path.dirname(zzFilePath);
 				const importCodeGen = new CodeGenerator({
 					sourceDir: zzDir,
-					outputDir: zzDir,
+					outputDir: jsOutputDir,
 					stdLibDir,
 				});
 				const jsOutput = importCodeGen.generate(importedAst);
@@ -208,7 +241,7 @@ function compile(source: string, filename: string, codeGenOptions?: CodeGenOptio
 	let externalTypes: { structNames?: Set<string>, enumNames?: Set<string>, traitNames?: Set<string> } | undefined;
 	let moduleTypes: Map<string, ImportedModuleInfo> | undefined;
 	if (codeGenOptions) {
-		const resolved = resolveImportedTypes(tokens, codeGenOptions.sourceDir, codeGenOptions.stdLibDir);
+		const resolved = resolveImportedTypes(tokens, codeGenOptions.sourceDir, codeGenOptions.stdLibDir, codeGenOptions.outputDir);
 		if (resolved.errors.length > 0) {
 			return { js: "", errors: resolved.errors };
 		}
@@ -306,7 +339,7 @@ async function main(): Promise<void> {
 			console.log("=== Tokens ===");
 			tokens.forEach((t) => console.log(`  ${t.type}: '${t.value}'`));
 
-			const resolved = resolveImportedTypes(tokens, absSourceDir, stdLibDir);
+			const resolved = resolveImportedTypes(tokens, absSourceDir, stdLibDir, absOutputDir);
 			if (resolved.errors.length > 0) {
 				console.error("Compilation errors:");
 				resolved.errors.forEach((e) => console.error(`  ${e}`));

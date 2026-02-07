@@ -512,6 +512,19 @@ Enum matches are checked for exhaustiveness at compile time.
 math.add(1, 2)
 ```
 
+### Package Imports (`pkg/`) — local reusable modules, fully type-checked
+
+```
+// Import from pkg/ directory (unquoted, no .zz suffix)
+<- { greet, shout } = pkg/greeting
+<- { Vec2, distance } = pkg/math_helpers
+```
+
+Setup: create a `pkg/` directory next to your source file, add `.zz` files with `->` exports.
+Compiled output goes to `compiled/pkg/` automatically.
+Packages can import from `std/` and quoted relative paths.
+Limitations: manual management, 1-level resolution, no versioning yet.
+
 ### Unsafe Imports (`<-!`) — from JS/npm, no type checking
 
 ```
@@ -521,6 +534,7 @@ math.add(1, 2)
 ```
 
 Auto-compilation: safe imports auto-compile the imported .zz file if stale.
+Only `std/` and `pkg/` are valid unquoted import prefixes.
 
 ## Error Handling
 

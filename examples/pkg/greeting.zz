@@ -1,0 +1,15 @@
+// A simple package module for testing pkg/ imports
+
+<- { upper } = std/string
+
+-> s Z greet(s#name)
+  s"Hello, {name}!"
+;
+
+-> s Z shout(s#name)
+  s"{upper(name)}!!!"
+;
+
+-> i Z add(i#a i#b)
+  a + b
+;

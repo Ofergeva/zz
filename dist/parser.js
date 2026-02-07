@@ -451,23 +451,31 @@ export class Parser {
         else {
             throw new ZZError(`Expected { or identifier after <-`, importToken.line, importToken.column);
         }
-        // Expect = "path" or = std/module
+        // Expect = "path" or = std/module or = pkg/module
         this.expect([TokenType.EQUALS]);
         let source;
-        let isStdLib = false;
+        let importKind = "relative";
         if (this.peek().type === TokenType.STRING_LITERAL) {
             // Quoted path: <- { x } = "./path"
             source = this.advance().value;
         }
         else if (this.peek().type === TokenType.IDENTIFIER) {
-            // Unquoted module path: <- { x } = std/string
+            // Unquoted module path: <- { x } = std/string or <- { x } = pkg/name
             const parts = [this.advance().value];
             while (this.peek().type === TokenType.SLASH) {
                 this.advance(); // consume /
                 parts.push(this.expect([TokenType.IDENTIFIER]).value);
             }
             source = parts.join("/");
-            isStdLib = true;
+            if (source.startsWith("std/")) {
+                importKind = "std";
+            }
+            else if (source.startsWith("pkg/")) {
+                importKind = "pkg";
+            }
+            else {
+                throw new ZZError(`Unknown unquoted import prefix in "${source}". Use std/ or pkg/ prefix, or quote the path.`, importToken.line, importToken.column);
+            }
         }
         else {
             throw new ZZError(`Expected string path or module name after = in import`, importToken.line, importToken.column);
@@ -478,7 +486,7 @@ export class Parser {
             specifiers,
             namespace,
             source,
-            isStdLib,
+            importKind,
             isUnsafe,
             line: importToken.line,
             column: importToken.column,

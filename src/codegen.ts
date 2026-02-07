@@ -247,11 +247,15 @@ ${methods}
 		let resolvedPath: string;
 
 		if (this.options) {
-			if (stmt.isStdLib) {
+			if (stmt.importKind === "std") {
 				// std/string → <stdLibDir>/string → relative to outputDir
 				const moduleName = stmt.source.replace(/^std\//, "");
 				const absTarget = path.join(this.options.stdLibDir, moduleName);
 				resolvedPath = path.relative(this.options.outputDir, absTarget);
+			} else if (stmt.importKind === "pkg") {
+				// pkg/name → ./pkg/name (always relative to outputDir)
+				const moduleName = stmt.source.replace(/^pkg\//, "");
+				resolvedPath = "./pkg/" + moduleName;
 			} else {
 				// "./lib/math" → resolve against sourceDir → relative to outputDir
 				const absTarget = path.resolve(this.options.sourceDir, stmt.source);

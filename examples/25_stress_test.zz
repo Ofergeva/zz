@@ -710,6 +710,23 @@ print(s"Mixed params: {mixed}")
 
 print("Generic constraints passed!")
 
+// === Package Imports Test ===
+print("")
+print("=== Package Imports Test ===")
+
+<- { greet, shout, add } = pkg/greeting
+
+s#pkgMsg = greet("ZZ")
+print(s"Greet: {pkgMsg}")
+
+s#pkgLoud = shout("packages")
+print(s"Shout: {pkgLoud}")
+
+i#pkgSum = add(100, 200)
+print(s"Add: {pkgSum}")
+
+print("Package imports passed!")
+
 // === Test Complete ===
 print("")
 print("=== All Stress Tests Completed Successfully ===")

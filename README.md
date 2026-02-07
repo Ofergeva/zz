@@ -1940,6 +1940,67 @@ upper("hello")     // ✅ Returns string
 
 **Auto-compilation:** Safe imports automatically compile the imported `.zz` file to `.js` if the output is missing or stale (based on file timestamps). This means you don't need to manually compile dependencies — just run your main file.
 
+### Package Imports (`pkg/`)
+
+ZZ supports a `pkg/` directory for organizing reusable modules — like a local package system. Package imports use unquoted paths (same as `std/`), no quotes or `.zz` suffix needed:
+
+```zz
+// Import from a package
+<- { greet, shout } = pkg/greeting
+<- { Vec2, distance } = pkg/math_helpers
+
+// Use imported symbols normally
+print(greet("World"))          // Hello, World!
+```
+
+**Setting up packages:**
+
+1. Create a `pkg/` directory next to your `.zz` source file
+2. Add `.zz` module files inside, exporting with `->`:
+
+```
+my-project/
+├── main.zz              # <- { greet } = pkg/greeting
+├── pkg/
+│   ├── greeting.zz      # -> s Z greet(s#name) ...
+│   └── utils.zz         # -> i Z clamp(i#val i#lo i#hi) ...
+└── compiled/            # Auto-generated
+    ├── main.js
+    └── pkg/             # Package output (auto-generated)
+        ├── greeting.js
+        └── utils.js
+```
+
+3. Package modules are full ZZ files — they can import from `std/`, use structs, enums, etc.:
+
+```zz
+// pkg/greeting.zz
+<- { upper } = std/string
+
+-> s Z greet(s#name)
+  s"Hello, {name}!"
+;
+
+-> s Z shout(s#name)
+  s"{upper(name)}!!!"
+;
+
+-> i Z add(i#a i#b)
+  a + b
+;
+```
+
+**How it works:**
+- The compiler resolves `pkg/module` to `pkg/module.zz` next to the source file
+- Full type checking — function signatures, structs, enums are all validated
+- Auto-compilation — packages are compiled to `compiled/pkg/` automatically
+- Stale detection — re-compiles only when the `.zz` source is newer than the `.js` output
+
+**Current limitations:**
+- Packages are **manual** — create and manage the `pkg/` directory yourself (no automatic fetching yet)
+- 1-level resolution only — transitive package imports are not auto-resolved
+- No versioning or dependency management (yet)
+
 ### Unsafe Imports (`<-!`)
 
 Use `<-!` to import from JavaScript or npm modules. No type checking is performed — all imported bindings are treated as untyped:
@@ -1964,8 +2025,10 @@ Use unsafe imports when:
 ### Path Resolution
 
 - **Standard library** (`std/xxx`): Unquoted. The compiler resolves the path to the built-in `std/` directory automatically.
+- **Packages** (`pkg/xxx`): Unquoted. Resolves to `pkg/xxx.zz` next to the source file. Compiled output goes to `compiled/pkg/`.
 - **Regular imports** (`"./path"`): Quoted. Paths are relative to the source `.zz` file. The compiler adjusts them for the output location.
 - `.js` extension is optional — the compiler appends it automatically.
+- Only `std/` and `pkg/` are valid unquoted import prefixes. Other unquoted paths produce a compile error.
 
 ### Using Imports
 

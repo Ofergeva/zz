@@ -27,7 +27,8 @@ import {
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import * as path from 'path';
-import { pathToFileURL } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
+import * as fs from 'fs';
 
 // ZZ compiler types (loaded dynamically)
 let Lexer: any;
@@ -126,6 +127,85 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
   };
 });
 
+// Resolve type names (struct/enum/trait) from imported .zz modules
+function collectImportedTypeNames(
+  tokens: any[],
+  sourceDir: string,
+  stdLibDir: string,
+  structNames: Set<string>,
+  enumNames: Set<string>,
+  traitNames: Set<string>,
+): void {
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].type !== TokenType.IMPORT) continue;
+
+    // Skip to EQUALS to find the path
+    let j = i + 1;
+    while (j < tokens.length && tokens[j].type !== TokenType.EQUALS) j++;
+    j++; // skip EQUALS
+    if (j >= tokens.length) continue;
+
+    // Extract path and determine import kind
+    let importSource: string;
+    let importKind: 'relative' | 'std' | 'pkg' = 'relative';
+
+    if (tokens[j].type === TokenType.STRING_LITERAL) {
+      importSource = tokens[j].value;
+    } else if (tokens[j].type === TokenType.IDENTIFIER) {
+      const parts = [tokens[j].value];
+      while (j + 1 < tokens.length && tokens[j + 1].type === TokenType.SLASH) {
+        j += 2;
+        if (j < tokens.length && tokens[j].type === TokenType.IDENTIFIER) {
+          parts.push(tokens[j].value);
+        }
+      }
+      importSource = parts.join('/');
+      if (importSource.startsWith('std/')) {
+        importKind = 'std';
+      } else if (importSource.startsWith('pkg/')) {
+        importKind = 'pkg';
+      } else {
+        continue;
+      }
+    } else {
+      continue;
+    }
+
+    // Resolve to .zz file path
+    let zzFilePath: string;
+    if (importKind === 'std') {
+      const moduleName = importSource.replace(/^std\//, '');
+      zzFilePath = path.join(stdLibDir, moduleName + '.zz');
+    } else if (importKind === 'pkg') {
+      const moduleName = importSource.replace(/^pkg\//, '');
+      zzFilePath = path.join(sourceDir, 'pkg', moduleName + '.zz');
+    } else {
+      const cleanSource = importSource.replace(/\.(js|zz)$/, '');
+      zzFilePath = path.resolve(sourceDir, cleanSource + '.zz');
+    }
+
+    if (!fs.existsSync(zzFilePath)) continue;
+
+    try {
+      const importedSource = fs.readFileSync(zzFilePath, 'utf-8');
+      const importedLexer = new Lexer(importedSource);
+      const importedTokens = importedLexer.tokenize();
+
+      for (let k = 0; k < importedTokens.length - 1; k++) {
+        if (importedTokens[k].type === TokenType.STRUCT && importedTokens[k + 1].type === TokenType.IDENTIFIER) {
+          structNames.add(importedTokens[k + 1].value);
+        } else if (importedTokens[k].type === TokenType.ENUM && importedTokens[k + 1].type === TokenType.IDENTIFIER) {
+          enumNames.add(importedTokens[k + 1].value);
+        } else if (importedTokens[k].type === TokenType.TRAIT && importedTokens[k + 1].type === TokenType.IDENTIFIER) {
+          traitNames.add(importedTokens[k + 1].value);
+        }
+      }
+    } catch {
+      // Silently skip unreadable/unparseable imports in LSP
+    }
+  }
+}
+
 // Validate document and send diagnostics
 async function validateDocument(textDocument: TextDocument): Promise<void> {
   if (!compilerLoaded) {
@@ -143,7 +223,7 @@ async function validateDocument(textDocument: TextDocument): Promise<void> {
     const lexer = new Lexer(text);
     const tokens = lexer.tokenize();
 
-    // Collect type names from tokens
+    // Collect type names from tokens (local definitions)
     const structNames = new Set<string>();
     const enumNames = new Set<string>();
     const traitNames = new Set<string>();
@@ -155,6 +235,19 @@ async function validateDocument(textDocument: TextDocument): Promise<void> {
       } else if (tokens[i].type === TokenType.TRAIT && tokens[i + 1].type === TokenType.IDENTIFIER) {
         traitNames.add(tokens[i + 1].value);
       }
+    }
+
+    // Collect type names from imported modules
+    try {
+      const filePath = fileURLToPath(uri);
+      const sourceDir = path.dirname(filePath);
+      const compilerDir = path.resolve(__dirname, '..', '..', 'compiler');
+      const stdLibDir = path.resolve(compilerDir, '..', '..', '..', 'std');
+      connection.console.log(`Import resolution: sourceDir=${sourceDir}, stdLibDir=${stdLibDir}, exists=${fs.existsSync(stdLibDir)}`);
+      collectImportedTypeNames(tokens, sourceDir, stdLibDir, structNames, enumNames, traitNames);
+      connection.console.log(`Resolved types - structs: [${[...structNames].join(', ')}], enums: [${[...enumNames].join(', ')}], traits: [${[...traitNames].join(', ')}]`);
+    } catch (e: any) {
+      connection.console.log(`Import resolution error: ${e?.message}`);
     }
 
     // Parse

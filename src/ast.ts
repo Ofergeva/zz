@@ -437,14 +437,17 @@ export interface ImportSpecifier {
 	alias?: string; // Local name (if aliased)
 }
 
-// Import statement: <- { add, sub } = "./math" or <- utils = "./utils" or <- { x } = std/math
+// Import kind: how the import path was specified
+export type ImportKind = "relative" | "std" | "pkg";
+
+// Import statement: <- { add, sub } = "./math" or <- utils = "./utils" or <- { x } = std/math or <- { x } = pkg/name
 // Unsafe import: <-! { x } = "npm-package" (JS modules, no type safety)
 export interface ImportStatement extends ASTNode {
 	type: "ImportStatement";
 	specifiers: ImportSpecifier[]; // Empty for namespace import
 	namespace?: string; // For namespace import: <- utils = "./path"
 	source: string; // Module path
-	isStdLib: boolean; // true for unquoted std/xxx imports
+	importKind: ImportKind; // "std" for std/xxx, "pkg" for pkg/xxx, "relative" for quoted paths
 	isUnsafe: boolean; // true for <-! imports (JS modules)
 }
 

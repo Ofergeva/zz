@@ -1,0 +1,14 @@
+// Example 26: Package imports using pkg/
+// Demonstrates importing from the pkg/ directory
+
+<- { greet, shout, add } = pkg/greeting
+
+// Use imported functions
+s#msg = greet("World")
+print(msg)
+
+s#loud = shout("hello")
+print(loud)
+
+i#sum = add(10, 20)
+print(sum)

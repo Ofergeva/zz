@@ -511,6 +511,7 @@ i#fact5 = ${factorial(5)}        // → const fact5 = 120;
 
 - `->` export, `<-` safe import (ZZ modules), `<-!` unsafe import (JS modules)
 - Standard library: `<- { trim, split } = std/string` (unquoted, compiler resolves path)
+- Package imports: `<- { greet } = pkg/greeting` (unquoted, resolves to `pkg/` directory next to source)
 - ZZ module imports: `<- { add } = "./lib/math"` (requires .zz source file)
 - JS module imports: `<-! { fetch } = "./lib/http"` (for npm/JS libraries without .zz source)
 - Import paths in ZZ are relative to the source `.zz` file, not the compiled output
@@ -519,6 +520,72 @@ i#fact5 = ${factorial(5)}        // → const fact5 = 120;
 - **Auto-compilation**: Safe imports auto-compile the imported .zz file to .js if missing or stale (timestamp check). 1 level only — transitive imports are not followed.
 - Functions exported inside raw `$js{}` blocks fall back to placeholder types (untyped)
 - **Unsafe imports** (`<-!`): No type checking — all bindings get placeholder types
+- **Unquoted prefixes**: Only `std/` and `pkg/` are valid unquoted import prefixes. Other unquoted paths produce a compile error.
+
+### Packages (`pkg/`)
+
+Packages are reusable ZZ modules organized in a `pkg/` directory next to your source file. They use the same unquoted import syntax as the standard library, no quotes or `.zz` suffix needed.
+
+#### Directory Structure
+
+```
+my-project/
+├── main.zz                  # Your source file
+├── pkg/                     # Package directory (next to source)
+│   ├── greeting.zz          # A package module
+│   ├── utils.zz             # Another package module
+│   └── math_helpers.zz      # Another package module
+└── compiled/                # Compiler output
+    ├── main.js              # Compiled main file
+    └── pkg/                 # Compiled packages (auto-generated)
+        ├── greeting.js
+        ├── utils.js
+        └── math_helpers.js
+```
+
+#### Creating a Package
+
+1. Create a `pkg/` directory next to your `.zz` source file
+2. Add `.zz` files inside `pkg/` — each file is a package module
+3. Export functions, variables, structs, enums, or traits with `->`:
+
+```zz
+// pkg/greeting.zz
+<- { upper } = std/string
+
+-> s Z greet(s#name)
+  s"Hello, {name}!"
+;
+
+-> s Z shout(s#name)
+  s"{upper(name)}!!!"
+;
+```
+
+#### Importing from Packages
+
+```zz
+// main.zz
+<- { greet, shout } = pkg/greeting
+
+print(greet("World"))    // Hello, World!
+print(shout("hello"))    // HELLO!!!
+```
+
+#### How It Works
+
+- **Import syntax**: `<- { name } = pkg/module` — no quotes, no `.zz` suffix
+- **Source resolution**: The compiler looks for `pkg/module.zz` relative to the importing source file
+- **Auto-compilation**: Package `.zz` files are automatically compiled to `.js` in `compiled/pkg/`
+- **Type safety**: Full type checking — the compiler parses each package module and extracts function signatures, struct types, etc.
+- **Stale detection**: Packages are re-compiled if the `.zz` source is newer than the existing `.js`
+
+#### Limitations
+
+- Packages are **manual** for now — you create and manage the `pkg/` directory yourself
+- **1-level resolution only** — if a package imports another package, the transitive import is not auto-resolved
+- Packages can import from `std/` and from relative quoted paths, but nested `pkg/` imports within packages are not supported
+- No package versioning or dependency resolution (yet)
 
 ### Error Handling
 

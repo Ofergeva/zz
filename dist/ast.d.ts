@@ -260,12 +260,13 @@ export interface ImportSpecifier {
     name: string;
     alias?: string;
 }
+export type ImportKind = "relative" | "std" | "pkg";
 export interface ImportStatement extends ASTNode {
     type: "ImportStatement";
     specifiers: ImportSpecifier[];
     namespace?: string;
     source: string;
-    isStdLib: boolean;
+    importKind: ImportKind;
     isUnsafe: boolean;
 }
 export interface EnumDeclaration extends ASTNode {
